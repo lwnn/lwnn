@@ -1,0 +1,5 @@
+build
+.cproject
+.project
+.pydevproject
+.sconsign.dblite

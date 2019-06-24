@@ -1,0 +1,2 @@
+objs = Glob('*.cpp')
+Return('objs')
