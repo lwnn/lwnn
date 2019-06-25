@@ -3,3 +3,5 @@ build
 .project
 .pydevproject
 .sconsign.dblite
+*.o
+*.exe
