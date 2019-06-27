@@ -1,4 +1,4 @@
-objs = SConscript('layers/SConscript')
+objs = []
 objs += SConscript('nn/SConscript')
 objs += SConscript('gtest/SConscript')
 

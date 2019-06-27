@@ -1,2 +1,10 @@
-objs = Glob('*.c')
+Import('env')
+objs = []
+objs += Glob('layers/*.c')
+objs += Glob('runtime/*.c')
+objs += Glob('runtime/cpu/*.c')
+objs += Glob('runtime/opencl/*.c')
+objs += Glob('*.c')
+
+env.Append(CPPPATH=['nn','nn/layers','nn/runtime'])
 Return('objs')

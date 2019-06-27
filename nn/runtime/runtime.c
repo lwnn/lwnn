@@ -5,42 +5,51 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
 /* ============================ [ MACROS    ] ====================================================== */
-
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
+extern runtime_t runtime_cpu_create(const nn_t* nn);
+extern int runtime_cpu_execute(const nn_t* nn);
+
+extern runtime_t runtime_opencl_create(const nn_t* nn);
+extern int runtime_opencl_execute(const nn_t* nn);
 /* ============================ [ DATAS     ] ====================================================== */
-int nn_log_level = 1;
+static const runtime_ops_t runtime_ops[] =
+{
+	{	/* CPU */
+		runtime_cpu_create,
+		runtime_cpu_execute,
+	},
+	{	/* OPENCL */
+		runtime_opencl_create,
+		runtime_opencl_execute,
+	}
+};
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-nn_t* nn_create(const layer_t* const* network, runtime_type_t runtime_type)
+runtime_t runtime_create(const nn_t* nn)
 {
-	nn_t* nn;
+	runtime_t runtime = NULL;
 
-	nn = malloc(sizeof(nn_t));
-	if(NULL != nn)
+	if(nn->runtime_type < (sizeof(runtime_ops)/sizeof(runtime_ops_t)))
 	{
-		nn->runtime_type = runtime_type;
-		nn->network = network;
-
-		nn->runtime = runtime_create(nn);
+		runtime = runtime_ops[nn->runtime_type].create(nn);
 	}
 
-	if(NULL == nn->runtime)
+	return runtime;
+}
+
+int runtime_execute(const nn_t* nn)
+{
+	int r = 0;
+
+	if(nn->runtime_type < (sizeof(runtime_ops)/sizeof(runtime_ops_t)))
 	{
-		free(nn);
-		nn = NULL;
+		r = runtime_ops[nn->runtime_type].execute(nn);
+	}
+	else
+	{
+		r = -9;
 	}
 
-	return nn;
+	return r;
 }
-
-void nn_set_log_level(int level)
-{
-	nn_log_level = level;
-}
-
-int nn_predict(const nn_t* nn)
-{
-	return runtime_execute(nn);
-}
-

@@ -1,5 +1,5 @@
 /**
- * NNCL - Neural Network on openCL
+ * LWNN - Lightweight Neural Network
  * Copyright (C) 2019  Parai Wang <parai@foxmail.com>
  */
 #ifndef LAYERS_LAYER_H_
@@ -38,10 +38,8 @@ extern "C" {
 		/* dtype */ L_DT_AUTO							\
 	}
 
-#define L_ELEMENT_WISE(name, inputs, op)				\
+#define L_ELEMENT_WISE(name, op)						\
 	static layer_context_t l_context_##name;			\
-	static const struct layer* l_inputs##name[] = {		\
-			inputs, NULL };								\
 	static const layer_t l_layer_##name = {				\
 		/* name */ #name,								\
 		/* inputs */ l_inputs##name,					\
@@ -51,6 +49,11 @@ extern "C" {
 		/* op */ op,									\
 		/* dtype */ L_DT_AUTO							\
 	}
+
+#define L_MAXIMUM(name, inputs)							\
+	static const struct layer* l_inputs##name[] = {		\
+			inputs, NULL };								\
+	L_ELEMENT_WISE(name, L_OP_MAXIMUM)
 
 #define L_REF(name) &l_layer_##name
 /* ============================ [ TYPES     ] ====================================================== */

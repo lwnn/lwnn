@@ -1,2 +1,0 @@
-objs = Glob('*.c')
-Return('objs')
