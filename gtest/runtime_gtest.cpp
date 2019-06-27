@@ -27,15 +27,25 @@ static const layer_t* const network1[] =
 	NULL
 };
 /* ============================ [ FUNCTIONS ] ====================================================== */
-TEST(Layer, Create)
+void RuntimeCreateTest1(runtime_type_t runtime)
 {
 	nn_set_log_level(NN_DEBUG);
 
-	nn_t* nn = nn_create(network1, RUNTIME_OPENCL);
+	nn_t* nn = nn_create(network1, runtime);
 	EXPECT_TRUE(nn != NULL);
 
 	if(nn != NULL)
 	{
 		nn_predict(nn);
 	}
+}
+
+TEST(RuntimeOPENCL, Create)
+{
+	RuntimeCreateTest1(RUNTIME_OPENCL);
+}
+
+TEST(RuntimeCPU, Create)
+{
+	RuntimeCreateTest1(RUNTIME_CPU);
 }

@@ -53,3 +53,23 @@ int runtime_execute(const nn_t* nn)
 
 	return r;
 }
+
+
+int runtime_execute_helper(const nn_t* nn, runtime_layer_execute_t execute)
+{
+	int r = 0;
+
+	const layer_t* const* network;
+	const layer_t* layer;
+
+	network = nn->network;
+
+	layer = *network++;
+	while((NULL != layer) && (0 == r))
+	{
+		r = execute(nn, layer);
+		layer = *network++;
+	}
+
+	return r;
+}

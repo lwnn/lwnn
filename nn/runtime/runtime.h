@@ -25,12 +25,16 @@ typedef struct
 	runtime_t (*create)(const nn_t*);
 	int (*execute)(const nn_t*);
 } runtime_ops_t;
+
+typedef int (*runtime_layer_execute_t)(const nn_t*, const layer_t*);
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 runtime_t runtime_create(const nn_t* nn);
 int runtime_execute(const nn_t* nn);
+
+int runtime_execute_helper(const nn_t* nn, runtime_layer_execute_t execute);
 #ifdef __cplusplus
 }
 #endif

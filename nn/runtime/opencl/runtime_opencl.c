@@ -109,19 +109,5 @@ runtime_t runtime_opencl_create(const nn_t* nn)
 
 int runtime_opencl_execute(const nn_t* nn)
 {
-	int r = 0;
-
-	const layer_t* const* network;
-	const layer_t* layer;
-
-	network = nn->network;
-
-	layer = *network++;
-	while((NULL != layer) && (0 == r))
-	{
-		r = cl_execute_layer(nn, layer);
-		layer = *network++;
-	}
-
-	return r;
+	return runtime_execute_helper(nn, cl_execute_layer);
 }
