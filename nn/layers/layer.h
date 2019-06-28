@@ -56,12 +56,25 @@ extern "C" {
 	L_ELEMENT_WISE(name, L_OP_MAXIMUM)
 
 #define L_REF(name) &l_layer_##name
+
+#define L_OPS_REF(name)			\
+	{							\
+		layer_##name##_init,	\
+		layer_##name##_execute,	\
+		layer_##name##_deinit	\
+	}
+
+#define L_OPS_DECLARE(name)										\
+	int layer_##name##_init(const nn_t*, const layer_t*);		\
+	int layer_##name##_execute(const nn_t*, const layer_t*);	\
+	int layer_##name##_deinit(const nn_t*, const layer_t*)
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum
 {
-	L_OP_INPUT,
-	L_OP_MAXIMUM,
-	L_OP_OUTPUT
+#define OP_DEF(op) L_OP_##op,
+	#include "opdef.h"
+#undef OP_DEF
+	L_OP_NUMBER
 } layer_operation_t;
 
 typedef enum
@@ -100,6 +113,15 @@ typedef struct layer
 	layer_operation_t op;
 	layer_data_type_t dtype;
 } layer_t;
+
+typedef struct nn nn_t;
+
+typedef struct
+{
+	int (*init)(const nn_t*, const layer_t*);
+	int (*execute)(const nn_t*, const layer_t*);
+	int (*deinit)(const nn_t*, const layer_t*);
+} layer_ops_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */

@@ -38,6 +38,12 @@ typedef struct nn {
 
 	runtime_type_t runtime_type;
 } nn_t;
+
+enum {
+	NN_OK = 0,
+	NN_E_INVALID_RUNTIME = -1,
+	NN_E_NOT_SUPPORTED = -2,
+};
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;
 /* ============================ [ DATAS     ] ====================================================== */
@@ -47,6 +53,8 @@ nn_t* nn_create(const layer_t* const* network, runtime_type_t runtime_type);
 int nn_predict(const nn_t* nn);
 
 void nn_set_log_level(int level);
+
+void nn_destory(const nn_t* nn);
 #ifdef __cplusplus
 }
 #endif

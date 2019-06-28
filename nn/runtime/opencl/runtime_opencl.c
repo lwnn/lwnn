@@ -4,6 +4,7 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
+#ifndef DISABLE_RUNTIME_OPENCL
 #include <CL/cl.h>
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
@@ -15,7 +16,16 @@ typedef struct
 
 } runtime_opencl_t;
 /* ============================ [ DECLARES  ] ====================================================== */
+#define OP_DEF(op) L_OPS_DECLARE(opencl_##op);
+#include "opdef.h"
+#undef OP_DEF
 /* ============================ [ DATAS     ] ====================================================== */
+static const layer_ops_t lops[] =
+{
+#define OP_DEF(op) L_OPS_REF(opencl_##op),
+	#include "opdef.h"
+#undef OP_DEF
+};
 /* ============================ [ LOCALS    ] ====================================================== */
 static cl_context cl_create_context()
 {
@@ -76,6 +86,14 @@ static int cl_execute_layer(const nn_t* nn, const layer_t* layer)
 	NN_LOG(NN_DEBUG, (" CL run %-16s: op=%d\n", layer->name, layer->op));
 	return r;
 }
+
+static int cl_init_layer(const nn_t* nn, const layer_t* layer)
+{
+	int r = 0;
+
+
+	return r;
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 runtime_t runtime_opencl_create(const nn_t* nn)
 {
@@ -99,7 +117,7 @@ runtime_t runtime_opencl_create(const nn_t* nn)
 
 	if(NULL == rt->command_queue)
 	{
-		free(rt->context);
+		clReleaseContext(rt->context);
 		free(rt);
 		rt = NULL;
 	}
@@ -107,7 +125,26 @@ runtime_t runtime_opencl_create(const nn_t* nn)
 	return rt;
 }
 
+void runtime_opencl_destory(const nn_t* nn)
+{
+	runtime_opencl_t* rt = (runtime_opencl_t*)nn->runtime;
+
+	clReleaseCommandQueue(rt->command_queue);
+	clReleaseContext(rt->context);
+}
+
+int runtime_opencl_init(const nn_t* nn)
+{
+	int r;
+
+	r = runtime_do_for_each_layer(nn, cl_init_layer);
+
+	return r;
+}
+
 int runtime_opencl_execute(const nn_t* nn)
 {
-	return runtime_execute_helper(nn, cl_execute_layer);
+	return runtime_do_for_each_layer(nn, cl_execute_layer);
 }
+
+#endif /* DISABLE_RUNTIME_OPENCL */

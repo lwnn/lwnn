@@ -4,6 +4,7 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
+#ifndef DISABLE_RUNTIME_CPU
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
@@ -23,7 +24,19 @@ runtime_t runtime_cpu_create(const nn_t* nn)
 	return rt;
 }
 
+void runtime_cpu_destory(const nn_t* nn)
+{
+
+}
+
+int runtime_cpu_init(const nn_t* nn)
+{
+	return 0;
+}
+
 int runtime_cpu_execute(const nn_t* nn)
 {
-	return runtime_execute_helper(nn, cpu_execute_layer);
+	return runtime_do_for_each_layer(nn, cpu_execute_layer);
 }
+#endif /* DISABLE_RUNTIME_CPU */
+

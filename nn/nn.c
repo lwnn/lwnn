@@ -25,6 +25,17 @@ nn_t* nn_create(const layer_t* const* network, runtime_type_t runtime_type)
 		nn->runtime = runtime_create(nn);
 	}
 
+	if(NULL != nn->runtime)
+	{
+		int r = runtime_init(nn);
+
+		if(0 != r)
+		{
+			runtime_destory(nn);
+			nn->runtime = NULL;
+		}
+	}
+
 	if(NULL == nn->runtime)
 	{
 		free(nn);
@@ -42,5 +53,11 @@ void nn_set_log_level(int level)
 int nn_predict(const nn_t* nn)
 {
 	return runtime_execute(nn);
+}
+
+void nn_destory(const nn_t* nn)
+{
+	runtime_destory(nn);
+	free((void*)nn);
 }
 
