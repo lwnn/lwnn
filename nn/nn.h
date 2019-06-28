@@ -43,6 +43,9 @@ enum {
 	NN_OK = 0,
 	NN_E_INVALID_RUNTIME = -1,
 	NN_E_NOT_SUPPORTED = -2,
+	NN_E_NO_MEMORY = -3,
+	NN_E_INVALID_DIMENSION = -4,
+	NN_E_INVALID_LAYER = -5,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;

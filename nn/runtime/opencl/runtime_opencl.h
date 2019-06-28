@@ -2,57 +2,17 @@
  * LWNN - Lightweight Neural Network
  * Copyright (C) 2019  Parai Wang <parai@foxmail.com>
  */
+#ifndef NN_RUNTIME_OPENCL_RUNTIME_OPENCL_H_
+#define NN_RUNTIME_OPENCL_RUNTIME_OPENCL_H_
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
+#include <CL/cl.h>
 /* ============================ [ MACROS    ] ====================================================== */
-
+#define OPENCL_ROUNDUP4(c) ((c+3)&(~0x3))
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
-{
-	int r = 0;
-	int dim = 0;
-
-	if(NULL != layer->dims)
-	{
-		while(layer->dims[dim] != 0) {
-			dim ++;
-		};
-	}
-
-	switch(dim)
-	{
-		case 1:
-			nhwc->N = 1;
-			nhwc->H = layer->dims[0];
-			nhwc->W = 1;
-			nhwc->C = 1;
-			break;
-		case 2:
-			nhwc->N = 1;
-			nhwc->H = layer->dims[0];
-			nhwc->W = layer->dims[1];
-			nhwc->C = 1;
-			break;
-		case 3:
-			nhwc->N = 1;
-			nhwc->H = layer->dims[0];
-			nhwc->W = layer->dims[1];
-			nhwc->C = layer->dims[2];
-			break;
-		case 4:
-			nhwc->N = layer->dims[0];
-			nhwc->H = layer->dims[1];
-			nhwc->W = layer->dims[2];
-			nhwc->C = layer->dims[3];
-			break;
-		default:
-			r = NN_E_INVALID_DIMENSION;
-			break;
-	}
-
-	return r;
-}
+cl_mem runtime_opencl_create_image2d(const nn_t* nn, int H, int W);
+#endif /* NN_RUNTIME_OPENCL_RUNTIME_OPENCL_H_ */

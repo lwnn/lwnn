@@ -98,6 +98,14 @@ typedef struct layer_blob {
 	void* blob;
 } layer_blob_t;
 
+typedef struct
+{
+	int N;
+	int H;
+	int W;
+	int C;
+} NHWC_t;
+
 typedef struct layer_context
 {
 	void* context;
@@ -109,7 +117,7 @@ typedef struct layer
 	const struct layer** inputs;
 	const layer_blob_t** blobs;
 	const layer_dimension_t dims;
-	layer_context_t* context;
+	layer_context_t* C;
 	layer_operation_t op;
 	layer_data_type_t dtype;
 } layer_t;
@@ -126,6 +134,7 @@ typedef struct
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
+int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc);
 #ifdef __cplusplus
 }
 #endif

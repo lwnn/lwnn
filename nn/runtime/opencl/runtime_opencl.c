@@ -5,7 +5,7 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
 #ifndef DISABLE_RUNTIME_OPENCL
-#include <CL/cl.h>
+#include "runtime_opencl.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
@@ -89,8 +89,12 @@ static int cl_execute_layer(const nn_t* nn, const layer_t* layer)
 
 static int cl_init_layer(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
+	int r = NN_E_INVALID_LAYER;
 
+	if(layer->op < (sizeof(lops)/sizeof(layer_ops_t)))
+	{
+		r = lops[layer->op].init(nn, layer);
+	}
 
 	return r;
 }
@@ -145,6 +149,28 @@ int runtime_opencl_init(const nn_t* nn)
 int runtime_opencl_execute(const nn_t* nn)
 {
 	return runtime_do_for_each_layer(nn, cl_execute_layer);
+}
+
+cl_mem runtime_opencl_create_image2d(const nn_t* nn, int H, int W)
+{
+	cl_int r;
+	cl_mem img2d;
+	cl_image_format fmt;
+	runtime_opencl_t* rt = (runtime_opencl_t*)nn->runtime;
+
+	fmt.image_channel_order = CL_RGBA;
+	fmt.image_channel_data_type = CL_FLOAT;
+
+	img2d = clCreateImage2D(rt->context, CL_MEM_READ_WRITE,
+						&fmt, W, H, 0, NULL, &r);
+
+	if(r != CL_SUCCESS)
+	{
+		NN_LOG(NN_ERROR,("CL create image2d(%dx%d) failed with %d\n", H, W, r));
+		img2d = NULL;
+	}
+
+	return img2d;
 }
 
 #endif /* DISABLE_RUNTIME_OPENCL */
