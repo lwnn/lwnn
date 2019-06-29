@@ -22,16 +22,16 @@ nn_t* nn_create(const layer_t* const* network, runtime_type_t runtime_type)
 		nn->runtime_type = runtime_type;
 		nn->network = network;
 
-		nn->runtime = runtime_create(nn);
+		nn->runtime = rte_create(nn);
 	}
 
 	if(NULL != nn->runtime)
 	{
-		int r = runtime_init(nn);
+		int r = rte_init(nn);
 
 		if(0 != r)
 		{
-			runtime_destory(nn);
+			rte_destory(nn);
 			nn->runtime = NULL;
 		}
 	}
@@ -53,7 +53,7 @@ void nn_set_log_level(int level)
 int nn_predict(nn_t* nn, const nn_input_t* const * inputs)
 {
 	nn->inputs = inputs;
-	return runtime_execute(nn);
+	return rte_execute(nn);
 }
 
 void* nn_get_input_data(const nn_t* nn, const layer_t* layer)
@@ -79,7 +79,7 @@ void nn_destory(nn_t* nn)
 {
 	if(NULL != nn)
 	{
-		runtime_destory(nn);
+		rte_destory(nn);
 		free(nn);
 	}
 }

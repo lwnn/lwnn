@@ -10,38 +10,41 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	layer_cl_context_t C;
-	cl_mem input;
+	cl_mem in;
+	cl_mem out;
 } layer_cl_input_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int layer_opencl_INPUT_init(const nn_t* nn, const layer_t* layer)
+int layer_cl_INPUT_init(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 
 	layer_cl_input_context_t* context;
 
-	context = runtime_opencl_create_context(nn, layer,
+	context = rte_cl_create_layer_context(nn, layer,
 				OPENCL_PATH "input.cl", "input",
 				sizeof(layer_cl_input_context_t), &r);
 
 	if(0 == r)
 	{
-		int H = context->C.nhwc.H;
-		int W = context->C.nhwc.W;
-		int C = OPENCL_ROUNDUP4(context->C.nhwc.C);
-		W = W*(C>>2);
+		NNLOG(NN_DEBUG, ("%s dims: [%dx%dx%dx%d] -> [1x%dx%dx4]\n",
+							layer->name,
+							context->C.nhwc.N, context->C.nhwc.H,
+							context->C.nhwc.W, context->C.nhwc.C,
+							RTE_CL_NHWC_H(context->C.nhwc),
+							RTE_CL_NHWC_W(context->C.nhwc)));
 
-		NNLOG(NN_DEBUG,("%s dims: [%dx%dx%dx%d] -> [%dx%dx%dx4]\n", layer->name,
-				context->C.nhwc.N, context->C.nhwc.H, context->C.nhwc.W, context->C.nhwc.C,
-				context->C.nhwc.N,H,W));
+		context->out = rte_cl_create_image2d(nn,
+					RTE_CL_NHWC_H(context->C.nhwc),
+					RTE_CL_NHWC_W(context->C.nhwc));
+		context->in = NULL;
 
-		context->input = runtime_opencl_create_image2d(nn, H, W);
-
-		if(NULL == context->input)
+		if(NULL == context->out)
 		{
 			r = NN_E_NO_MEMORY;
+			rte_cl_destory_layer_context(nn, context);
 		}
 	}
 
@@ -53,22 +56,51 @@ int layer_opencl_INPUT_init(const nn_t* nn, const layer_t* layer)
 	return r;
 }
 
-int layer_opencl_INPUT_execute(const nn_t* nn, const layer_t* layer)
+int layer_cl_INPUT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
+	cl_int errNum;
+	layer_cl_input_context_t* context = layer->C->context;
+	float* data;
 
-	float* data = (float*) nn_get_input_data(nn, layer);
+	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 
-	NNLOG(NN_DEBUG,("%s input: [ %f %f %f %f ...]\n",
-			layer->name, data[0], data[1], data[2], data[3]));
+	data = (float*) nn_get_input_data(nn, layer);
+
+	if(NULL != context->in)
+	{
+		clReleaseMemObject(context->in);
+	}
+
+	context->in = rte_cl_create_buffer(nn, RTE_NHWC_SIZE(context->C.nhwc), data);
+
+	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHWC, 2,
+					sizeof(cl_mem), &(context->in),
+					sizeof(cl_mem), &(context->out));
+
+	if(0 == r)
+	{
+		r = rte_cl_execute_layer(nn, layer);
+	}
 
 	return r;
 }
 
-int layer_opencl_INPUT_deinit(const nn_t* nn, const layer_t* layer)
+void layer_cl_INPUT_deinit(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
+	layer_cl_input_context_t* context = layer->C->context;
 
-	return r;
+	if(NULL != context)
+	{
+		if(NULL != context->in)
+		{
+			clReleaseMemObject(context->in);
+		}
+		if(NULL != context->out)
+		{
+			clReleaseMemObject(context->out);
+		}
+		rte_cl_destory_layer_context(nn, context);
+	}
 }
 #endif /* DISABLE_RUNTIME_OPENCL */

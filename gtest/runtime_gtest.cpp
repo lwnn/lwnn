@@ -5,11 +5,9 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include <gtest/gtest.h>
 #include <stdio.h>
-#include <cstdlib>
-#include <ctime>
 #include "nn.h"
 /* ============================ [ MACROS    ] ====================================================== */
-#define INPUT_DIMS  1,4,4,3
+#define INPUT_DIMS  2,4,5,7
 
 #define MAX_INPUTS L_REF(input0),L_REF(input1)
 /* ============================ [ TYPES     ] ====================================================== */
@@ -40,15 +38,11 @@ void RuntimeCreateTest1(runtime_type_t runtime)
 	ASSERT_TRUE(data1 != NULL);
 
 	std::srand(std::time(nullptr));
-	for(int i=0; i<layer_get_size(L_REF(input0))/sizeof(float); i++)
+
+	for(int i=0; i<layer_get_size(L_REF(input0)); i++)
 	{
-#if 1
 		data0[i] = i+1;
 		data1[i] = 1000-(i+1);
-#else
-		data0[i] = std::rand();
-		data1[i] = std::rand();
-#endif
 	}
 
 	nn_input_t input0 = { L_REF(input0), data0 };

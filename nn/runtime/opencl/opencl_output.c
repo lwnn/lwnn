@@ -12,25 +12,22 @@
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int layer_opencl_OUTPUT_init(const nn_t* nn, const layer_t* layer)
+int layer_cl_OUTPUT_init(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 
 	return r;
 }
 
-int layer_opencl_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
+int layer_cl_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 
 	return r;
 }
 
-int layer_opencl_OUTPUT_deinit(const nn_t* nn, const layer_t* layer)
+void layer_cl_OUTPUT_deinit(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-
-	return r;
 }
 
 #endif /* DISABLE_RUNTIME_OPENCL */

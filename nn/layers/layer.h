@@ -67,7 +67,7 @@ extern "C" {
 #define L_OPS_DECLARE(name)										\
 	int layer_##name##_init(const nn_t*, const layer_t*);		\
 	int layer_##name##_execute(const nn_t*, const layer_t*);	\
-	int layer_##name##_deinit(const nn_t*, const layer_t*)
+	void layer_##name##_deinit(const nn_t*, const layer_t*)
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum
 {
@@ -128,7 +128,7 @@ typedef struct
 {
 	int (*init)(const nn_t*, const layer_t*);
 	int (*execute)(const nn_t*, const layer_t*);
-	int (*deinit)(const nn_t*, const layer_t*);
+	void (*deinit)(const nn_t*, const layer_t*);
 } layer_ops_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */

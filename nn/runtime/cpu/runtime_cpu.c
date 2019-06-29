@@ -17,26 +17,26 @@ static int cpu_execute_layer(const nn_t* nn, const layer_t* layer)
 	return r;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
-runtime_t runtime_cpu_create(const nn_t* nn)
+runtime_t rte_cpu_create(const nn_t* nn)
 {
 	runtime_t rt = (void*)1;
 
 	return rt;
 }
 
-void runtime_cpu_destory(const nn_t* nn)
+void rte_cpu_destory(const nn_t* nn)
 {
 
 }
 
-int runtime_cpu_init(const nn_t* nn)
+int rte_cpu_init(const nn_t* nn)
 {
 	return 0;
 }
 
-int runtime_cpu_execute(const nn_t* nn)
+int rte_cpu_execute(const nn_t* nn)
 {
-	return runtime_do_for_each_layer(nn, cpu_execute_layer);
+	return rte_do_for_each_layer(nn, cpu_execute_layer);
 }
 #endif /* DISABLE_RUNTIME_CPU */
 

@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <assert.h>
 /* ============================ [ MACROS    ] ====================================================== */
 #ifdef __cplusplus
@@ -31,6 +32,10 @@ extern "C" {
 	}while(0)
 #else
 #define NN_LOG(level,msg)
+#endif
+
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 #endif
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
@@ -56,6 +61,8 @@ enum {
 	NN_E_INVALID_DIMENSION = -4,
 	NN_E_INVALID_LAYER = -5,
 	NN_E_CREATE_CL_CONTEXT_FAILED = -6,
+	NN_E_CL_SET_ARGS_FAILED = -7,
+	NN_E_CL_EXECUTE_FAILED = -8,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;

@@ -6,18 +6,18 @@
 #include "nn.h"
 /* ============================ [ MACROS    ] ====================================================== */
 #define DECLARE_RUNTIME(name)									\
-	extern runtime_t runtime_##name##_create(const nn_t* nn);	\
-	extern int runtime_##name##_init(const nn_t* nn);			\
-	extern int runtime_##name##_execute(const nn_t* nn);		\
-	extern void runtime_##name##_destory(const nn_t* nn)
+	extern runtime_t rte_##name##_create(const nn_t* nn);	\
+	extern int rte_##name##_init(const nn_t* nn);			\
+	extern int rte_##name##_execute(const nn_t* nn);		\
+	extern void rte_##name##_destory(const nn_t* nn)
 
 
 #define RUNTIME_REF(name)				\
 	{									\
-		runtime_##name##_create,		\
-		runtime_##name##_init,			\
-		runtime_##name##_execute,		\
-		runtime_##name##_destory		\
+		rte_##name##_create,		\
+		rte_##name##_init,			\
+		rte_##name##_execute,		\
+		rte_##name##_destory		\
 	}
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
@@ -26,67 +26,67 @@ typedef struct
 	int (*init)(const nn_t*);
 	int (*execute)(const nn_t*);
 	void (*destory)(const nn_t*);
-} runtime_ops_t;
+} rte_ops_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 DECLARE_RUNTIME(cpu);
-DECLARE_RUNTIME(opencl);
+DECLARE_RUNTIME(cl);
 /* ============================ [ DATAS     ] ====================================================== */
-static const runtime_ops_t runtime_ops[] =
+static const rte_ops_t rte_ops[] =
 {
 #ifndef DISABLE_RUNTIME_CPU
 	RUNTIME_REF(cpu),
 #endif
 #ifndef DISABLE_RUNTIME_OPENCL
-	RUNTIME_REF(opencl),
+	RUNTIME_REF(cl),
 #endif
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-runtime_t runtime_create(const nn_t* nn)
+runtime_t rte_create(const nn_t* nn)
 {
 	runtime_t runtime = NULL;
 
-	if(nn->runtime_type < (sizeof(runtime_ops)/sizeof(runtime_ops_t)))
+	if(nn->runtime_type < (sizeof(rte_ops)/sizeof(rte_ops_t)))
 	{
-		runtime = runtime_ops[nn->runtime_type].create(nn);
+		runtime = rte_ops[nn->runtime_type].create(nn);
 	}
 
 	return runtime;
 }
 
-int runtime_init(const nn_t* nn)
+int rte_init(const nn_t* nn)
 {
 	int r = NN_E_INVALID_RUNTIME;
 
-	if(nn->runtime_type < (sizeof(runtime_ops)/sizeof(runtime_ops_t)))
+	if(nn->runtime_type < (sizeof(rte_ops)/sizeof(rte_ops_t)))
 	{
-		r = runtime_ops[nn->runtime_type].init(nn);
+		r = rte_ops[nn->runtime_type].init(nn);
 	}
 
 	return r;
 }
-void runtime_destory(const nn_t* nn)
+void rte_destory(const nn_t* nn)
 {
-	if(nn->runtime_type < (sizeof(runtime_ops)/sizeof(runtime_ops_t)))
+	if(nn->runtime_type < (sizeof(rte_ops)/sizeof(rte_ops_t)))
 	{
-		runtime_ops[nn->runtime_type].destory(nn);
+		rte_ops[nn->runtime_type].destory(nn);
 	}
 }
 
-int runtime_execute(const nn_t* nn)
+int rte_execute(const nn_t* nn)
 {
 	int r = NN_E_INVALID_RUNTIME;
 
-	if(nn->runtime_type < (sizeof(runtime_ops)/sizeof(runtime_ops_t)))
+	if(nn->runtime_type < (sizeof(rte_ops)/sizeof(rte_ops_t)))
 	{
-		r = runtime_ops[nn->runtime_type].execute(nn);
+		r = rte_ops[nn->runtime_type].execute(nn);
 	}
 
 	return r;
 }
 
 
-int runtime_do_for_each_layer(const nn_t* nn, runtime_layer_action_t action)
+int rte_do_for_each_layer(const nn_t* nn, rte_layer_action_t action)
 {
 	int r = 0;
 

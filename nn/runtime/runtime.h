@@ -20,17 +20,17 @@ typedef void* runtime_t;
 
 typedef struct nn nn_t;
 
-typedef int (*runtime_layer_action_t)(const nn_t*, const layer_t*);
+typedef int (*rte_layer_action_t)(const nn_t*, const layer_t*);
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-runtime_t runtime_create(const nn_t* nn);
-int runtime_init(const nn_t* nn);
-int runtime_execute(const nn_t* nn);
-void runtime_destory(const nn_t* nn);
+runtime_t rte_create(const nn_t* nn);
+int rte_init(const nn_t* nn);
+int rte_execute(const nn_t* nn);
+void rte_destory(const nn_t* nn);
 
-int runtime_do_for_each_layer(const nn_t* nn, runtime_layer_action_t action);
+int rte_do_for_each_layer(const nn_t* nn, rte_layer_action_t action);
 #ifdef __cplusplus
 }
 #endif
