@@ -37,7 +37,7 @@ static cl_context cl_create_context()
 	errNum = clGetPlatformIDs(1, &firstPlatformId, &numPlatforms);
 	if (errNum != CL_SUCCESS || numPlatforms <= 0)
 	{
-		NN_LOG(NN_ERROR, ("Failed to find any OpenCL platforms.\n"));
+		NNLOG(NN_ERROR, ("Failed to find any OpenCL platforms.\n"));
 	}
 	else
 	{
@@ -64,7 +64,7 @@ static cl_command_queue cl_create_command_queue(cl_context context, cl_device_id
 
 	if (deviceBufferSize <= 0)
 	{
-		NN_LOG(NN_ERROR, ("No OpenCL devices available."));
+		NNLOG(NN_ERROR, ("No OpenCL devices available."));
 	}
 	else
 	{
@@ -80,10 +80,66 @@ static cl_command_queue cl_create_command_queue(cl_context context, cl_device_id
 	return commandQueue;
 }
 
+static cl_program cl_create_program(cl_context context, cl_device_id device, const char* fileName)
+{
+	cl_int errNum = CL_SUCCESS;
+	cl_program program = NULL;
+	char* srcStr = NULL;
+	FILE* file;
+	size_t sz;
+
+	NNLOG(NN_DEBUG, ("CL load %s\n", fileName));
+
+	file = fopen(fileName, "r");
+
+	if(NULL != file)
+	{
+		fseek(file, 0, SEEK_END);
+		sz = ftell(file);
+		srcStr = malloc(sz+1);
+		fseek(file, 0, SEEK_SET);
+		if(NULL != srcStr)
+		{
+			fread(srcStr, 1, sz, file);
+			program = clCreateProgramWithSource(context, 1,
+				(const char**)&srcStr,
+				NULL, &errNum);
+			if(CL_SUCCESS == errNum)
+			{
+				errNum = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+
+				if(CL_SUCCESS != errNum)
+				{
+					clReleaseProgram(program);
+					program = NULL;
+
+					NNLOG(NN_ERROR,("CL build program %s failed with %d\n", fileName, errNum));
+				}
+			}
+			else
+			{
+				NNLOG(NN_ERROR,("CL create program %s failed with %d\n", fileName, errNum));
+			}
+		}
+		fclose(file);
+	}
+	else
+	{
+		NNLOG(NN_ERROR,("CL can't open program %s\n", fileName));
+	}
+
+	return program;
+}
+
 static int cl_execute_layer(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-	NN_LOG(NN_DEBUG, (" CL run %-16s: op=%d\n", layer->name, layer->op));
+	int r = NN_E_INVALID_LAYER;
+
+	if(layer->op < (sizeof(lops)/sizeof(layer_ops_t)))
+	{
+		r = lops[layer->op].execute(nn, layer);
+	}
+
 	return r;
 }
 
@@ -166,11 +222,64 @@ cl_mem runtime_opencl_create_image2d(const nn_t* nn, int H, int W)
 
 	if(r != CL_SUCCESS)
 	{
-		NN_LOG(NN_ERROR,("CL create image2d(%dx%d) failed with %d\n", H, W, r));
+		NNLOG(NN_ERROR,("CL create image2d(%dx%d) failed with %d\n", H, W, r));
 		img2d = NULL;
 	}
 
 	return img2d;
 }
 
+void* runtime_opencl_create_context(
+			const nn_t* nn, const layer_t* layer,
+			const char* program, const char* kernel,
+			size_t sz, int *r)
+{
+	cl_int errNum;
+	layer_cl_context_t* context = NULL;
+	runtime_opencl_t* rt = (runtime_opencl_t*)nn->runtime;
+
+	assert(sz > sizeof(layer_cl_context_t));
+
+	context = malloc(sz);
+
+	if(context != NULL)
+	{
+		*r = layer_get_NHWC(layer, &context->nhwc);
+		if(0 != *r)
+		{
+			free(context);
+			context = NULL;
+		}
+	}
+	else
+	{
+		*r = NN_E_NO_MEMORY;
+	}
+
+	if(0 == *r)
+	{
+		context->program = cl_create_program(rt->context, rt->device, program);
+		if(NULL != context->program)
+		{
+			context->kernel = clCreateKernel(context->program, kernel, &errNum);
+
+			if((NULL == context->kernel) || (CL_SUCCESS != errNum))
+			{
+				NNLOG(NN_ERROR,("CL create kernel %s failed with %d\n", kernel, errNum));
+
+				clReleaseProgram(context->program);
+			}
+		}
+	}
+
+
+	if(NULL == context->program)
+	{
+		*r = NN_E_CREATE_CL_CONTEXT_FAILED;
+		free(context);
+		context = NULL;
+	}
+
+	return context;
+}
 #endif /* DISABLE_RUNTIME_OPENCL */

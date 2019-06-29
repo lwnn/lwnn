@@ -5,3 +5,4 @@ build
 .sconsign.dblite
 *.o
 *.exe
+.settings

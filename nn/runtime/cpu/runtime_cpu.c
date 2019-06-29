@@ -13,7 +13,7 @@
 static int cpu_execute_layer(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
-	NN_LOG(NN_DEBUG, (" CPU run %-16s: op=%d\n", layer->name, layer->op));
+	NNLOG(NN_DEBUG, (" CPU run %-16s: op=%d\n", layer->name, layer->op));
 	return r;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */

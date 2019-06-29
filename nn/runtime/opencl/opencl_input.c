@@ -9,9 +9,9 @@
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
+	layer_cl_context_t C;
 	cl_mem input;
-	NHWC_t nhwc;
-} layer_opencl_context_t;
+} layer_cl_input_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
@@ -20,34 +20,22 @@ int layer_opencl_INPUT_init(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 
-	layer_opencl_context_t* context;
+	layer_cl_input_context_t* context;
 
-	context = malloc(sizeof(layer_opencl_context_t));
-
-	if(context != NULL)
-	{
-		r = layer_get_NHWC(layer, &context->nhwc);
-		if(0 != r)
-		{
-			free(context);
-		}
-	}
-	else
-	{
-		r = NN_E_NO_MEMORY;
-	}
+	context = runtime_opencl_create_context(nn, layer,
+				OPENCL_PATH "input.cl", "input",
+				sizeof(layer_cl_input_context_t), &r);
 
 	if(0 == r)
 	{
-		int H = context->nhwc.H;
-		int W = context->nhwc.W;
-		int C = OPENCL_ROUNDUP4(context->nhwc.C);
+		int H = context->C.nhwc.H;
+		int W = context->C.nhwc.W;
+		int C = OPENCL_ROUNDUP4(context->C.nhwc.C);
 		W = W*(C>>2);
 
-		NN_LOG(NN_DEBUG,("%s dims: [%dx%dx%dx%d] -> [%dx%dx%dx4]\n", layer->name,
-				context->nhwc.N, context->nhwc.H, context->nhwc.W, context->nhwc.C,
-				context->nhwc.N,H,W));
-
+		NNLOG(NN_DEBUG,("%s dims: [%dx%dx%dx%d] -> [%dx%dx%dx4]\n", layer->name,
+				context->C.nhwc.N, context->C.nhwc.H, context->C.nhwc.W, context->C.nhwc.C,
+				context->C.nhwc.N,H,W));
 
 		context->input = runtime_opencl_create_image2d(nn, H, W);
 
@@ -68,6 +56,11 @@ int layer_opencl_INPUT_init(const nn_t* nn, const layer_t* layer)
 int layer_opencl_INPUT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
+
+	float* data = (float*) nn_get_input_data(nn, layer);
+
+	NNLOG(NN_DEBUG,("%s input: [ %f %f %f %f ...]\n",
+			layer->name, data[0], data[1], data[2], data[3]));
 
 	return r;
 }

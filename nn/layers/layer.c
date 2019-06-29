@@ -56,3 +56,24 @@ int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
 
 	return r;
 }
+
+size_t layer_get_size(const layer_t* layer)
+{
+	int dim = 0;
+	size_t sz = 1;
+
+	if(NULL != layer->dims)
+	{
+		while(layer->dims[dim] != 0) {
+			sz *= layer->dims[dim];
+			dim ++;
+		};
+	}
+
+	if(0 == dim)
+	{
+		sz = 0;
+	}
+
+	return sz;
+}

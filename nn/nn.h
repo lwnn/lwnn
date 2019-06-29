@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <assert.h>
 /* ============================ [ MACROS    ] ====================================================== */
 #ifdef __cplusplus
 extern "C" {
@@ -22,7 +23,7 @@ extern "C" {
 #define NN_ERROR			400
 
 #ifndef DISABLE_NN_LOG
-#define NN_LOG(level,msg) 									\
+#define NNLOG(level,msg) 									\
 	do {													\
 		if(level >= nn_log_level) {							\
 			printf msg ;									\
@@ -32,11 +33,19 @@ extern "C" {
 #define NN_LOG(level,msg)
 #endif
 /* ============================ [ TYPES     ] ====================================================== */
+typedef struct
+{
+	const layer_t* layer;
+	void* data;
+} nn_input_t;
+
 typedef struct nn {
 	runtime_t runtime;
 	const layer_t* const* network;
 
 	runtime_type_t runtime_type;
+
+	const nn_input_t* const* inputs;
 } nn_t;
 
 enum {
@@ -46,6 +55,7 @@ enum {
 	NN_E_NO_MEMORY = -3,
 	NN_E_INVALID_DIMENSION = -4,
 	NN_E_INVALID_LAYER = -5,
+	NN_E_CREATE_CL_CONTEXT_FAILED = -6,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;
@@ -53,11 +63,16 @@ extern int nn_log_level;
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 nn_t* nn_create(const layer_t* const* network, runtime_type_t runtime_type);
-int nn_predict(const nn_t* nn);
+int nn_predict(nn_t* nn, const nn_input_t* const * inputs);
 
 void nn_set_log_level(int level);
 
-void nn_destory(const nn_t* nn);
+void nn_destory(nn_t* nn);
+
+void* nn_allocate_input(const layer_t* layer);
+void nn_free_input(void* input);
+void* nn_get_input_data(const nn_t* nn, const layer_t* layer);
+
 #ifdef __cplusplus
 }
 #endif
