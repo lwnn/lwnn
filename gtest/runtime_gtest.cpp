@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "nn.h"
 /* ============================ [ MACROS    ] ====================================================== */
-#define INPUT_DIMS  2,4,5,7
+#define INPUT_DIMS 2,4,5,7
 
 #define MAX_INPUTS L_REF(input0),L_REF(input1)
 /* ============================ [ TYPES     ] ====================================================== */
@@ -42,7 +42,7 @@ void RuntimeCreateTest1(runtime_type_t runtime)
 	for(int i=0; i<layer_get_size(L_REF(input0)); i++)
 	{
 		data0[i] = i+1;
-		data1[i] = 1000-(i+1);
+		data1[i] = i+1;
 	}
 
 	nn_input_t input0 = { L_REF(input0), data0 };
