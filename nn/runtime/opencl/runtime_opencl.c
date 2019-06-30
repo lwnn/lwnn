@@ -303,11 +303,12 @@ cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W)
 	return img2d;
 }
 
-void* rte_cl_create_layer_context(
+int rte_cl_create_layer_context(
 			const nn_t* nn, const layer_t* layer,
 			const char* program, const char* kernel,
-			size_t sz, int *r)
+			size_t sz)
 {
+	int r = 0;
 	cl_int errNum;
 	layer_cl_context_t* context = NULL;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
@@ -319,19 +320,18 @@ void* rte_cl_create_layer_context(
 	if(context != NULL)
 	{
 		context->dtype = L_DT_FLOAT;
-		*r = layer_get_NHWC(layer, &context->nhwc);
-		if(0 != *r)
+		r = layer_get_NHWC(layer, &context->nhwc);
+		if(0 != r)
 		{
 			free(context);
-			context = NULL;
 		}
 	}
 	else
 	{
-		*r = NN_E_NO_MEMORY;
+		r = NN_E_NO_MEMORY;
 	}
 
-	if(0 == *r)
+	if(0 == r)
 	{
 		context->program = cl_create_program(rt->context, rt->device, program);
 		if(NULL != context->program)
@@ -347,23 +347,27 @@ void* rte_cl_create_layer_context(
 		}
 	}
 
-
-	if(NULL == context->program)
+	if(NULL == context->kernel)
 	{
-		*r = NN_E_CREATE_CL_CONTEXT_FAILED;
+		r = NN_E_CREATE_CL_CONTEXT_FAILED;
 		free(context);
-		context = NULL;
+	}
+	else
+	{
+		layer->C->context = context;
 	}
 
-	return context;
+	return r;
 }
 
-void rte_cl_destory_layer_context(const nn_t* nn, void* c)
+void rte_cl_destory_layer_context(const nn_t* nn, const layer_t* layer)
 {
-	layer_cl_context_t* context = (layer_cl_context_t*)c;
+	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 	clReleaseKernel(context->kernel);
 	clReleaseProgram(context->program);
 	free(context);
+
+	layer->C->context = NULL;
 }
 
 int rte_cl_set_layer_args(

@@ -40,11 +40,11 @@ typedef struct
 /* ============================ [ FUNCTIONS ] ====================================================== */
 cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, float* init_value);
 cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W);
-void* rte_cl_create_layer_context(
+int rte_cl_create_layer_context(
 			const nn_t* nn, const layer_t* layer,
 			const char* program, const char* kernel,
-			size_t sz, int *r);
-void rte_cl_destory_layer_context(const nn_t* nn, void* context);
+			size_t sz);
+void rte_cl_destory_layer_context(const nn_t* nn, const layer_t* layer);
 int rte_cl_set_layer_args(
 			const nn_t* nn, const layer_t* layer,
 			uint32_t nhwc, size_t num, ...);

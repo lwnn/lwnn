@@ -21,12 +21,14 @@ int layer_cl_OUTPUT_init(const nn_t* nn, const layer_t* layer)
 
 	layer_cl_output_context_t* context;
 
-	context = rte_cl_create_layer_context(nn, layer,
+	r = rte_cl_create_layer_context(nn, layer,
 				OPENCL_PATH "output.cl", "output",
-				sizeof(layer_cl_output_context_t), &r);
+				sizeof(layer_cl_output_context_t));
 
 	if(0 == r)
 	{
+		context = (layer_cl_output_context_t*)layer->C->context;
+
 		NNLOG(NN_DEBUG, ("%s dims: [%dx%dx%dx%d]\n",
 							layer->name,
 							context->nhwc.N, context->nhwc.H,
@@ -39,13 +41,8 @@ int layer_cl_OUTPUT_init(const nn_t* nn, const layer_t* layer)
 		if(NULL == context->out)
 		{
 			r = NN_E_NO_MEMORY;
-			rte_cl_destory_layer_context(nn, context);
+			rte_cl_destory_layer_context(nn, layer);
 		}
-	}
-
-	if(0 == r)
-	{
-		layer->C->context = (layer_context_t*)context;
 	}
 
 	return r;
@@ -99,7 +96,7 @@ void layer_cl_OUTPUT_deinit(const nn_t* nn, const layer_t* layer)
 		{
 			clReleaseMemObject(context->out);
 		}
-		rte_cl_destory_layer_context(nn, context);
+		rte_cl_destory_layer_context(nn, layer);
 	}
 }
 
