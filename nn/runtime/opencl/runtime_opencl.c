@@ -320,6 +320,7 @@ void* rte_cl_create_layer_context(
 
 	if(context != NULL)
 	{
+		context->dtype = L_DT_FLOAT;
 		*r = layer_get_NHWC(layer, &context->nhwc);
 		if(0 != *r)
 		{
@@ -411,7 +412,7 @@ int rte_cl_set_layer_args(
 
 int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer)
 {
-	int r;
+	int r = 0;
 	cl_int errNum;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
@@ -430,6 +431,24 @@ int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer)
 	{
 		r = NN_E_CL_EXECUTE_FAILED;
 		NNLOG(NN_ERROR,("CL execute %s failed with %d\n", layer->name, errNum));
+	}
+
+	return r;
+}
+
+int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz)
+{
+	int r = 0;
+	cl_int errNum;
+	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
+
+	errNum = clEnqueueReadBuffer(rt->command_queue, buffer, CL_TRUE,
+						0, sz*sizeof(float), data, 0, NULL, NULL);
+
+	if(CL_SUCCESS != errNum)
+	{
+		r = NN_E_CL_READ_BUFFER_FAILED;
+		NNLOG(NN_ERROR,("CL read buffer failed with %d\n", errNum));
 	}
 
 	return r;

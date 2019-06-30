@@ -44,6 +44,12 @@ typedef struct
 	void* data;
 } nn_input_t;
 
+typedef struct
+{
+	const layer_t* layer;
+	void* data;
+} nn_output_t;
+
 typedef struct nn {
 	runtime_t runtime;
 	const layer_t* const* network;
@@ -51,6 +57,7 @@ typedef struct nn {
 	runtime_type_t runtime_type;
 
 	const nn_input_t* const* inputs;
+	const nn_output_t* const* outputs;
 } nn_t;
 
 enum {
@@ -63,6 +70,8 @@ enum {
 	NN_E_CREATE_CL_CONTEXT_FAILED = -6,
 	NN_E_CL_SET_ARGS_FAILED = -7,
 	NN_E_CL_EXECUTE_FAILED = -8,
+	NN_E_CL_READ_BUFFER_FAILED = -9,
+	NN_E_NO_OUTPUT_BUFFER_PROVIDED = -10,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;
@@ -70,16 +79,19 @@ extern int nn_log_level;
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 nn_t* nn_create(const layer_t* const* network, runtime_type_t runtime_type);
-int nn_predict(nn_t* nn, const nn_input_t* const * inputs);
+int nn_predict(nn_t* nn, const nn_input_t* const * inputs,
+		const nn_output_t* const * outputs);
 
 void nn_set_log_level(int level);
 
 void nn_destory(nn_t* nn);
 
 void* nn_allocate_input(const layer_t* layer);
+void* nn_allocate_output(const layer_t* layer);
 void nn_free_input(void* input);
+void nn_free_output(void* output);
 void* nn_get_input_data(const nn_t* nn, const layer_t* layer);
-
+void* nn_get_output_data(const nn_t* nn, const layer_t* layer);
 #ifdef __cplusplus
 }
 #endif

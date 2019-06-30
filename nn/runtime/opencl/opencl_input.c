@@ -58,7 +58,6 @@ int layer_cl_INPUT_init(const nn_t* nn, const layer_t* layer)
 int layer_cl_INPUT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
-	cl_int errNum;
 	layer_cl_input_context_t* context = (layer_cl_input_context_t*)layer->C->context;
 	float* data;
 
@@ -71,7 +70,7 @@ int layer_cl_INPUT_execute(const nn_t* nn, const layer_t* layer)
 		clReleaseMemObject(context->in);
 	}
 
-	context->in = rte_cl_create_buffer(nn, RTE_NHWC_SIZE(context->nhwc), data);
+	context->in = rte_cl_create_buffer(nn, NHWC_SIZE(context->nhwc), data);
 
 	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHWC, 2,
 					sizeof(cl_mem), &(context->in),

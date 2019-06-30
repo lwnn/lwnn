@@ -25,7 +25,7 @@ static const layer_t* const network1[] =
 /* ============================ [ FUNCTIONS ] ====================================================== */
 void InputOutputTest1(runtime_type_t runtime)
 {
-	nn_set_log_level(NN_DEBUG);
+	//nn_set_log_level(NN_DEBUG);
 
 	float* data0 = (float*)nn_allocate_input(L_REF(input0));
 	ASSERT_TRUE(data0 != NULL);
@@ -43,8 +43,35 @@ void InputOutputTest1(runtime_type_t runtime)
 
 	if(nn != NULL)
 	{
-		nn_predict(nn, inputs);
+		float* out = (float*) nn_allocate_output(L_REF(output));
+		ASSERT_TRUE(out != NULL);
+		nn_output_t out0 = { L_REF(output), out };
+		nn_output_t* outputs[] = { &out0, NULL };
+
+		int r = nn_predict(nn, inputs, outputs);
+		EXPECT_TRUE(0 == r);
+
+		if(0 == r)
+		{
+			int failed = 0;
+			for(int i=0; i<layer_get_size(L_REF(output)); i++)
+			{
+				if(out[i] != data0[i])
+				{
+					printf("@%d %f != %f\n", i, out[i], data0[i]);
+					failed ++;
+				}
+			}
+
+			EXPECT_TRUE(0 == failed);
+		}
+		else
+		{
+			printf("nn predict failed with %d\n", r);
+		}
 		nn_destory(nn);
+
+		nn_free_output(out);
 	}
 
 	nn_free_input(data0);

@@ -70,7 +70,10 @@ extern "C" {
 	void layer_##name##_deinit(const nn_t*, const layer_t*)
 
 #define LAYER_CONTEXT_MEMBER		\
-	NHWC_t nhwc
+	NHWC_t nhwc;					\
+	layer_data_type_t dtype
+
+#define NHWC_SIZE(nhwc) (((nhwc).N)*((nhwc).H)*((nhwc).W)*((nhwc).C))
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum
 {

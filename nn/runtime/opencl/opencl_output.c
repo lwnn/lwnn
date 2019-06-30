@@ -33,7 +33,7 @@ int layer_cl_OUTPUT_init(const nn_t* nn, const layer_t* layer)
 							context->nhwc.W, context->nhwc.C));
 
 		context->out = rte_cl_create_buffer(nn,
-							RTE_NHWC_SIZE(context->nhwc),
+							NHWC_SIZE(context->nhwc),
 							NULL);
 
 		if(NULL == context->out)
@@ -54,7 +54,6 @@ int layer_cl_OUTPUT_init(const nn_t* nn, const layer_t* layer)
 int layer_cl_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
-	cl_int errNum;
 	layer_cl_output_context_t* context = (layer_cl_output_context_t*)layer->C->context;
 	const layer_t* input = layer->inputs[0];
 	layer_cl_context_t* input_context;
@@ -64,16 +63,29 @@ int layer_cl_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
 
 	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 
-	data = (float*) nn_get_input_data(nn, layer);
+	data = (float*) nn_get_output_data(nn, layer);
 
-	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHWC, 2,
-					sizeof(cl_mem), &(input_context->out),
-					sizeof(cl_mem), &(context->out));
+	if(NULL != data)
+	{
+		r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHWC, 2,
+						sizeof(cl_mem), &(input_context->out),
+						sizeof(cl_mem), &(context->out));
+	}
+	else
+	{
+		r = NN_E_NO_OUTPUT_BUFFER_PROVIDED;
+	}
 
 	if(0 == r)
 	{
 		r = rte_cl_execute_layer(nn, layer);
 	}
+
+	if(0 == r)
+	{
+		r = rte_cl_read_buffer(nn, context->out, data, NHWC_SIZE(context->nhwc));
+	}
+
 	return r;
 }
 

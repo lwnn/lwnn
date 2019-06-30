@@ -15,9 +15,8 @@ int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
 {
 	int r = 0;
 	int dim = 0;
-	int dimBuffer[5];
 	const layer_t* input;
-	int* dims = layer->dims;
+	const int* dims = layer->dims;
 
 	if(NULL != dims)
 	{
@@ -30,8 +29,7 @@ int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
 		input = layer->inputs[0];
 		if((NULL != input) && (NULL != input->C->context))
 		{
-			memcpy(dimBuffer, &(input->C->context->nhwc), sizeof(NHWC_t));
-			dims = dimBuffer;
+			dims = (int*)&(input->C->context->nhwc);
 			dim = 4;
 		}
 	}
@@ -75,12 +73,21 @@ size_t layer_get_size(const layer_t* layer)
 	int dim = 0;
 	size_t sz = 1;
 
-	if(NULL != layer->dims)
+	if(NULL != layer->C->context)
+	{
+		dim = 4;
+		sz = NHWC_SIZE(layer->C->context->nhwc);
+	}
+	else if(NULL != layer->dims)
 	{
 		while(layer->dims[dim] != 0) {
 			sz *= layer->dims[dim];
 			dim ++;
 		};
+	}
+	else
+	{
+		NNLOG(NN_ERROR, ("can't get %s layer size for now\n", layer->name));
 	}
 
 	if(0 == dim)

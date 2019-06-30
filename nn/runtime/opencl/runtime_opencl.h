@@ -26,8 +26,6 @@ typedef struct
 	LAYER_CL_CONTEXT_MEMBER;
 } layer_cl_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
-#define RTE_NHWC_SIZE(nhwc) (((nhwc).N)*((nhwc).H)*((nhwc).W)*((nhwc).C))
-
 #define RTE_CL_NHWC_W(nhwc)		(((nhwc).W)*(((nhwc).C+3)>>2))
 #define RTE_CL_NHWC_H(nhwc)		(((nhwc).N)*((nhwc).H))
 
@@ -51,4 +49,5 @@ int rte_cl_set_layer_args(
 			const nn_t* nn, const layer_t* layer,
 			uint32_t nhwc, size_t num, ...);
 int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer);
+int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz);
 #endif /* NN_RUNTIME_OPENCL_RUNTIME_OPENCL_H_ */
