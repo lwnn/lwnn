@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 #define L_INPUT(name, shape, dtype)						\
-	static layer_context_t l_context_##name;			\
+	static layer_context_container_t l_context_##name;	\
 	static const int l_dims_##name[] = { shape, 0 };	\
 	static const layer_t l_layer_##name = {				\
 		/* name */ #name,								\
@@ -25,7 +25,7 @@ extern "C" {
 	}
 
 #define L_OUTPUT(name, input)							\
-	static layer_context_t l_context_##name;			\
+	static layer_context_container_t l_context_##name;	\
 	static const struct layer* l_inputs##name[] = {		\
 			L_REF(input), NULL };						\
 	static const layer_t l_layer_##name = {				\
@@ -39,7 +39,7 @@ extern "C" {
 	}
 
 #define L_ELEMENT_WISE(name, op)						\
-	static layer_context_t l_context_##name;			\
+	static layer_context_container_t l_context_##name;	\
 	static const layer_t l_layer_##name = {				\
 		/* name */ #name,								\
 		/* inputs */ l_inputs##name,					\
@@ -68,6 +68,9 @@ extern "C" {
 	int layer_##name##_init(const nn_t*, const layer_t*);		\
 	int layer_##name##_execute(const nn_t*, const layer_t*);	\
 	void layer_##name##_deinit(const nn_t*, const layer_t*)
+
+#define LAYER_CONTEXT_MEMBER		\
+	NHWC_t nhwc
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum
 {
@@ -108,8 +111,13 @@ typedef struct
 
 typedef struct layer_context
 {
-	void* context;
+	LAYER_CONTEXT_MEMBER;
 } layer_context_t;
+
+typedef struct layer_context_container
+{
+	layer_context_t* context;
+} layer_context_container_t;
 
 typedef struct layer
 {
@@ -117,7 +125,7 @@ typedef struct layer
 	const struct layer** inputs;
 	const layer_blob_t** blobs;
 	const layer_dimension_t dims;
-	layer_context_t* C;
+	layer_context_container_t* C;
 	layer_operation_t op;
 	layer_data_type_t dtype;
 } layer_t;

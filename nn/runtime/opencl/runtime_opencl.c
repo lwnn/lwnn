@@ -265,8 +265,14 @@ cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, float* init_value)
 	cl_int errNum;
 	cl_mem buffer;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
+	cl_mem_flags flags = CL_MEM_READ_WRITE;
 
-	buffer = clCreateBuffer(rt->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+	if(init_value != NULL)
+	{
+		flags |= CL_MEM_COPY_HOST_PTR;
+	}
+
+	buffer = clCreateBuffer(rt->context, flags,
 					sizeof(float) * sz, init_value, &errNum);
 	if(errNum != CL_SUCCESS)
 	{
@@ -308,7 +314,7 @@ void* rte_cl_create_layer_context(
 	layer_cl_context_t* context = NULL;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 
-	assert(sz > sizeof(layer_cl_context_t));
+	assert(sz >= sizeof(layer_cl_context_t));
 
 	context = malloc(sz);
 
@@ -371,7 +377,7 @@ int rte_cl_set_layer_args(
 	va_list valist;
 	size_t sz;
 	void* arg;
-	layer_cl_context_t* context = layer->C->context;
+	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 
 	va_start(valist, num);
 	for(i = 0; (i < num) && (CL_SUCCESS == errNum); i++)
@@ -403,12 +409,12 @@ int rte_cl_set_layer_args(
 	return r;
 }
 
-int rte_cl_execute_layer(const nn_t* nn, layer_t* layer)
+int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer)
 {
 	int r;
 	cl_int errNum;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
-	layer_cl_context_t* context = layer->C->context;
+	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 
 	size_t globalWorkSize[2] =
 	{

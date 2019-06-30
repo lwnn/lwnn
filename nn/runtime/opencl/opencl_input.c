@@ -9,9 +9,8 @@
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
-	layer_cl_context_t C;
+	LAYER_CL_CONTEXT_MEMBER;
 	cl_mem in;
-	cl_mem out;
 } layer_cl_input_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -31,14 +30,14 @@ int layer_cl_INPUT_init(const nn_t* nn, const layer_t* layer)
 	{
 		NNLOG(NN_DEBUG, ("%s dims: [%dx%dx%dx%d] -> [1x%dx%dx4]\n",
 							layer->name,
-							context->C.nhwc.N, context->C.nhwc.H,
-							context->C.nhwc.W, context->C.nhwc.C,
-							RTE_CL_NHWC_H(context->C.nhwc),
-							RTE_CL_NHWC_W(context->C.nhwc)));
+							context->nhwc.N, context->nhwc.H,
+							context->nhwc.W, context->nhwc.C,
+							RTE_CL_NHWC_H(context->nhwc),
+							RTE_CL_NHWC_W(context->nhwc)));
 
 		context->out = rte_cl_create_image2d(nn,
-					RTE_CL_NHWC_H(context->C.nhwc),
-					RTE_CL_NHWC_W(context->C.nhwc));
+					RTE_CL_NHWC_H(context->nhwc),
+					RTE_CL_NHWC_W(context->nhwc));
 		context->in = NULL;
 
 		if(NULL == context->out)
@@ -50,7 +49,7 @@ int layer_cl_INPUT_init(const nn_t* nn, const layer_t* layer)
 
 	if(0 == r)
 	{
-		layer->C->context = context;
+		layer->C->context = (layer_context_t*)context;
 	}
 
 	return r;
@@ -60,7 +59,7 @@ int layer_cl_INPUT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	cl_int errNum;
-	layer_cl_input_context_t* context = layer->C->context;
+	layer_cl_input_context_t* context = (layer_cl_input_context_t*)layer->C->context;
 	float* data;
 
 	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
@@ -72,7 +71,7 @@ int layer_cl_INPUT_execute(const nn_t* nn, const layer_t* layer)
 		clReleaseMemObject(context->in);
 	}
 
-	context->in = rte_cl_create_buffer(nn, RTE_NHWC_SIZE(context->C.nhwc), data);
+	context->in = rte_cl_create_buffer(nn, RTE_NHWC_SIZE(context->nhwc), data);
 
 	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHWC, 2,
 					sizeof(cl_mem), &(context->in),
@@ -88,7 +87,7 @@ int layer_cl_INPUT_execute(const nn_t* nn, const layer_t* layer)
 
 void layer_cl_INPUT_deinit(const nn_t* nn, const layer_t* layer)
 {
-	layer_cl_input_context_t* context = layer->C->context;
+	layer_cl_input_context_t* context = (layer_cl_input_context_t*)layer->C->context;
 
 	if(NULL != context)
 	{

@@ -28,7 +28,7 @@ static const layer_t* const network1[] =
 };
 
 /* ============================ [ FUNCTIONS ] ====================================================== */
-void RuntimeCreateTest1(runtime_type_t runtime)
+void EltmentWiseTest1(runtime_type_t runtime)
 {
 	nn_set_log_level(NN_DEBUG);
 
@@ -36,8 +36,6 @@ void RuntimeCreateTest1(runtime_type_t runtime)
 	ASSERT_TRUE(data0 != NULL);
 	float* data1 = (float*)nn_allocate_input(L_REF(input0));
 	ASSERT_TRUE(data1 != NULL);
-
-	std::srand(std::time(nullptr));
 
 	for(int i=0; i<layer_get_size(L_REF(input0)); i++)
 	{
@@ -63,12 +61,12 @@ void RuntimeCreateTest1(runtime_type_t runtime)
 	nn_free_input(data1);
 }
 
-TEST(RuntimeOPENCL, Create)
+TEST(RuntimeOPENCL, ElementWiseMax)
 {
-	RuntimeCreateTest1(RUNTIME_OPENCL);
+	EltmentWiseTest1(RUNTIME_OPENCL);
 }
 
-TEST(RuntimeCPU, Create)
+TEST(RuntimeCPU, ElementWiseMax)
 {
-	RuntimeCreateTest1(RUNTIME_CPU);
+	EltmentWiseTest1(RUNTIME_CPU);
 }

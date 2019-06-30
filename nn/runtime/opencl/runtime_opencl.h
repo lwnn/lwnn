@@ -13,12 +13,17 @@
 #ifndef OPENCL_PATH
 #define OPENCL_PATH "nn/runtime/opencl/kernels/"
 #endif
+
+#define LAYER_CL_CONTEXT_MEMBER		\
+	LAYER_CONTEXT_MEMBER;			\
+	cl_program program;				\
+	cl_kernel kernel;				\
+	cl_mem out
+
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
 {
-	NHWC_t nhwc;
-	cl_program program;
-	cl_kernel kernel;
+	LAYER_CL_CONTEXT_MEMBER;
 } layer_cl_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 #define RTE_NHWC_SIZE(nhwc) (((nhwc).N)*((nhwc).H)*((nhwc).W)*((nhwc).C))
@@ -45,4 +50,5 @@ void rte_cl_destory_layer_context(const nn_t* nn, void* context);
 int rte_cl_set_layer_args(
 			const nn_t* nn, const layer_t* layer,
 			uint32_t nhwc, size_t num, ...);
+int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer);
 #endif /* NN_RUNTIME_OPENCL_RUNTIME_OPENCL_H_ */
