@@ -3,9 +3,7 @@
  * Copyright (C) 2019  Parai Wang <parai@foxmail.com>
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
-#include <gtest/gtest.h>
-#include <stdio.h>
-#include "nn.h"
+#include "nn_test_util.h"
 /* ============================ [ MACROS    ] ====================================================== */
 #define INPUT_DIMS 2,4,5,7
 
@@ -27,55 +25,50 @@ static const layer_t* const network1[] =
 	NULL
 };
 
+static const int test_dims[][4] =
+{
+	{INPUT_DIMS},
+	{46,57,58,93},
+	{23,45,78,0},
+	{34,98,0, 0}
+};
+
 /* ============================ [ FUNCTIONS ] ====================================================== */
-void EltmentWiseTest1(runtime_type_t runtime)
+void EltmentWiseTest(runtime_type_t runtime, const int dims[4])
 {
 	//nn_set_log_level(NN_DEBUG);
 
-	float* data0 = (float*)nn_allocate_input(L_REF(input0));
-	ASSERT_TRUE(data0 != NULL);
-	float* data1 = (float*)nn_allocate_input(L_REF(input0));
-	ASSERT_TRUE(data1 != NULL);
+	memcpy(l_dims_input0, dims, sizeof(int)*4);
+	memcpy(l_dims_input1, dims, sizeof(int)*4);
 
-	for(int i=0; i<layer_get_size(L_REF(input0)); i++)
+	nn_input_t** inputs = nnt_allocate_inputs({L_REF(input0), L_REF(input1)});
+	nn_output_t** outputs = nnt_allocate_outputs({L_REF(output)});
+
+	nnt_fill_inputs_with_random_f(inputs);
+	int r = nnt_run(network1, runtime, inputs, outputs);
+
+	if(0 == r)
 	{
-		data0[i] = i+1;
-		data1[i] = i+1;
+
 	}
 
-	nn_input_t input0 = { L_REF(input0), data0 };
-	nn_input_t input1 = { L_REF(input1), data1 };
-
-	nn_input_t* inputs[] = { &input0, &input1, NULL };
-
-	nn_t* nn = nn_create(network1, runtime);
-	EXPECT_TRUE(nn != NULL);
-
-	if(nn != NULL)
-	{
-		float* out = (float*) nn_allocate_output(L_REF(output));
-		ASSERT_TRUE(out != NULL);
-		nn_output_t out0 = { L_REF(output), out };
-		nn_output_t* outputs[] = { &out0, NULL };
-
-		int r = nn_predict(nn, inputs, outputs);
-		EXPECT_TRUE(0 == r);
-		nn_destory(nn);
-
-		nn_free_output(out);
-	}
-
-	nn_free_input(data0);
-	nn_free_input(data1);
+	nnt_free_inputs(inputs);
+	nnt_free_outputs(outputs);
 
 }
 
 TEST(RuntimeOPENCL, ElementWiseMax)
 {
-	EltmentWiseTest1(RUNTIME_OPENCL);
+	for(int i=0; i<ARRAY_SIZE(test_dims); i++)
+	{
+		EltmentWiseTest(RUNTIME_OPENCL, test_dims[i]);
+	}
 }
 
 TEST(RuntimeCPU, ElementWiseMax)
 {
-	EltmentWiseTest1(RUNTIME_CPU);
+	for(int i=0; i<ARRAY_SIZE(test_dims); i++)
+	{
+		EltmentWiseTest(RUNTIME_CPU, test_dims[i]);
+	}
 }

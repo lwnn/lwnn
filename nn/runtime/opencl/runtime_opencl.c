@@ -114,7 +114,7 @@ static cl_program cl_create_program(cl_context context, cl_device_id device, con
 
 	NNLOG(NN_DEBUG, ("CL load %s\n", fileName));
 
-	file = fopen(fileName, "r");
+	file = fopen(fileName, "rb");
 
 	if(NULL != file)
 	{
@@ -124,8 +124,6 @@ static cl_program cl_create_program(cl_context context, cl_device_id device, con
 		fseek(file, 0, SEEK_SET);
 		if(NULL != srcStr)
 		{
-			/* FIXME: strange, if no this memset, srcStr read is not correct */
-			memset(srcStr, 0, sz+1);
 			fread(srcStr, 1, sz, file);
 			srcStr[sz] = '\0';
 			program = clCreateProgramWithSource(context, 1,

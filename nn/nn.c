@@ -154,7 +154,6 @@ void* nn_allocate_output(const layer_t* layer)
 	return nn_allocate_input(layer);
 }
 
-
 void nn_free_input(void* input)
 {
 	free(input);

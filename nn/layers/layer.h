@@ -11,10 +11,14 @@
 extern "C" {
 #endif
 
+#ifndef LCONST
+#define LCONST const
+#endif
+
 #define L_INPUT(name, shape, dtype)						\
 	static layer_context_container_t l_context_##name;	\
-	static const int l_dims_##name[] = { shape, 0 };	\
-	static const layer_t l_layer_##name = {				\
+	static LCONST int l_dims_##name[] = { shape, 0 };	\
+	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
 		/* inputs */ NULL,								\
 		/* blobs */ NULL,								\
@@ -26,9 +30,9 @@ extern "C" {
 
 #define L_OUTPUT(name, input)							\
 	static layer_context_container_t l_context_##name;	\
-	static const struct layer* l_inputs##name[] = {		\
+	static LCONST layer_t* l_inputs##name[] = {			\
 			L_REF(input), NULL };						\
-	static const layer_t l_layer_##name = {				\
+	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
 		/* inputs */ l_inputs##name,					\
 		/* blobs */ NULL,								\
@@ -40,7 +44,7 @@ extern "C" {
 
 #define L_ELEMENT_WISE(name, op)						\
 	static layer_context_container_t l_context_##name;	\
-	static const layer_t l_layer_##name = {				\
+	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
 		/* inputs */ l_inputs##name,					\
 		/* blobs */ NULL,								\
@@ -51,7 +55,7 @@ extern "C" {
 	}
 
 #define L_MAXIMUM(name, inputs)							\
-	static const struct layer* l_inputs##name[] = {		\
+	static LCONST layer_t* l_inputs##name[] = {			\
 			inputs, NULL };								\
 	L_ELEMENT_WISE(name, L_OP_MAXIMUM)
 
@@ -125,7 +129,7 @@ typedef struct layer_context_container
 typedef struct layer
 {
 	const char* name;
-	const struct layer** inputs;
+	LCONST struct layer** inputs;
 	const layer_blob_t** blobs;
 	const layer_dimension_t dims;
 	layer_context_container_t* C;
