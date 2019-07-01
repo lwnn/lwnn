@@ -193,7 +193,7 @@ static int cl_deinit_layer(const nn_t* nn, const layer_t* layer)
 	return 0;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
-runtime_t rte_cl_create(const nn_t* nn)
+runtime_t rte_OPENCL_create(const nn_t* nn)
 {
 	rte_cl_t* rt = NULL;
 
@@ -223,7 +223,7 @@ runtime_t rte_cl_create(const nn_t* nn)
 	return rt;
 }
 
-void rte_cl_destory(const nn_t* nn)
+void rte_OPENCL_destory(const nn_t* nn)
 {
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 
@@ -233,7 +233,7 @@ void rte_cl_destory(const nn_t* nn)
 	clReleaseContext(rt->context);
 }
 
-int rte_cl_init(const nn_t* nn)
+int rte_OPENCL_init(const nn_t* nn)
 {
 	int r;
 
@@ -242,7 +242,7 @@ int rte_cl_init(const nn_t* nn)
 	return r;
 }
 
-int rte_cl_execute(const nn_t* nn)
+int rte_OPENCL_execute(const nn_t* nn)
 {
 	int r;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
@@ -354,7 +354,7 @@ int rte_cl_create_layer_context(
 	}
 	else
 	{
-		layer->C->context = context;
+		layer->C->context = (layer_context_t*)context;
 	}
 
 	return r;

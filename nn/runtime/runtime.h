@@ -12,8 +12,9 @@ extern "C" {
 #endif
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum {
-	RUNTIME_CPU,
-	RUNTIME_OPENCL
+#define RTE_DEF(rte) RUNTIME_##rte,
+	#include "rtedef.h"
+#undef RTE_DEF
 } runtime_type_t;
 
 typedef void* runtime_t;

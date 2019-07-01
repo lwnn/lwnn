@@ -28,17 +28,15 @@ typedef struct
 	void (*destory)(const nn_t*);
 } rte_ops_t;
 /* ============================ [ DECLARES  ] ====================================================== */
-DECLARE_RUNTIME(cpu);
-DECLARE_RUNTIME(cl);
+#define RTE_DEF(rte) DECLARE_RUNTIME(rte);
+	#include "rtedef.h"
+#undef RTE_DEF
 /* ============================ [ DATAS     ] ====================================================== */
 static const rte_ops_t rte_ops[] =
 {
-#ifndef DISABLE_RUNTIME_CPU
-	RUNTIME_REF(cpu),
-#endif
-#ifndef DISABLE_RUNTIME_OPENCL
-	RUNTIME_REF(cl),
-#endif
+#define RTE_DEF(rte) RUNTIME_REF(rte),
+	#include "rtedef.h"
+#undef RTE_DEF
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
