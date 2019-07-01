@@ -17,6 +17,14 @@
 extern "C" {
 #endif
 
+#ifndef TRUE
+#define TRUE 1
+#endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+
 #define NN_DEBUG			0
 #define NN_INFO				100
 #define NN_WARNING			200

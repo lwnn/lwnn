@@ -39,7 +39,7 @@ int nnt_run(const layer_t* const* network,
 	return r;
 }
 
-void nnt_fill_inputs_with_random_f(nn_input_t** inputs)
+void nnt_fill_inputs_with_random_f(nn_input_t** inputs, float lo, float hi)
 {
 	for(nn_input_t** in=inputs; (*in) != NULL; in++)
 	{
@@ -47,7 +47,7 @@ void nnt_fill_inputs_with_random_f(nn_input_t** inputs)
 		float* data = (float*) (*in)->data;
 		for(size_t i=0; i<sz; i++)
 		{
-			data[i] = i+1;
+			data[i] = lo + static_cast <float> (std::rand()) /( static_cast <float> (RAND_MAX/(hi-lo)));;
 		}
 	}
 }

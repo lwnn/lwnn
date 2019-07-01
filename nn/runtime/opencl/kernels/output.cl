@@ -20,7 +20,7 @@ __kernel void output(
 	int x = get_global_id(0);
 	int y = get_global_id(1);
 	
-	sampler_t  sampler =  CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
+	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
 	for(n=0; n<N; n++) {
 		for(c=0; c<C; c+=4)

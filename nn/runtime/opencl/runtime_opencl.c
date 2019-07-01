@@ -306,7 +306,7 @@ cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W)
 int rte_cl_create_layer_context(
 			const nn_t* nn, const layer_t* layer,
 			const char* program, const char* kernel,
-			size_t sz)
+			size_t sz, size_t nout)
 {
 	int r = 0;
 	cl_int errNum;
@@ -315,11 +315,13 @@ int rte_cl_create_layer_context(
 
 	assert(sz >= sizeof(layer_cl_context_t));
 
-	context = malloc(sz);
+	context = malloc(sz+nout*sizeof(cl_mem));
 
 	if(context != NULL)
 	{
 		context->dtype = L_DT_FLOAT;
+		context->out = (cl_mem*)(((unsigned long long)context)+sz);
+		context->nout = nout;
 		r = layer_get_NHWC(layer, &context->nhwc);
 		if(0 != r)
 		{
@@ -362,10 +364,24 @@ int rte_cl_create_layer_context(
 
 void rte_cl_destory_layer_context(const nn_t* nn, const layer_t* layer)
 {
+	size_t i;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
-	clReleaseKernel(context->kernel);
-	clReleaseProgram(context->program);
-	free(context);
+
+	if(NULL != context)
+	{
+		clReleaseKernel(context->kernel);
+		clReleaseProgram(context->program);
+
+		for(i=0; i<context->nout; i++)
+		{
+			if(NULL != context->out[i])
+			{
+				clReleaseMemObject(context->out[i]);
+			}
+		}
+
+		free(context);
+	}
 
 	layer->C->context = NULL;
 }
@@ -412,17 +428,24 @@ int rte_cl_set_layer_args(
 	return r;
 }
 
-int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer)
+int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, int use_cl_hw)
 {
 	int r = 0;
 	cl_int errNum;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 
-	size_t globalWorkSize[2] =
+	size_t globalWorkSize[2];
+
+	if(use_cl_hw)
 	{
-		context->nhwc.W,
-		context->nhwc.H
+		globalWorkSize[0] = RTE_CL_NHWC_W(context->nhwc);
+		globalWorkSize[1] = RTE_CL_NHWC_H(context->nhwc);
+	}
+	else
+	{
+		globalWorkSize[0] = context->nhwc.W;
+		globalWorkSize[1] = context->nhwc.H;
 	};
 	size_t localWorkSize[2] = { 1, 1 };
 

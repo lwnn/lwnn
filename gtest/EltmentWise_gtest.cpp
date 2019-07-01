@@ -44,12 +44,32 @@ void EltmentWiseTest(runtime_type_t runtime, const int dims[4])
 	nn_input_t** inputs = nnt_allocate_inputs({L_REF(input0), L_REF(input1)});
 	nn_output_t** outputs = nnt_allocate_outputs({L_REF(output)});
 
-	nnt_fill_inputs_with_random_f(inputs);
+	nnt_fill_inputs_with_random_f(inputs, -100, 100);
 	int r = nnt_run(network1, runtime, inputs, outputs);
 
 	if(0 == r)
 	{
+		size_t sz = layer_get_size(L_REF(input0));
 
+		int nequal = 0;
+		float* A = (float*)inputs[0]->data;
+		float* B = (float*)inputs[1]->data;
+		float* O = (float*)outputs[0]->data;
+		for(int i=0; i<sz; i++)
+		{
+			float a = A[i];
+			float b = B[i];
+			float o = O[i];
+			float max = std::fmax(a,b);
+
+			if(std::fabs(max-o) > EQUAL_THRESHOLD)
+			{
+				nequal++;
+				printf("@%d %f != %f=fmax(%f, %f)\n", i, max, o, a, b);
+			}
+		}
+
+		EXPECT_TRUE(0 == nequal);
 	}
 
 	nnt_free_inputs(inputs);

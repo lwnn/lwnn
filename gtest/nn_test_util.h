@@ -10,8 +10,10 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <cmath>
+#include <cstdlib>
 #include <stdio.h>
 /* ============================ [ MACROS    ] ====================================================== */
+#define EQUAL_THRESHOLD 0.000000001
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -28,5 +30,5 @@ void nnt_free_outputs(nn_output_t** ouputs);
 /* 0 means close enough, else return numbers which are not equal */
 int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff);
 
-void nnt_fill_inputs_with_random_f(nn_input_t** inputs);
+void nnt_fill_inputs_with_random_f(nn_input_t** inputs, float lo, float hi);
 #endif /* GTEST_NN_TEST_UTIL_H_ */

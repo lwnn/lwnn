@@ -18,7 +18,8 @@
 	LAYER_CONTEXT_MEMBER;			\
 	cl_program program;				\
 	cl_kernel kernel;				\
-	cl_mem out
+	size_t nout;					\
+	cl_mem* out
 
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
@@ -35,6 +36,14 @@ typedef struct
 #define RTE_CL_ARGS_WITH_C	0x08
 #define RTE_CL_ARGS_WITH_NHWC	0x0F
 
+#define RTE_CL_LOG_LAYER_SHAPE(layer) 											\
+	NNLOG(NN_DEBUG, ("%s dims: [%dx%dx%dx%d] -> [1x%dx%dx4]\n",					\
+						layer->name,											\
+						layer->C->context->nhwc.N, layer->C->context->nhwc.H,	\
+						layer->C->context->nhwc.W, layer->C->context->nhwc.C,	\
+						RTE_CL_NHWC_H(layer->C->context->nhwc),					\
+						RTE_CL_NHWC_W(layer->C->context->nhwc)))
+
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -43,11 +52,11 @@ cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W);
 int rte_cl_create_layer_context(
 			const nn_t* nn, const layer_t* layer,
 			const char* program, const char* kernel,
-			size_t sz);
+			size_t sz, size_t nout);
 void rte_cl_destory_layer_context(const nn_t* nn, const layer_t* layer);
 int rte_cl_set_layer_args(
 			const nn_t* nn, const layer_t* layer,
 			uint32_t nhwc, size_t num, ...);
-int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer);
+int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, int use_cl_hw);
 int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz);
 #endif /* NN_RUNTIME_OPENCL_RUNTIME_OPENCL_H_ */

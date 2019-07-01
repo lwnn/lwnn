@@ -38,13 +38,13 @@ static void InputOutputTest(runtime_type_t runtime, const int dims[4])
 	nn_input_t** inputs = nnt_allocate_inputs({L_REF(input0)});
 	nn_output_t** outputs = nnt_allocate_outputs({L_REF(output)});
 
-	nnt_fill_inputs_with_random_f(inputs);
+	nnt_fill_inputs_with_random_f(inputs, -10, 10);
 	int r = nnt_run(network1, runtime, inputs, outputs);
 
 	if(0 == r)
 	{
 		r = nnt_is_equal((float*)inputs[0]->data, (float*)outputs[0]->data,
-					layer_get_size(inputs[0]->layer), 0.0000001);
+					layer_get_size(inputs[0]->layer), EQUAL_THRESHOLD);
 		EXPECT_TRUE(0 == r);
 	}
 
