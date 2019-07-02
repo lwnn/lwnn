@@ -1,2 +1,6 @@
+Import('asenv')
+
+asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++'])
+
 objs = Glob('*.cpp')
 Return('objs')

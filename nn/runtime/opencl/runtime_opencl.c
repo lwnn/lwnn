@@ -286,14 +286,24 @@ cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W)
 	cl_int errNum;
 	cl_mem img2d;
 	cl_image_format fmt;
+	cl_image_desc desc;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 
 	fmt.image_channel_order = CL_RGBA;
 	fmt.image_channel_data_type = CL_FLOAT;
 
+	memset(&desc, 0, sizeof(desc));
+	desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+	desc.image_width = W;
+	desc.image_height = H;
+
+#if 0
 	img2d = clCreateImage2D(rt->context, CL_MEM_READ_WRITE,
 						&fmt, W, H, 0, NULL, &errNum);
-
+#else
+	img2d = clCreateImage(rt->context, CL_MEM_READ_WRITE,
+						&fmt, &desc, NULL, &errNum);
+#endif
 	if(errNum != CL_SUCCESS)
 	{
 		NNLOG(NN_ERROR,("CL create image2d(%dx%d) failed with %d\n", H, W, errNum));

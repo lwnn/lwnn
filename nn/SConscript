@@ -1,4 +1,6 @@
-Import('env')
+from building import *
+Import('asenv')
+
 objs = []
 objs += Glob('layers/*.c')
 objs += Glob('runtime/*.c')
@@ -6,5 +8,12 @@ objs += Glob('runtime/cpu/*.c')
 objs += Glob('runtime/opencl/*.c')
 objs += Glob('*.c')
 
-env.Append(CPPPATH=['nn','nn/layers','nn/runtime'])
+asenv.Append(CPPPATH=['nn','nn/layers','nn/runtime'])
+
+if(IsPlatformWindows()):
+    asenv.AppendENVPath('PATH', os.getenv('PATH'))
+    cuda = os.getenv('CUDA_PATH')
+    asenv.Append(CPPPATH=['%s/include'%(cuda)])
+    objs += ['%s/lib/x64/OpenCL.lib'%(cuda)]
+
 Return('objs')
