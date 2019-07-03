@@ -44,7 +44,7 @@ runtime_t rte_create(const nn_t* nn)
 {
 	runtime_t runtime = NULL;
 
-	if(nn->runtime_type < (sizeof(rte_ops)/sizeof(rte_ops_t)))
+	if(nn->runtime_type < ARRAY_SIZE(rte_ops))
 	{
 		runtime = rte_ops[nn->runtime_type].create(nn);
 	}
@@ -65,7 +65,7 @@ int rte_init(const nn_t* nn)
 }
 void rte_destory(const nn_t* nn)
 {
-	if(nn->runtime_type < (sizeof(rte_ops)/sizeof(rte_ops_t)))
+	if(nn->runtime_type < ARRAY_SIZE(rte_ops))
 	{
 		rte_ops[nn->runtime_type].destory(nn);
 	}
@@ -75,7 +75,7 @@ int rte_execute(const nn_t* nn)
 {
 	int r = NN_E_INVALID_RUNTIME;
 
-	if(nn->runtime_type < (sizeof(rte_ops)/sizeof(rte_ops_t)))
+	if(nn->runtime_type < ARRAY_SIZE(rte_ops))
 	{
 		r = rte_ops[nn->runtime_type].execute(nn);
 	}

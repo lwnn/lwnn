@@ -20,7 +20,7 @@ typedef struct
 #include "opdef.h"
 #undef OP_DEF
 /* ============================ [ DATAS     ] ====================================================== */
-static const layer_ops_t lops[] =
+static const layer_ops_t cl_lops[] =
 {
 #define OP_DEF(op) L_OPS_REF(cl_##op),
 	#include "opdef.h"
@@ -163,9 +163,9 @@ static int cl_execute_layer(const nn_t* nn, const layer_t* layer)
 {
 	int r = NN_E_INVALID_LAYER;
 
-	if(layer->op < (sizeof(lops)/sizeof(layer_ops_t)))
+	if(layer->op < ARRAY_SIZE(cl_lops))
 	{
-		r = lops[layer->op].execute(nn, layer);
+		r = cl_lops[layer->op].execute(nn, layer);
 	}
 
 	return r;
@@ -175,9 +175,9 @@ static int cl_init_layer(const nn_t* nn, const layer_t* layer)
 {
 	int r = NN_E_INVALID_LAYER;
 
-	if(layer->op < (sizeof(lops)/sizeof(layer_ops_t)))
+	if(layer->op < ARRAY_SIZE(cl_lops))
 	{
-		r = lops[layer->op].init(nn, layer);
+		r = cl_lops[layer->op].init(nn, layer);
 	}
 
 	return r;
@@ -185,9 +185,9 @@ static int cl_init_layer(const nn_t* nn, const layer_t* layer)
 
 static int cl_deinit_layer(const nn_t* nn, const layer_t* layer)
 {
-	if(layer->op < (sizeof(lops)/sizeof(layer_ops_t)))
+	if(layer->op < ARRAY_SIZE(cl_lops))
 	{
-		lops[layer->op].deinit(nn, layer);
+		cl_lops[layer->op].deinit(nn, layer);
 	}
 
 	return 0;

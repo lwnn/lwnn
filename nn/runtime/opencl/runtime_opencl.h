@@ -7,6 +7,9 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
 #include <CL/cl.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 /* ============================ [ MACROS    ] ====================================================== */
 #define OPENCL_ROUNDUP4(c) ((c+3)&(~0x3))
 
@@ -59,4 +62,7 @@ int rte_cl_set_layer_args(
 			uint32_t nhwc, size_t num, ...);
 int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, int use_cl_hw);
 int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz);
+#ifdef __cplusplus
+}
+#endif
 #endif /* NN_RUNTIME_OPENCL_RUNTIME_OPENCL_H_ */

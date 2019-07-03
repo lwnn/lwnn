@@ -72,6 +72,16 @@ def RunSysCmd(cmd):
     p_status = p.wait()
     return err, output.decode('utf-8')
 
+def RunCommand(cmd, e=True):
+    if(GetOption('verbose')):
+        print(' >> RunCommand "%s"'%(cmd))
+    if(os.name == 'nt'):
+        cmd = cmd.replace('&&', '&')
+    ret = os.system(cmd)
+    if(0 != ret and e):
+        raise Exception('FAIL of RunCommand "%s" = %s'%(cmd, ret))
+    return ret
+
 def AppendPythonPath(lp):
     try:
         pypath = os.environ['PYTHONPATH']
@@ -90,7 +100,7 @@ def PrepareEnv():
     LWNN_ROOT = os.getenv('LWNN_ROOT')
     if((LWNN_ROOT==None) or (not os.path.exists(LWNN_ROOT))):
         # loop to search the LWNN_ROOT
-        p = os.curdir
+        p = os.path.abspath(os.curdir)
         while(True):
             if(os.path.isdir('%s/nn'%(p)) and 
                os.path.isdir('%s/gtest'%(p)) and
@@ -109,7 +119,6 @@ def PrepareEnv():
     if(Env == None):
         Env = asenv
         Export('asenv')
-
     return asenv
 
 def PrepareBuilding(env):
@@ -155,6 +164,142 @@ def PrepareBuilding(env):
           CXXCOMSTR = 'CXX $SOURCE',
           LINKCOMSTR = 'LINK $TARGET'
         )
+
+def MKDir(p):
+    ap = os.path.abspath(p)
+    try:
+        os.makedirs(ap)
+    except:
+        if(not os.path.exists(ap)):
+            raise Exception('Fatal Error: can\'t create directory <%s>'%(ap))
+
+def RMDir(p):
+    if(os.path.exists(p)):
+        shutil.rmtree(p)
+
+def RMFile(p):
+    if(os.path.exists(p)):
+        print('removing %s'%(os.path.abspath(p)))
+        os.remove(os.path.abspath(p))
+
+def MKFile(p,c='',m='w'):
+    f = open(p,m)
+    f.write(c)
+    f.close()
+
+def Download(url, tgt=None):
+    # curl is better than wget on msys2
+    if(tgt == None):
+        tgt = url.split('/')[-1]
+    def IsProperType(f):
+        tL = {'.zip':'Zip archive data', '.tar.gz':'gzip compressed data',
+              '.tar.xz':'XZ compressed data','.tar.bz2':'bzip2 compressed data'}
+        if(not os.path.exists(f)):
+            return False
+        if(0 == os.path.getsize(f)):
+            return False
+        for t,v in tL.items():
+            if(f.endswith(t)):
+                err,info = RunSysCmd('file %s'%(tgt))
+                if(v not in info):
+                    return False
+                break
+        return True
+    if(not os.path.exists(tgt)):
+        print('Downloading from %s to %s'%(url, tgt))
+        ret = RunCommand('curl %s -o %s'%(url,tgt), False)
+        if((ret != 0) or (not IsProperType(tgt))):
+            tf = url.split('/')[-1]
+            RMFile(tf)
+            print('temporarily saving to %s'%(os.path.abspath(tf)))
+            RunCommand('wget %s'%(url))
+            RunCommand('mv -v %s %s'%(tf, tgt))
+
+def Package(url, ** parameters):
+    if(type(url) == dict):
+        parameters = url
+        url = url['url']
+    download = GetCurrentDir()
+    pkgBaseName = os.path.basename(url)
+    if(pkgBaseName.endswith('.zip')):
+        tgt = '%s/%s'%(download, pkgBaseName)
+        Download(url, tgt)
+        pkgName = pkgBaseName[:-4]
+        pkg = '%s/%s'%(download, pkgName)
+        MKDir(pkg)
+        flag = '%s/.unzip.done'%(pkg)
+        if(not os.path.exists(flag)):
+            try:
+                RunCommand('cd %s && unzip ../%s'%(pkg, pkgBaseName))
+            except Exception as e:
+                print('WARNING:',e)
+            MKFile(flag,'url')
+    elif(pkgBaseName.endswith('.rar')):
+        tgt = '%s/%s'%(download, pkgBaseName)
+        Download(url, tgt)
+        pkgName = pkgBaseName[:-4]
+        pkg = '%s/%s'%(download, pkgName)
+        MKDir(pkg)
+        flag = '%s/.unrar.done'%(pkg)
+        if(not os.path.exists(flag)):
+            try:
+                RunCommand('cd %s && unrar x ../%s'%(pkg, pkgBaseName))
+            except Exception as e:
+                print('WARNING:',e)
+            MKFile(flag,'url')
+    elif(pkgBaseName.endswith('.tar.gz') or pkgBaseName.endswith('.tar.xz')):
+        tgt = '%s/%s'%(download, pkgBaseName)
+        Download(url, tgt)
+        pkgName = pkgBaseName[:-7]
+        pkg = '%s/%s'%(download, pkgName)
+        MKDir(pkg)
+        flag = '%s/.unzip.done'%(pkg)
+        if(not os.path.exists(flag)):
+            RunCommand('cd %s && tar xf ../%s'%(pkg, pkgBaseName))
+            MKFile(flag,'url')
+    elif(pkgBaseName.endswith('.tar.bz2')):
+        tgt = '%s/%s'%(download, pkgBaseName)
+        Download(url, tgt)
+        pkgName = pkgBaseName[:-8]
+        pkg = '%s/%s'%(download, pkgName)
+        MKDir(pkg)
+        flag = '%s/.unzip.done'%(pkg)
+        if(not os.path.exists(flag)):
+            RunCommand('cd %s && tar xf ../%s'%(pkg, pkgBaseName))
+            MKFile(flag,'url')
+    elif(pkgBaseName.endswith('.git')):
+        pkgName = pkgBaseName[:-4]
+        pkg = '%s/%s'%(download, pkgName)
+        if(not os.path.exists(pkg)):
+            RunCommand('cd %s && git clone %s'%(download, url))
+        if('version' in parameters):
+            flag = '%s/.version.done'%(pkg)
+            if(not os.path.exists(flag)):
+                ver = parameters['version']
+                RunCommand('cd %s && git checkout %s'%(pkg, ver))
+                MKFile(flag,ver)
+                # remove all cmd Done flags
+                for cmdF in Glob('%s/.*.cmd.done'%(pkg)):
+                    RMFile(str(cmdF))
+    else:
+        pkg = '%s/%s'%(download, url)
+        if(not os.path.isdir(pkg)):
+            print('ERROR: require %s but now it is missing!'
+                  ' It maybe downloaded later, so please try build again.'%(url))
+    # cmd is generally a series of 'sed' operatiron to do some simple modifications
+    if('cmd' in parameters):
+        flag = '%s/.cmd.done'%(pkg)
+        cmd = 'cd %s && '%(pkg)
+        cmd += parameters['cmd']
+        if(not os.path.exists(flag)):
+            RunCommand(cmd)
+            MKFile(flag,cmd)
+    if('pyfnc' in parameters):
+        flag = '%s/.pyfnc.done'%(pkg)
+        if(not os.path.exists(flag)):
+            parameters['pyfnc'](pkg)
+            MKFile(flag)
+    return pkg
 
 def scons(script):
     bdir = 'build/%s'%(os.path.dirname(script))

@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 #include <assert.h>
 /* ============================ [ MACROS    ] ====================================================== */
 #ifdef __cplusplus
@@ -70,6 +71,7 @@ typedef struct nn {
 
 enum {
 	NN_OK = 0,
+	NN_EXIT_OK = 1,
 	NN_E_INVALID_RUNTIME = -1,
 	NN_E_NOT_SUPPORTED = -2,
 	NN_E_NO_MEMORY = -3,
@@ -80,6 +82,9 @@ enum {
 	NN_E_CL_EXECUTE_FAILED = -8,
 	NN_E_CL_READ_BUFFER_FAILED = -9,
 	NN_E_NO_OUTPUT_BUFFER_PROVIDED = -10,
+	NN_E_INPUT_TYPE_MISMATCH = -11,
+	NN_E_INVALID_NETWORK = -12,
+	NN_E_NO_INPUT_BUFFER_PROVIDED = -13,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;

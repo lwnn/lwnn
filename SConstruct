@@ -1,4 +1,6 @@
-from tools.building import *
+import sys
+sys.path.append('tools')
+from building import *
 
 PrepareEnv()
 

@@ -32,7 +32,7 @@ int nnt_run(const layer_t* const* network,
 		}
 
 		r = nn_predict(nn, inputs, outputs);
-		EXPECT_TRUE(0 == r);
+		EXPECT_EQ(0, r);
 		nn_destory(nn);
 	}
 
