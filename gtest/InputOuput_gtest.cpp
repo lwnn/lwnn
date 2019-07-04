@@ -38,7 +38,7 @@ static void InputOutputTest(runtime_type_t runtime, const int dims[4])
 	nn_input_t** inputs = nnt_allocate_inputs({L_REF(input0)});
 	nn_output_t** outputs = nnt_allocate_outputs({L_REF(output)});
 
-	nnt_fill_inputs_with_random_f(inputs, -10, 10);
+	nnt_fill_inputs_with_random(inputs, -10, 10);
 	int r = nnt_run(network1, runtime, inputs, outputs);
 
 	if(0 == r)

@@ -8,6 +8,31 @@
 #define INPUT_DIMS 2,4,5,7
 
 #define MAX_INPUTS L_REF(input0),L_REF(input1)
+
+#define MAX_VERIFY_OUTPUTS(type, inputs, outputs)			\
+do {													\
+	size_t sz = layer_get_size(inputs[0]->layer);		\
+														\
+	int nequal = 0;										\
+	type* A = (type*)inputs[0]->data;					\
+	type* B = (type*)inputs[1]->data;					\
+	type* O = (type*)outputs[0]->data;					\
+	for(int i=0; i<sz; i++)								\
+	{													\
+		type a = A[i];									\
+		type b = B[i];									\
+		type o = O[i];									\
+		type max = (type)std::fmax((float)a,(float)b);	\
+														\
+		if(std::fabs(max-o) > EQUAL_THRESHOLD)			\
+		{												\
+			nequal++;									\
+			printf("@%d %f != %f=fmax(%f, %f)\n",		\
+					i, (float)max, (float)o, (float)a, (float)b);	\
+		}															\
+	}																\
+	EXPECT_TRUE(0 == nequal);										\
+} while(0)
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -44,32 +69,24 @@ void EltmentWiseTest(runtime_type_t runtime, const int dims[4])
 	nn_input_t** inputs = nnt_allocate_inputs({L_REF(input0), L_REF(input1)});
 	nn_output_t** outputs = nnt_allocate_outputs({L_REF(output)});
 
-	nnt_fill_inputs_with_random_f(inputs, -100, 100);
+	nnt_fill_inputs_with_random(inputs, -100, 100);
 	int r = nnt_run(network1, runtime, inputs, outputs);
 
 	if(0 == r)
 	{
-		size_t sz = layer_get_size(L_REF(input0));
-
-		int nequal = 0;
-		float* A = (float*)inputs[0]->data;
-		float* B = (float*)inputs[1]->data;
-		float* O = (float*)outputs[0]->data;
-		for(int i=0; i<sz; i++)
+		if(l_layer_input0.dtype == L_DT_FLOAT)
 		{
-			float a = A[i];
-			float b = B[i];
-			float o = O[i];
-			float max = std::fmax(a,b);
-
-			if(std::fabs(max-o) > EQUAL_THRESHOLD)
-			{
-				nequal++;
-				printf("@%d %f != %f=fmax(%f, %f)\n", i, max, o, a, b);
-			}
+			MAX_VERIFY_OUTPUTS(float, inputs, outputs);
+		}
+		else if(l_layer_input0.dtype == L_DT_INT8)
+		{
+			MAX_VERIFY_OUTPUTS(int8_t, inputs, outputs);
+		}
+		else
+		{
+			assert(0);
 		}
 
-		EXPECT_TRUE(0 == nequal);
 	}
 
 	nnt_free_inputs(inputs);
@@ -91,4 +108,19 @@ TEST(RuntimeCPU, ElementWiseMax)
 	{
 		EltmentWiseTest(RUNTIME_CPU, test_dims[i]);
 	}
+}
+
+TEST(RuntimeCPUQ8, ElementWiseMax)
+{
+	l_layer_input0.dtype = L_DT_INT8;
+	l_layer_input1.dtype = L_DT_INT8;
+
+	for(int i=0; i<ARRAY_SIZE(test_dims); i++)
+	{
+		EltmentWiseTest(RUNTIME_CPU, test_dims[i]);
+	}
+
+	l_layer_input0.dtype = L_DT_FLOAT;
+	l_layer_input1.dtype = L_DT_FLOAT;
+
 }
