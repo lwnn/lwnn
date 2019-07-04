@@ -1,6 +1,12 @@
+from building import *
 Import('asenv')
+
+cwd = GetCurrentDir()
+cmd = 'cd %s && python gen_models.py'%(cwd)
+#RunCommand(cmd)
 
 asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++'])
 
 objs = Glob('*.cpp')
+objs = Glob('models/*.c')
 Return('objs')

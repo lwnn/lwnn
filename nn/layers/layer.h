@@ -78,6 +78,20 @@ extern "C" {
 	layer_data_type_t dtype
 
 #define NHWC_SIZE(nhwc) (((nhwc).N)*((nhwc).H)*((nhwc).W)*((nhwc).C))
+
+#define UNSUPPORTED_LAYER_OPS(runtime, op)									\
+int layer_##runtime##_##op##_init(const nn_t* nn, const layer_t* layer)		\
+{																			\
+	NNLOG(NN_ERROR,("OP " #op " is supported on runtime " #runtime));		\
+	return NN_E_NOT_SUPPORTED;												\
+}																			\
+int layer_##runtime##_##op##_execute(const nn_t* nn, const layer_t* layer)	\
+{																			\
+	return NN_E_NOT_SUPPORTED;												\
+}																			\
+void layer_##runtime##_##op##_deinit(const nn_t* nn, const layer_t* layer)	\
+{																			\
+}
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum
 {
