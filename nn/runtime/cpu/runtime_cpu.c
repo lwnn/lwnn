@@ -8,10 +8,17 @@
 #include "runtime_cpu.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
+typedef struct rte_cpu_buffer
+{
+	STAILQ_ENTRY(rte_cpu_buffer) entry;
+	const layer_t* owner;
+	void* data;
+	size_t sz;
+} rte_cpu_buffer_t;
 typedef struct
 {
 	runtime_cpu_type_t type;
-
+	STAILQ_HEAD(rte_cpu_buffer_head,rte_cpu_buffer) buffers;
 } rte_cpu_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 #ifndef DISABLE_RUNTIME_CPU_Q8
@@ -146,6 +153,25 @@ static int cpu_deinit_layer(const nn_t* nn, const layer_t* layer)
 	return 0;
 }
 
+static int cpu_adjust_layer_buffer(const nn_t* nn, const layer_t* layer)
+{
+	int r = 0;
+	int i;
+	rte_cpu_buffer_t* buffer;
+	layer_cpu_context_t* context = (layer_cpu_context_t*)layer->C->context;
+
+	for(i=0; i<context->nout; i++)
+	{
+		buffer = context->out[i];
+		if(NULL != buffer)
+		{
+			context->out[i] = buffer->data;
+		}
+	}
+
+	return r;
+}
+
 /* ============================ [ FUNCTIONS ] ====================================================== */
 runtime_t rte_CPU_create(const nn_t* nn)
 {
@@ -161,9 +187,11 @@ void rte_CPU_destory(const nn_t* nn)
 int rte_CPU_init(const nn_t* nn)
 {
 	int r;
+	rte_cpu_buffer_t* b;
 	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
 
 	rt->type = RTE_CPU_TYPE_UNKNOWN;
+	STAILQ_INIT(&(rt->buffers));
 	r = rte_do_for_each_layer(nn, cpu_get_runtime_type);
 
 	if((r == NN_EXIT_OK) && (rt->type != RTE_CPU_TYPE_UNKNOWN))
@@ -174,6 +202,25 @@ int rte_CPU_init(const nn_t* nn)
 	{
 		r = NN_E_INVALID_NETWORK;
 	}
+
+	if(0 == r)
+	{
+		STAILQ_FOREACH(b, &(rt->buffers), entry)
+		{
+			b->data = malloc(b->sz);
+			if(b->data == NULL)
+			{
+				r = NN_E_NO_MEMORY;
+				break;
+			}
+		}
+	}
+
+	if(0 == r)
+	{
+		r = rte_do_for_each_layer(nn, cpu_adjust_layer_buffer);
+	}
+
 	return r;
 }
 
@@ -214,6 +261,7 @@ int rte_cpu_create_layer_context(
 		}
 		context->out = (void**)(((unsigned long long)context)+sz);
 		context->nout = nout;
+		memset(context->out, 0, sizeof(void*)*nout);
 		r = layer_get_NHWC(layer, &context->nhwc);
 		if(0 != r)
 		{
@@ -244,6 +292,47 @@ void rte_cpu_destory_layer_context(const nn_t* nn, const layer_t* layer)
 	}
 
 	layer->C->context = NULL;
+}
+
+void* rte_cpu_create_buffer(const nn_t* nn, const layer_t* layer, size_t sz)
+{
+	int r;
+	rte_cpu_buffer_t* buffer = NULL;
+	rte_cpu_buffer_t* b;
+	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
+
+	STAILQ_FOREACH(b, &(rt->buffers), entry)
+	{
+		r = rte_is_layer_consumed_from(nn, layer, b->owner);
+		if(FALSE == r)
+		{
+			buffer = b;
+			break;
+		}
+	}
+
+	if(NULL == buffer)
+	{
+		buffer = malloc(sizeof(rte_cpu_buffer_t));
+		if(NULL != buffer)
+		{
+			buffer->owner = layer;
+			buffer->sz = sz;
+			buffer->data = NULL;
+
+			STAILQ_INSERT_TAIL(&(rt->buffers), buffer, entry);
+		}
+	}
+	else
+	{
+		buffer->owner = layer;
+		if(sz > buffer->sz)
+		{
+			buffer->sz = sz;
+		}
+	}
+
+	return buffer;
 }
 #endif /* DISABLE_RUNTIME_CPU */
 

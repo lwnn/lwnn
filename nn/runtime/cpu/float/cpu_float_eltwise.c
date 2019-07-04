@@ -44,7 +44,7 @@ static int layer_cpu_float_eltwise_init(const nn_t* nn, const layer_t* layer)
 
 		RTE_CPU_LOG_LAYER_SHAPE(layer);
 
-		context->out[0] = malloc(NHWC_SIZE(context->nhwc)*sizeof(float));
+		context->out[0] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*sizeof(float));
 
 		if(NULL == context->out[0])
 		{

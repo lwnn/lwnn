@@ -43,6 +43,7 @@ int rte_cpu_create_layer_context(
 			const nn_t* nn, const layer_t* layer,
 			size_t sz, size_t nout);
 void rte_cpu_destory_layer_context(const nn_t* nn, const layer_t* layer);
+void* rte_cpu_create_buffer(const nn_t* nn, const layer_t* layer, size_t sz);
 #ifdef __cplusplus
 }
 #endif

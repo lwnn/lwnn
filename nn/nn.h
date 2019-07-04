@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <assert.h>
+#include <sys/queue.h>
 /* ============================ [ MACROS    ] ====================================================== */
 #ifdef __cplusplus
 extern "C" {

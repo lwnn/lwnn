@@ -102,3 +102,35 @@ int rte_do_for_each_layer(const nn_t* nn, rte_layer_action_t action)
 
 	return r;
 }
+
+int rte_is_layer_consumed_from(const nn_t* nn, const layer_t* layer, const layer_t* from)
+{
+	int r = FALSE;
+
+	const layer_t* const* network;
+	const layer_t** inputs;
+
+	network = nn->network;
+
+	while((NULL != (*network)) && ((*network) != from))
+	{
+		network++;
+	}
+
+	do
+	{
+		inputs = (*network)->inputs;
+		while((*inputs != NULL) && (FALSE == r))
+		{
+			if(*inputs == layer)
+			{
+				r = TRUE;
+			}
+
+			inputs++;
+		}
+		network++;
+	} while((NULL != (*network)) && (FALSE == r));
+
+	return r;
+}

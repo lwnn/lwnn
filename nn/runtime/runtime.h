@@ -32,6 +32,7 @@ int rte_execute(const nn_t* nn);
 void rte_destory(const nn_t* nn);
 
 int rte_do_for_each_layer(const nn_t* nn, rte_layer_action_t action);
+int rte_is_layer_consumed_from(const nn_t* nn, const layer_t* layer, const layer_t* from);
 #ifdef __cplusplus
 }
 #endif
