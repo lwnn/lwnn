@@ -2,9 +2,11 @@ from building import *
 Import('asenv')
 
 cwd = GetCurrentDir()
-cmd = 'cd %s && python gen_models.py'%(cwd)
-if(not GetOption('clean')):
-    RunCommand(cmd)
+tgt = '%s/models/date.o'%(cwd)
+src = '%s/gen_models.py'%(cwd)
+cmd = 'cd %s && python gen_models.py && date > %s'%(cwd, tgt)
+
+MKObject(src, tgt, cmd)
 
 asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++'])
 

@@ -2,6 +2,7 @@
 import onnx
 import onnxruntime
 import os
+import numpy as np
 
 __all__ = ['onnx2lwnn']
 
@@ -16,16 +17,49 @@ def get_inputs(node, model):
                 inputs.append(node2.name)
     return inputs
 
-def get_outpus(node, model):
+def eval_outputs(node, model):
     outputs = []
-    content = onnx_model.SerializeToString()
-    sess = onnxruntime.InferenceSession(content)
-    feed = dict([(input.name, x[n]) for input in sess.get_inputs()])
-    pred_onnx = sess.run(None, feed)
+    oldnodes = [n for n in model.graph.node]
+    Id = 0
+    for n in model.graph.node:
+        Id += 1
+        if(n == node):
+            break
+    newnodes = oldnodes[0:Id]
+    del model.graph.node[:]
+    model.graph.node.extend(newnodes)
+
+    oldoutputs = [n for n in model.graph.output]
+    print(oldoutputs)
+    del model.graph.output[:]
+    newoutputs = [node]
+    model.graph.output.extend(newoutputs)
+    
+    onnx.save(model, '.tmp.onnx')
+    del model.graph.node[:]
+    model.graph.node.extend(oldnodes)
+    del model.graph.output[:]
+    model.graph.output.extend(oldoutputs)
+
+    sess = onnxruntime.InferenceSession('.tmp.onnx')
+    feed = {}
+    for inp in sess.get_inputs():
+        shape = list(inp.shape)
+        if(shape[0] == None):
+            shape[0] = 1
+        data = np.random.uniform(low=0,high=1,size=shape).astype(np.float32)
+        feed[inp.name] = data
+    outputs = sess.run(node.output, feed)
+
     return outputs
 
+def get_shape(node, model):
+    outputs = eval_outputs(node, model)
+    return outputs[0].shape
+    
 def to_lwnn_LayerCommon(node, model):
     layer = {'name': node.name, 'op': node.op_type, 'inputs':get_inputs(node, model)}
+    #layer['shape'] = get_shape(node, model)
     return layer
 
 def to_lwnn_Transpose(node, model):
@@ -35,11 +69,21 @@ def to_lwnn_Transpose(node, model):
             layer[attr.name] = attr.ints
     return layer
 
+def get_initializer(name, model):
+    for init in model.graph.initializer:
+        if(name == init.name):
+            return init
+
 def to_lwnn_Conv(node, model):
     layer = to_lwnn_LayerCommon(node, model)
     for attr in node.attribute:
         if(attr.name in ['dilations', 'kernel_shape', 'strides']):
             layer[attr.name] = attr.ints
+    W = get_initializer(node.input[1], model)
+    B = get_initializer(node.input[2], model)
+    layer['filters'] = int(W.dims[0])
+    layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
+    layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
     return layer
 
 def to_lwnn_Identity(node, model):
@@ -54,6 +98,8 @@ def to_lwnn_model(model):
     lwnn_model = []
     for inp in model.graph.input:
         shape = [int(dim.dim_value) for dim in inp.type.tensor_type.shape.dim]
+        if(shape[0] == 0):
+            shape[0] = 1
         layer = {'name': inp.name, 
                  'op': 'Input',
                  'shape': shape }

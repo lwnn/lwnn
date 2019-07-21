@@ -5,8 +5,6 @@
 #ifndef NN_NN_H_
 #define NN_NN_H_
 /* ============================ [ INCLUDES  ] ====================================================== */
-#include "layer.h"
-#include "runtime.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -14,6 +12,9 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/queue.h>
+
+#include "layer.h"
+#include "runtime.h"
 /* ============================ [ MACROS    ] ====================================================== */
 #ifdef __cplusplus
 extern "C" {

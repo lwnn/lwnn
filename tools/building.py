@@ -82,6 +82,24 @@ def RunCommand(cmd, e=True):
         raise Exception('FAIL of RunCommand "%s" = %s'%(cmd, ret))
     return ret
 
+def MKObject(src, tgt, cmd, rm=True):
+    if(GetOption('clean') and rm):
+        RMFile(tgt)
+        return
+    mtime = 0
+    for s in src:
+        s = str(s)
+        if(os.path.isfile(s)):
+            tm = os.path.getmtime(s)
+            if(tm > mtime):
+                mtime = tm
+    if(os.path.isfile(tgt)):
+        mtime2 = os.path.getmtime(tgt)
+    else:
+        mtime2 = -1
+    if(mtime2 < mtime):
+        RunCommand(cmd)
+
 def AppendPythonPath(lp):
     try:
         pypath = os.environ['PYTHONPATH']

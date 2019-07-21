@@ -11,3 +11,21 @@ So I decieded to do something meaningfull, do some study of OpenCL and at the me
 And for the purpose to support variant Deep Learning frameworks such as tensorflow/keras/caffe2, pytorch etc, the [onnx](https://onnx.ai/) will be supported by lwnn.
 
 ![arch](docs/arch.png)
+
+
+## Development
+
+### prepare environment
+```sh
+conda create -n lwnn python=3.6
+source activate lwnn
+conda install scons tensorflow keras 
+conda install -c caffe2 caffe2
+pip install keras2onnx onnxruntime
+```
+
+### build
+
+```sh
+scons
+```
