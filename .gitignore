@@ -9,3 +9,4 @@ build
 *.pyc
 third_party
 gtest/models
+*ipynb*

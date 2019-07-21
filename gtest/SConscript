@@ -3,7 +3,8 @@ Import('asenv')
 
 cwd = GetCurrentDir()
 cmd = 'cd %s && python gen_models.py'%(cwd)
-#RunCommand(cmd)
+if(not GetOption('clean')):
+    RunCommand(cmd)
 
 asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++'])
 
