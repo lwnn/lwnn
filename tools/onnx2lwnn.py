@@ -34,7 +34,7 @@ def eval_outputs(node, model):
     del model.graph.output[:]
     newoutputs = [node]
     model.graph.output.extend(newoutputs)
-    
+
     onnx.save(model, '.tmp.onnx')
     del model.graph.node[:]
     model.graph.node.extend(oldnodes)
@@ -56,38 +56,62 @@ def eval_outputs(node, model):
 def get_shape(node, model):
     outputs = eval_outputs(node, model)
     return outputs[0].shape
-    
-def to_lwnn_LayerCommon(node, model):
-    layer = {'name': node.name, 'op': node.op_type, 'inputs':get_inputs(node, model)}
-    #layer['shape'] = get_shape(node, model)
-    return layer
-
-def to_lwnn_Transpose(node, model):
-    layer = to_lwnn_LayerCommon(node, model)
-    for attr in node.attribute:
-        if(attr.name == 'perm'):
-            layer[attr.name] = attr.ints
-    return layer
 
 def get_initializer(name, model):
     for init in model.graph.initializer:
         if(name == init.name):
             return init
+    raise Exception('ERROR: weights %s is not found'%(name))
 
-def to_lwnn_Conv(node, model):
+def get_layers(names, lwnn_model):
+    layers = []
+    for layer in lwnn_model:
+        if(layer['name'] in names):
+            layers.append(layer)
+    return layers
+
+def to_lwnn_LayerCommon(node, model):
+    layer = {'name': node.name, 'op': node.op_type, 'inputs':get_inputs(node, model)}
+    #layer['shape'] = get_shape(node, model)
+    return layer
+
+def to_lwnn_Transpose(node, model, lwnn_model):
     layer = to_lwnn_LayerCommon(node, model)
     for attr in node.attribute:
-        if(attr.name in ['dilations', 'kernel_shape', 'strides']):
+        if(attr.name == 'perm'):
+            layer[attr.name] = attr.ints
+    inputs = get_layers(layer['inputs'], lwnn_model)
+    perm = layer['perm']
+    shape = inputs[0]['shape']
+    layer['shape'] = [shape[i] for i in perm]
+    return layer
+
+def to_lwnn_Conv(node, model, lwnn_model):
+    layer = to_lwnn_LayerCommon(node, model)
+    for attr in node.attribute:
+        if(attr.name in ['dilations', 'kernel_shape', 'strides', 'pads']):
             layer[attr.name] = attr.ints
     W = get_initializer(node.input[1], model)
     B = get_initializer(node.input[2], model)
     layer['filters'] = int(W.dims[0])
     layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
     layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
+    inputs = get_layers(layer['inputs'], lwnn_model)
+    shape = inputs[0]['shape']
+    shape[1] = layer['filters']
+    dilations = layer['dilations']
+    kernel_shape = layer['kernel_shape']
+    strides = layer['strides']
+    pads = layer['pads']
+    shape[2] = int((pads[0]+shape[2]+pads[1]-(kernel_shape[0]-1))/strides[0])
+    shape[3] = int((pads[2]+shape[3]+pads[3]-(kernel_shape[1]-1))/strides[1])
+    layer['shape'] = shape
     return layer
 
-def to_lwnn_Identity(node, model):
+def to_lwnn_Identity(node, model, lwnn_model):
     layer = to_lwnn_LayerCommon(node, model)
+    inputs = get_layers(layer['inputs'], lwnn_model)
+    layer['shape'] = inputs[0]['shape']
     return layer
 
 TRANSLATOR = {'Transpose': to_lwnn_Transpose,
@@ -106,7 +130,7 @@ def to_lwnn_model(model):
         lwnn_model.append(layer)
     for node in model.graph.node:
         if(node.op_type in TRANSLATOR):
-            layer = TRANSLATOR[node.op_type](node, model)
+            layer = TRANSLATOR[node.op_type](node, model, lwnn_model)
             if(layer != None):
                 lwnn_model.append(layer)
             else:
