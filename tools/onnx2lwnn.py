@@ -13,7 +13,12 @@ class LWNNModel():
                     'Conv': self.to_LayerConv,
                     'Identity': self.to_LayerIdentity }
         self.onnx_model = onnx_model
+        self.shapes = self.eval_shapes()
         self.lwnn_model = self.convert()
+        print(self)
+        self.lwnn_model = self.remove_adjust_layer()
+        print(self)
+        
 
     def get_inputs(self, node):
         inputs = []
@@ -26,45 +31,43 @@ class LWNNModel():
                     inputs.append(node2.name)
         return inputs
 
-    def eval_outputs(self, node):
-        outputs = []
-        oldnodes = [n for n in self.onnx_model.graph.node]
-        Id = 0
-        for n in self.onnx_model.graph.node:
-            Id += 1
-            if(n == node):
-                break
-        newnodes = oldnodes[0:Id]
-        del self.onnx_model.graph.node[:]
-        self.onnx_model.graph.node.extend(newnodes)
-
+    def run(self, feed=None):
+        outputs = {}
         oldoutputs = [n for n in self.onnx_model.graph.output]
         del self.onnx_model.graph.output[:]
-        newoutputs = [onnx.helper.make_tensor_value_info(output, onnx.TensorProto.FLOAT, None) 
-                        for output in node.output]
+        newoutputs = []
+        for node in self.onnx_model.graph.node:
+            for output in node.output:
+                newoutputs.append(onnx.helper.make_tensor_value_info(output, onnx.TensorProto.FLOAT, None))
         self.onnx_model.graph.output.extend(newoutputs)
 
         onnx.save(self.onnx_model, '.tmp.onnx')
-        del self.onnx_model.graph.node[:]
-        self.onnx_model.graph.node.extend(oldnodes)
         del self.onnx_model.graph.output[:]
         self.onnx_model.graph.output.extend(oldoutputs)
 
         sess = onnxruntime.InferenceSession('.tmp.onnx')
-        feed = {}
-        for inp in sess.get_inputs():
-            shape = list(inp.shape)
-            if(shape[0] == None):
-                shape[0] = 1
-            data = np.random.uniform(low=0,high=1,size=shape).astype(np.float32)
-            feed[inp.name] = data
-        outputs = sess.run(node.output, feed)
-
+        if(feed == None):
+            feed = {}
+            for inp in sess.get_inputs():
+                shape = list(inp.shape)
+                if(shape[0] == None):
+                    shape[0] = 1
+                data = np.random.uniform(low=0,high=1,size=shape).astype(np.float32)
+                feed[inp.name] = data
+        rs = sess.run(None, feed)
+        for r,o in zip(rs, newoutputs):
+            outputs[o.name] = r
         return outputs
 
+    def eval_shapes(self):
+        shapes = {}
+        outputs = self.run()
+        for name, r in outputs.items():
+            shapes[name] = r.shape
+        return shapes
+
     def get_shape(self, node):
-        outputs = self.eval_outputs(node)
-        return outputs[0].shape
+        return self.shapes[node.output[0]]
 
     def get_initializer(self, name):
         for init in self.onnx_model.graph.initializer:
@@ -72,9 +75,11 @@ class LWNNModel():
                 return init
         raise Exception('ERROR: weights %s is not found'%(name))
 
-    def get_layers(self, names):
+    def get_layers(self, names, model=None):
         layers = []
-        for layer in self.lwnn_model:
+        if(model == None):
+            model = self.lwnn_model
+        for layer in model:
             if(layer['name'] in names):
                 layers.append(layer)
         return layers
@@ -126,9 +131,97 @@ class LWNNModel():
                     print('WARNINING: layer %s is ignored:\n%s\n'%(node.name, node))
             else:
                 raise Exception('ERROR: OP %s is not supported:\n%s\n'%(node.op_type, node))
-        for layer in lwnn_model:
-            print(layer)
         return lwnn_model
+
+    def is_input_channel_adjusted(self, layer):
+        r = False
+        if((layer['op'] == 'Transpose')
+            and (len(layer['perm']) == 4)
+            and (layer['perm'][0] == 0)
+            and (layer['perm'][1] == 3)
+            and (layer['perm'][2] == 1)
+            and (layer['perm'][3] == 2)):
+            inputs = self.get_layers(layer['inputs'])
+            if(inputs[0]['op'] == 'Input'):
+                r = True
+        return r
+
+    def is_any_of_inputs_input_channel_adjusted(self, layer):
+        r = False
+        if(layer['op'] != 'Input'):
+            inputs = self.get_layers(layer['inputs'])
+            for inp in inputs: 
+                if(self.is_input_channel_adjusted(inp)):
+                    r = True
+        return r
+
+    def is_output_channel_adjusted(self, layer):
+        r = False
+        if(layer['op'] == 'Identity'):
+            inp = self.get_layers(layer['inputs'])[0]
+            if((inp['op'] == 'Transpose')
+                and (len(inp['perm']) == 4)
+                and (inp['perm'][0] == 0)
+                and (inp['perm'][1] == 2)
+                and (inp['perm'][2] == 3)
+                and (inp['perm'][3] == 1)):
+                r = True
+        return r
+
+    def remove_adjust_layer(self):
+        is_model_channel_first = True
+        for layer in self.lwnn_model:
+            if(self.is_input_channel_adjusted(layer)):
+                is_model_channel_first = False
+        if(is_model_channel_first):
+            model = self.lwnn_model
+        else:
+            model = []
+            # for ONNX models exported from keras, it was maybe channel last
+            # so firstly need to strip those input adjust
+            for layer in self.lwnn_model:
+                if(self.is_any_of_inputs_input_channel_adjusted(layer)):
+                    # previous layer is a adjust layer
+                    new_inputs = []
+                    inputs = self.get_layers(layer['inputs'])
+                    for inp in inputs: 
+                        if(self.is_input_channel_adjusted(inp)):
+                            inp_inputs = self.get_layers(inp['inputs'])
+                            new_inputs.append(inp_inputs[0]['name'])
+                        else:
+                            new_inputs.append(inp['name'])
+                    new_layer = dict(layer)
+                    new_layer['inputs'] = new_inputs
+                    model.append(new_layer)
+                elif(self.is_input_channel_adjusted(layer)):
+                    inputs = self.get_layers(layer['inputs'], model)
+                    inp = inputs[0]
+                    shape = inp['shape']
+                    inp['shape'] = [shape[i] for i in [0,3,1,2]]
+                elif(self.is_output_channel_adjusted(layer)):
+                    inputs = self.get_layers(layer['inputs'], model)
+                    inp = inputs[0]
+                    model.remove(inp)
+                    new_layer = dict(layer)
+                    new_layer['inputs'] = inp['inputs']
+                    shape = new_layer['shape']
+                    new_layer['shape'] = [shape[i] for i in [0, 3, 1, 2]]
+                    model.append(new_layer)
+                else:
+                    model.append(dict(layer))
+        return model
+
+    def __str__(self):
+        cstr = 'LWNN Model:\n'
+        for layer in self.lwnn_model:
+            cstr += ' {'
+            for k,v in layer.items():
+                if(k in ['weights','bias']):
+                    cstr += '%s: %s, '%(k, v.shape)
+                else:
+                    cstr += '%s: %s, '%(k,v)
+            cstr += '}\n'
+        return cstr
 
 def onnx2lwnn(model, name):
     if('/' not in name):
