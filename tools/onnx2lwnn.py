@@ -6,19 +6,103 @@ import numpy as np
 
 __all__ = ['onnx2lwnn']
 
+class LWNNFloatC():
+    def __init__(self, model):
+        self.GENL = {
+                'Input': self.gen_LayerInput,
+                'Conv': self.gen_LayerConv,
+                'Identity': self.gen_LayerOutput }
+        self.model = model
+        self.fpH = self.model.open('float.h')
+        self.fpC = self.model.open('float.c')
+        self.fpC.write('#include "%s"\n\n'%(os.path.basename(self.fpH.name)))
+        self.gen_layers()
+        self.gen_models()
+        self.model.close(self.fpH)
+        self.model.close(self.fpC)
+
+    def get_shape(self, layer):
+        shape = layer['shape']
+        if(len(shape)==4):
+            shape = [shape[i] for i in [0,2,3,1]]
+        return shape
+
+    def gen_LayerInput(self, layer):
+        shape = self.get_shape(layer)
+        self.fpC.write('#define %s_DIMS %s\n'%(layer['name'], 
+                            ','.join(['%s'%(s) for s in shape])))
+        self.fpC.write('L_INPUT ({0}, {0}_DIMS, L_DT_FLOAT);\n\n'.format(layer['name']))
+
+    def gen_LayerConv(self, layer):
+        W = layer['weights']
+        if(len(W.shape)==4):
+            W = W.transpose(1,2,3,0)
+        elif(len(W.shape)==3):
+            W = W.transpose(1,2,0)
+        B = layer['bias']
+        self.fpH.write('static const float %s_W[/*%s*/] = {'%(layer['name'], W.shape))
+        self.fpH.write(', '.join(['%s'%(f) for f in W.reshape(-1)]))
+        self.fpH.write('};\n')
+        self.fpH.write('static const float %s_B[/*%s*/] = {'%(layer['name'], B.shape))
+        self.fpH.write(', '.join(['%s'%(f) for f in B.reshape(-1)]))
+        self.fpH.write('};\n')
+
+    def gen_LayerOutput(self, layer):
+        self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_layers(self):
+        for layer in self.model.lwnn_model:
+            self.GENL[layer['op']](layer)
+
+    def gen_models(self):
+        pass
+
+
 class LWNNModel():
-    def __init__(self, onnx_model):
+    def __init__(self, onnx_model, name):
         self.TRANSLATOR = {
                     'Transpose': self.to_LayerTranspose,
                     'Conv': self.to_LayerConv,
                     'Identity': self.to_LayerIdentity }
+        self.name = name
+        if(type(onnx_model) == str):
+            onnx_model = onnx.load(onnx_model)
+        else:
+            self.save(onnx_model)
         self.onnx_model = onnx_model
         self.shapes = self.eval_shapes()
         self.lwnn_model = self.convert()
-        print(self)
         self.lwnn_model = self.remove_adjust_layer()
         print(self)
-        
+
+    def save(self, onnx_model):
+        with open(self.path+'.onnx','wb') as f:
+            f.write(onnx_model.SerializeToString())
+
+    @property
+    def path(self):
+        if('/' not in self.name):
+            p = 'models/%s'%(self.name)
+        else:
+            p = self.name
+        d = os.path.dirname(p)
+        os.makedirs(d, exist_ok=True)
+        return p
+
+    def open(self, fix='.c'):
+        if(fix != '.c'):
+            fix = '_' + fix
+        p = self.path + fix
+        print('LWNN %s'%(p))
+        fp = open(p, 'w')
+        fp.write('#include "nn.h"\n')
+        return fp
+
+    def close(self, fp):
+        fp.close()
+
+    def gen_float_c(self):
+        LWNNFloatC(self)
 
     def get_inputs(self, node):
         inputs = []
@@ -178,7 +262,7 @@ class LWNNModel():
         else:
             model = []
             # for ONNX models exported from keras, it was maybe channel last
-            # so firstly need to strip those input adjust
+            # so firstly need to strip those input/ouput adjust
             for layer in self.lwnn_model:
                 if(self.is_any_of_inputs_input_channel_adjusted(layer)):
                     # previous layer is a adjust layer
@@ -212,7 +296,7 @@ class LWNNModel():
         return model
 
     def __str__(self):
-        cstr = 'LWNN Model:\n'
+        cstr = 'LWNN Model %s:\n'%(self.name)
         for layer in self.lwnn_model:
             cstr += ' {'
             for k,v in layer.items():
@@ -224,25 +308,5 @@ class LWNNModel():
         return cstr
 
 def onnx2lwnn(model, name):
-    if('/' not in name):
-        p = 'models/%s'%(name)
-    else:
-        p = name
-    if(not p.endswith('.c')):
-        p = p + '.c'
-    d = os.path.dirname(p)
-    os.makedirs(d, exist_ok=True)
-    print('LWNN %s'%(p))
-
-    if(type(model) == str):
-        model = onnx.load(model)
-    else:
-        with open(p[:-2]+'.onnx','wb') as f:
-            f.write(model.SerializeToString())
-
-    model = LWNNModel(model)
-
-    fp = open(p, 'w')
-    fp.write('#include "nn.h"')
-    
-    fp.close()
+    model = LWNNModel(model, name)
+    model.gen_float_c()
