@@ -15,9 +15,9 @@ extern "C" {
 #define LCONST const
 #endif
 
-#define L_INPUT(name, shape, dtype)						\
+#define L_INPUT(name, dtype)							\
 	static layer_context_container_t l_context_##name;	\
-	static LCONST int l_dims_##name[] = { shape, 0 };	\
+	static LCONST int l_dims_##name[] = { name##_DIMS, 0 };	\
 	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
 		/* inputs */ NULL,								\
@@ -30,11 +30,11 @@ extern "C" {
 
 #define L_OUTPUT(name, input)							\
 	static layer_context_container_t l_context_##name;	\
-	static LCONST layer_t* l_inputs##name[] = {			\
+	static LCONST layer_t* l_inputs_##name[] = {			\
 			L_REF(input), NULL };						\
 	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
-		/* inputs */ l_inputs##name,					\
+		/* inputs */ l_inputs_##name,					\
 		/* blobs */ NULL,								\
 		/* dims */ NULL,								\
 		/* context */ &l_context_##name,				\
@@ -46,7 +46,7 @@ extern "C" {
 	static layer_context_container_t l_context_##name;	\
 	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
-		/* inputs */ l_inputs##name,					\
+		/* inputs */ l_inputs_##name,					\
 		/* blobs */ NULL,								\
 		/* dims */ NULL,								\
 		/* context */ &l_context_##name,				\
@@ -55,9 +55,25 @@ extern "C" {
 	}
 
 #define L_MAXIMUM(name, inputs)							\
-	static LCONST layer_t* l_inputs##name[] = {			\
+	static LCONST layer_t* l_inputs_##name[] = {			\
 			inputs, NULL };								\
 	L_ELEMENT_WISE(name, L_OP_MAXIMUM)
+
+#define L_CONV2D(name, input)				\
+		static layer_context_container_t l_context_##name;	\
+		static LCONST layer_t* l_inputs_##name[] = {		\
+				L_REF(input), NULL };						\
+		static LCONST int l_dims_##name[] = { name##_DIMS, 0 };	\
+		static LCONST layer_t l_layer_##name = {			\
+			/* name */ #name,								\
+			/* inputs */ l_inputs_##name,					\
+			/* blobs */ l_blobs_##name,						\
+			/* dims */ l_dims_##name,						\
+			/* context */ &l_context_##name,				\
+			/* op */ L_OP_CONV2D,							\
+			/* dtype */ L_DT_AUTO							\
+		}
+
 
 #define L_REF(name) &l_layer_##name
 

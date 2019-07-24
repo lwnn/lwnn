@@ -6,6 +6,8 @@
 #include "nn_test_util.h"
 /* ============================ [ MACROS    ] ====================================================== */
 #define INPUT_DIMS 2,4,5,7
+#define input0_DIMS INPUT_DIMS
+#define input1_DIMS INPUT_DIMS
 
 #define MAX_INPUTS L_REF(input0),L_REF(input1)
 
@@ -37,8 +39,8 @@ do {													\
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-L_INPUT (input0,  INPUT_DIMS,  L_DT_FLOAT);
-L_INPUT (input1,  INPUT_DIMS,  L_DT_FLOAT);
+L_INPUT (input0, L_DT_FLOAT);
+L_INPUT (input1, L_DT_FLOAT);
 L_MAXIMUM(max, MAX_INPUTS);
 L_OUTPUT(output, max);
 static const layer_t* const network1[] =

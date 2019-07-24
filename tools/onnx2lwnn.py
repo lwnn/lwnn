@@ -6,32 +6,84 @@ import numpy as np
 
 __all__ = ['onnx2lwnn']
 
-class LWNNFloatC():
-    def __init__(self, model):
+class LWNNBaseC():
+    def __init__(self, model, T):
         self.GENL = {
                 'Input': self.gen_LayerInput,
                 'Conv': self.gen_LayerConv,
                 'Identity': self.gen_LayerOutput }
         self.model = model
-        self.fpH = self.model.open('float.h')
-        self.fpC = self.model.open('float.c')
+        self.name = os.path.basename(self.model.name)
+        self.fpH = self.model.open('%s.h'%(T))
+        self.fpC = self.model.open('%s.c'%(T))
         self.fpC.write('#include "%s"\n\n'%(os.path.basename(self.fpH.name)))
-        self.gen_layers()
-        self.gen_models()
+        self.gen()
         self.model.close(self.fpH)
         self.model.close(self.fpC)
 
-    def get_shape(self, layer):
-        shape = layer['shape']
+    def to_nhwc(self, shape):
         if(len(shape)==4):
             shape = [shape[i] for i in [0,2,3,1]]
         return shape
 
-    def gen_LayerInput(self, layer):
+    def get_shape(self, layer):
+        shape = layer['shape']
+        return self.to_nhwc(shape)
+
+    def gen(self):
+        self.gen_layers()
+        self.gen_models()
+
+    def gen_blob(self, name, shape, T):
+        self.fpH.write('static const int l_dims_%s[]={ %s,0 };\n'%(
+            name, ','.join(['%s'%(s) for s in shape])))
+        self.fpH.write('static const layer_blob_t l_blob_%s =\n{\n'%(name))
+        self.fpH.write('\tl_dims_%s,\n'%(name))
+        self.fpH.write('\tL_DT_%s,\n'%(T.upper()))
+        self.fpH.write('\t(void*)%s,\n'%(name))
+        self.fpH.write('};\n')
+
+    def gen_blobs(self, layer, blobs):
+        for blob in blobs:
+            self.gen_blob(*blob)
+        self.fpH.write('static const layer_blob_t* l_blobs_%s[] =\n{\n'%(layer['name'])) 
+        for name, shape, T in blobs:
+            self.fpH.write('\t&l_blob_%s,\n'%(name))
+        self.fpH.write('\tNULL\n};\n\n')
+
+    def gen_layer_WB(self, layer, W, B, T):
+        n = layer['name']
+        self.gen_blobs(layer, [('%s_W'%(n), W.shape, T), ('%s_B'%(n), B.shape, T)])
+
+    def gen_layers(self):
+        for layer in self.model.lwnn_model:
+            self.gen_layer_common(layer)
+            self.GENL[layer['op']](layer)
+
+    def gen_models(self):
+        self.fpC.write('const layer_t* const LWNN_%s[] =\n{\n'%(self.name))
+        for layer in self.model.lwnn_model:
+            self.fpC.write('\tL_REF(%s),\n'%(layer['name']))
+        self.fpC.write('\tNULL\n};\n')
+
+    def gen_layer_common(self, layer):
         shape = self.get_shape(layer)
         self.fpC.write('#define %s_DIMS %s\n'%(layer['name'], 
                             ','.join(['%s'%(s) for s in shape])))
-        self.fpC.write('L_INPUT ({0}, {0}_DIMS, L_DT_FLOAT);\n\n'.format(layer['name']))
+
+    def gen_LayerInput(self, layer):
+        raise NotImplementedError()
+    def gen_LayerConv(self, layer):
+        raise NotImplementedError()
+    def gen_LayerOutput(self, layer):
+        raise NotImplementedError()
+
+class LWNNFloatC(LWNNBaseC):
+    def __init__(self, model):
+        super().__init__(model, 'float')
+
+    def gen_LayerInput(self, layer):
+        self.fpC.write('L_INPUT ({0}, L_DT_FLOAT);\n\n'.format(layer['name']))
 
     def gen_LayerConv(self, layer):
         W = layer['weights']
@@ -40,22 +92,19 @@ class LWNNFloatC():
         elif(len(W.shape)==3):
             W = W.transpose(1,2,0)
         B = layer['bias']
+
         self.fpH.write('static const float %s_W[/*%s*/] = {'%(layer['name'], W.shape))
         self.fpH.write(', '.join(['%s'%(f) for f in W.reshape(-1)]))
         self.fpH.write('};\n')
         self.fpH.write('static const float %s_B[/*%s*/] = {'%(layer['name'], B.shape))
         self.fpH.write(', '.join(['%s'%(f) for f in B.reshape(-1)]))
         self.fpH.write('};\n')
+        self.gen_layer_WB(layer, W, B, 'float')
+
+        self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerOutput(self, layer):
         self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
-
-    def gen_layers(self):
-        for layer in self.model.lwnn_model:
-            self.GENL[layer['op']](layer)
-
-    def gen_models(self):
-        pass
 
 
 class LWNNModel():

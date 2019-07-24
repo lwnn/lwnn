@@ -11,5 +11,5 @@ MKObject(src, tgt, cmd)
 asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++'])
 
 objs = Glob('*.cpp')
-objs = Glob('models/*.c')
+objs += Glob('models/*.c')
 Return('objs')
