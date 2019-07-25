@@ -67,6 +67,21 @@ void nnt_fill_inputs_with_random(nn_input_t** inputs, float lo, float hi)
 	}
 }
 
+void* nnt_load(const char* inraw, size_t *sz)
+{
+	void* in;
+
+	FILE* fp = fopen(inraw,"rb");
+	assert(fp);
+	fseek(fp, 0, SEEK_END);
+	*sz = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	in = malloc(*sz);
+	fread(in, 1, *sz, fp);
+	fclose(fp);
+	return in;
+}
+
 nn_input_t** nnt_allocate_inputs(std::vector<const layer_t*> layers)
 {
 	int sz = layers.size();

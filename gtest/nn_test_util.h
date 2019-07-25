@@ -31,4 +31,5 @@ void nnt_free_outputs(nn_output_t** ouputs);
 int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff);
 
 void nnt_fill_inputs_with_random(nn_input_t** inputs, float lo, float hi);
+void* nnt_load(const char* inraw, size_t *sz);
 #endif /* GTEST_NN_TEST_UTIL_H_ */

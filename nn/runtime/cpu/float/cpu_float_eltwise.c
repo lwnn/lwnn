@@ -31,29 +31,7 @@ static void layer_cpu_float_max(float* A, float* B, float* O, size_t sz)
 }
 static int layer_cpu_float_eltwise_init(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-	layer_cpu_float_eltwise_context_t* context;
-	const char* kernel;
-
-	r = rte_cpu_create_layer_context(nn, layer,
-				sizeof(layer_cpu_float_eltwise_context_t), 1);
-
-	if(0 == r)
-	{
-		context = (layer_cpu_float_eltwise_context_t*)layer->C->context;
-
-		RTE_CPU_LOG_LAYER_SHAPE(layer);
-
-		context->out[0] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*sizeof(float));
-
-		if(NULL == context->out[0])
-		{
-			r = NN_E_NO_MEMORY;
-			rte_cpu_destory_layer_context(nn, layer);
-		}
-	}
-
-	return r;
+	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_eltwise_context_t), sizeof(float));
 }
 
 static int layer_cpu_float_eltwise_execute(const nn_t* nn, const layer_t* layer)

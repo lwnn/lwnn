@@ -294,6 +294,33 @@ void rte_cpu_destory_layer_context(const nn_t* nn, const layer_t* layer)
 	layer->C->context = NULL;
 }
 
+int rte_cpu_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx_sz, size_t type_sz)
+{
+	int r = 0;
+	layer_cpu_context_t* context;
+	const char* kernel;
+
+	r = rte_cpu_create_layer_context(nn, layer, ctx_sz, 1);
+
+	if(0 == r)
+	{
+		context = (layer_cpu_context_t*)layer->C->context;
+
+		RTE_CPU_LOG_LAYER_SHAPE(layer);
+
+		context->out[0] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*type_sz);
+
+		if(NULL == context->out[0])
+		{
+			r = NN_E_NO_MEMORY;
+			rte_cpu_destory_layer_context(nn, layer);
+		}
+	}
+
+	return r;
+}
+
+
 void* rte_cpu_create_buffer(const nn_t* nn, const layer_t* layer, size_t sz)
 {
 	int r;

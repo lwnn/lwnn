@@ -30,13 +30,14 @@ extern "C" {
 
 #define L_OUTPUT(name, input)							\
 	static layer_context_container_t l_context_##name;	\
-	static LCONST layer_t* l_inputs_##name[] = {			\
+	static LCONST layer_t* l_inputs_##name[] = {		\
 			L_REF(input), NULL };						\
+	static LCONST int l_dims_##name[] = { name##_DIMS, 0 };	\
 	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
 		/* inputs */ l_inputs_##name,					\
 		/* blobs */ NULL,								\
-		/* dims */ NULL,								\
+		/* dims */ l_dims_##name,						\
 		/* context */ &l_context_##name,				\
 		/* op */ L_OP_OUTPUT,							\
 		/* dtype */ L_DT_AUTO							\
@@ -98,7 +99,7 @@ extern "C" {
 #define UNSUPPORTED_LAYER_OPS(runtime, op)									\
 int layer_##runtime##_##op##_init(const nn_t* nn, const layer_t* layer)		\
 {																			\
-	NNLOG(NN_ERROR,("OP " #op " is supported on runtime " #runtime));		\
+	NNLOG(NN_ERROR,("OP " #op " is not supported on runtime " #runtime));	\
 	return NN_E_NOT_SUPPORTED;												\
 }																			\
 int layer_##runtime##_##op##_execute(const nn_t* nn, const layer_t* layer)	\

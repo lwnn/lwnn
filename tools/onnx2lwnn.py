@@ -20,6 +20,18 @@ class LWNNBaseC():
         self.gen()
         self.model.close(self.fpH)
         self.model.close(self.fpC)
+        if('1' == os.getenv('LWNN_GTEST')):
+            self.gen_goldens_for_gtest()
+
+    def gen_goldens_for_gtest(self):
+        p = self.model.path
+        os.makedirs(p, exist_ok=True)
+        outputs = self.model.run()
+        for n, v in outputs.items():
+            if(self.model.is_model_channel_first()):
+                if(len(v.shape) == 4):
+                    v = v.transpose(0, 2, 3, 1)
+            v.tofile('%s/%s.raw'%(p, n))
 
     def to_nhwc(self, shape):
         if(len(shape)==4):
@@ -34,9 +46,15 @@ class LWNNBaseC():
         self.gen_layers()
         self.gen_models()
 
-    def gen_blob(self, name, shape, T):
+    def gen_blob(self, name, blob):
+        T = self.get_blob_type(blob)
+        self.fpH.write('static const %s %s[] = {'%(T, name))
+        self.fpH.write(', '.join(['%s'%(f) for f in blob.reshape(-1)]))
+        self.fpH.write('};\n')
         self.fpH.write('static const int l_dims_%s[]={ %s,0 };\n'%(
-            name, ','.join(['%s'%(s) for s in shape])))
+            name, ','.join(['%s'%(s) for s in blob.shape])))
+        if(T=='int'):
+            T='int32'
         self.fpH.write('static const layer_blob_t l_blob_%s =\n{\n'%(name))
         self.fpH.write('\tl_dims_%s,\n'%(name))
         self.fpH.write('\tL_DT_%s,\n'%(T.upper()))
@@ -47,13 +65,23 @@ class LWNNBaseC():
         for blob in blobs:
             self.gen_blob(*blob)
         self.fpH.write('static const layer_blob_t* l_blobs_%s[] =\n{\n'%(layer['name'])) 
-        for name, shape, T in blobs:
+        for name, _ in blobs:
             self.fpH.write('\t&l_blob_%s,\n'%(name))
         self.fpH.write('\tNULL\n};\n\n')
 
-    def gen_layer_WB(self, layer, W, B, T):
+    def get_blob_type(self, blob):
+        if(blob.dtype == np.float32):
+            return 'float'
+        elif(blob.dtype == np.int32):
+            return 'int'
+        raise Exception('unsupported numpy type %s'%(blob.dtype))
+
+    def gen_layer_WBM(self, layer, W, B, M=None):
         n = layer['name']
-        self.gen_blobs(layer, [('%s_W'%(n), W.shape, T), ('%s_B'%(n), B.shape, T)])
+        blobs = [('%s_W'%(n), W), ('%s_B'%(n), B)]
+        if(type(M) == np.ndarray):
+            blobs.append(('%s_M'%(n), M))
+        self.gen_blobs(layer, blobs)
 
     def gen_layers(self):
         for layer in self.model.lwnn_model:
@@ -88,18 +116,11 @@ class LWNNFloatC(LWNNBaseC):
     def gen_LayerConv(self, layer):
         W = layer['weights']
         if(len(W.shape)==4):
-            W = W.transpose(1,2,3,0)
-        elif(len(W.shape)==3):
-            W = W.transpose(1,2,0)
+            W = W.transpose(0,2,3,1)
         B = layer['bias']
 
-        self.fpH.write('static const float %s_W[/*%s*/] = {'%(layer['name'], W.shape))
-        self.fpH.write(', '.join(['%s'%(f) for f in W.reshape(-1)]))
-        self.fpH.write('};\n')
-        self.fpH.write('static const float %s_B[/*%s*/] = {'%(layer['name'], B.shape))
-        self.fpH.write(', '.join(['%s'%(f) for f in B.reshape(-1)]))
-        self.fpH.write('};\n')
-        self.gen_layer_WB(layer, W, B, 'float')
+        M = np.asarray(list(layer['pads']) + list(layer['strides']), np.int32)
+        self.gen_layer_WBM(layer, W, B, M)
 
         self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
@@ -113,6 +134,7 @@ class LWNNModel():
                     'Transpose': self.to_LayerTranspose,
                     'Conv': self.to_LayerConv,
                     'Identity': self.to_LayerIdentity }
+        self.is_model_channel_first_cached=None
         self.name = name
         if(type(onnx_model) == str):
             onnx_model = onnx.load(onnx_model)
@@ -185,8 +207,9 @@ class LWNNModel():
                 shape = list(inp.shape)
                 if(shape[0] == None):
                     shape[0] = 1
-                data = np.random.uniform(low=0,high=1,size=shape).astype(np.float32)
+                data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
                 feed[inp.name] = data
+                outputs[inp.name] = data
         rs = sess.run(None, feed)
         for r,o in zip(rs, newoutputs):
             outputs[o.name] = r
@@ -301,12 +324,18 @@ class LWNNModel():
                 r = True
         return r
 
-    def remove_adjust_layer(self):
-        is_model_channel_first = True
+    def is_model_channel_first(self):
+        if(self.is_model_channel_first_cached != None):
+            return self.is_model_channel_first_cached
+        r = True
         for layer in self.lwnn_model:
             if(self.is_input_channel_adjusted(layer)):
-                is_model_channel_first = False
-        if(is_model_channel_first):
+                r = False
+        self.is_model_channel_first_cached = r
+        return r
+
+    def remove_adjust_layer(self):
+        if(self.is_model_channel_first()):
             model = self.lwnn_model
         else:
             model = []

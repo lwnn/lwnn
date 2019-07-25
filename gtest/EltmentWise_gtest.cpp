@@ -8,6 +8,7 @@
 #define INPUT_DIMS 2,4,5,7
 #define input0_DIMS INPUT_DIMS
 #define input1_DIMS INPUT_DIMS
+#define output_DIMS INPUT_DIMS
 
 #define MAX_INPUTS L_REF(input0),L_REF(input1)
 
