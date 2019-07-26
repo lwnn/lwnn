@@ -81,22 +81,22 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	int* ints;
 
 	ints = (int*)layer->blobs[0]->dims;
-	knlX = ints[1];
-	knlY = ints[2];
+	knlY = ints[1];
+	knlX = ints[2];
 
 	ints = (int*)layer->blobs[2]->blob;
-	padX = ints[0];
-	padY = ints[1];
-	strideX = ints[4];
-	strideY = ints[5];
+	padY = ints[0];
+	padX = ints[1];
+	strideY = ints[4];
+	strideX = ints[5];
 
 	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n",
 			layer->name,
-			knlX, knlY, padX, padY, strideX, strideY));
+			knlY, knlX, padY, padX, strideY, strideX));
 
 	convolve_HWC_ref_nonsquare(IN,
-			input_context->nhwc.H,
 			input_context->nhwc.W,
+			input_context->nhwc.H,
 			input_context->nhwc.C,
 			weights,
 			context->nhwc.C,
@@ -105,8 +105,8 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			strideX, strideY,
 			bias,
 			O,
-			context->nhwc.H,
-			context->nhwc.W);
+			context->nhwc.W,
+			context->nhwc.H);
 
 	return r;
 }

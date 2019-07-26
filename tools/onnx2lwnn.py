@@ -257,6 +257,8 @@ class LWNNModel():
         for attr in node.attribute:
             if(attr.name in ['dilations', 'kernel_shape', 'strides', 'pads']):
                 layer[attr.name] = attr.ints
+        if('pads' not in layer):
+            layer['pads'] = [0,0,0,0]
         W = self.get_initializer(node.input[1])
         B = self.get_initializer(node.input[2])
         layer['filters'] = int(W.dims[0])

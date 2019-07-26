@@ -10,6 +10,7 @@
 /* ============================ [ DECLARES  ] ====================================================== */
 extern const layer_t* const LWNN_conv2d_1[];
 extern const layer_t* const LWNN_conv2d_2[];
+extern const layer_t* const LWNN_conv2d_3[];
 /* ============================ [ DATAS     ] ====================================================== */
 static struct {
 	const layer_t* const* network;
@@ -26,6 +27,11 @@ static struct {
 		LWNN_conv2d_2,
 		RAW_P "conv2d_2/input_2_01.raw",
 		RAW_P "conv2d_2/conv2d_2_BiasAdd_0.raw"
+	},
+	{
+		LWNN_conv2d_3,
+		RAW_P "conv2d_3/input_3_01.raw",
+		RAW_P "conv2d_3/conv2d_3_BiasAdd_0.raw"
 	},
 };
 /* ============================ [ LOCALS    ] ====================================================== */
