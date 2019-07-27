@@ -147,7 +147,7 @@ void nnt_free_outputs(nn_output_t** ouputs)
 	delete ouputs;
 }
 
-int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff)
+int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff, int silence)
 {
 	int equal = 0;
 
@@ -165,7 +165,10 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 		if(diff > max_diff)
 		{
 			equal++;
-			printf("@%d %f != %f\n", i, A[i], B[i]);
+			if(!silence)
+			{
+				printf("@%d %f != %f\n", i, A[i], B[i]);
+			}
 		}
 	}
 

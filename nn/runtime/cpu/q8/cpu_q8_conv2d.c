@@ -36,8 +36,7 @@ static int convolve(const int8_t * Im_in,  // input image
 		int8_t * Im_out, // output image
 		const int dim_im_out_x, // output image dimension x
 		const int dim_im_out_y,  // output image dimension y
-		void* bufferA,
-		void* bufferB
+		void* bufferA
 		)
 {
 	int r = 0;
@@ -56,9 +55,130 @@ static int convolve(const int8_t * Im_in,  // input image
 			out_shift, Im_out, dim_im_out_x,
 			(q15_t *)bufferA, NULL);
 	}
-	else
+	/* check if can use optimized function
+	 *	ch_im_in is multiple of 4
+	 * ch_im_out is multiple of 2 */
+	else if (((ch_im_in&0x03) == 0) &&
+			 ((ch_im_out&0x01) == 0) )
 	{
-		r = NN_E_NOT_SUPPORTED;
+		if ((dim_kernel_x == 1) && (dim_kernel_y == 1))
+		{
+			r = arm_convolve_1x1_HWC_q7_fast_nonsquare(
+					Im_in,
+					dim_im_in_x,
+					dim_im_in_y,
+					ch_im_in,
+					wt,
+					ch_im_out,
+					dim_kernel_x,
+					dim_kernel_y,
+					padding_x,
+					padding_y,
+					stride_x,
+					stride_y,
+					bias,
+					bias_shift,
+					out_shift,
+					Im_out,
+					dim_im_out_x,
+					dim_im_out_y,
+					bufferA,
+					NULL);
+		}
+		else if((dim_im_in_x == dim_im_in_y) &&
+				(dim_kernel_x == dim_kernel_y) &&
+				(padding_x == padding_y) &&
+				(stride_x == stride_y))
+		{
+			r = arm_convolve_HWC_q7_fast(
+					Im_in,
+					dim_im_in_x,
+					ch_im_in,
+					wt,
+					ch_im_out,
+					dim_kernel_x,
+					padding_x,
+					stride_x,
+					bias,
+					bias_shift,
+					out_shift,
+					Im_out,
+					dim_im_out_x,
+					bufferA, NULL);
+		}
+		else
+		{
+			r = arm_convolve_HWC_q7_fast_nonsquare(
+					Im_in,
+					dim_im_in_x,
+					dim_im_in_y,
+					ch_im_in,
+					wt,
+					ch_im_out,
+					dim_kernel_x,
+					dim_kernel_y,
+					padding_x,
+					padding_y,
+					stride_x,
+					stride_y,
+					bias,
+					bias_shift,
+					out_shift,
+					Im_out,
+					dim_im_out_x,
+					dim_im_out_y,
+					bufferA,
+					NULL);
+		}
+	}
+	else
+	{	/* none optimized */
+		if ((dim_im_in_x == dim_im_in_y) &&
+			(dim_kernel_x == dim_kernel_y) &&
+			(padding_x == padding_y) &&
+			(stride_x == stride_y))
+		{	/* none opt square shape */
+			r = arm_convolve_HWC_q7_basic(
+					Im_in,
+					dim_im_in_x,
+					ch_im_in,
+					wt,
+					ch_im_out,
+					dim_kernel_x,
+					padding_x,
+					stride_x,
+					bias,
+					bias_shift,
+					out_shift,
+					Im_out,
+					dim_im_out_x,
+					bufferA,
+					NULL);
+		}
+		else
+		{	/* none opt none square shape */
+			r = arm_convolve_HWC_q7_basic_nonsquare(
+					Im_in,
+					dim_im_in_x,
+					dim_im_in_y,
+					ch_im_in,
+					wt,
+					ch_im_out,
+					dim_kernel_x,
+					dim_kernel_y,
+					padding_x,
+					padding_y,
+					stride_x,
+					stride_y,
+					bias,
+					bias_shift,
+					out_shift,
+					Im_out,
+					dim_im_out_x,
+					dim_im_out_y,
+					bufferA,
+					NULL);
+		}
 	}
 
 	return r;
@@ -79,6 +199,7 @@ int layer_cpu_q8_CONV2D_init(const nn_t* nn, const layer_t* layer)
 		ints = (int*)layer->blobs[2]->blob;
 		context->Q = (int8_t)ints[8];
 
+#if defined (ARM_MATH_DSP)
 		ints = (int*)layer->blobs[0]->dims;	/* W in format FHWC */
 
 		context->bufferA = rte_cpu_create_buffer(nn, layer, 2*ints[1]*ints[2]*ints[3]);
@@ -87,6 +208,7 @@ int layer_cpu_q8_CONV2D_init(const nn_t* nn, const layer_t* layer)
 		{
 			rte_cpu_destory_layer_context(nn, layer);
 		}
+#endif
 	}
 
 	return r;
@@ -139,8 +261,12 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			O,
 			context->nhwc.W,
 			context->nhwc.H,
-			context->bufferA->data,
-			NULL);
+#if defined (ARM_MATH_DSP)
+			context->bufferA->data
+#else
+			NULL
+#endif
+			);
 
 	return r;
 }

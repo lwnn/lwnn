@@ -84,15 +84,17 @@ void Conv2DTest(runtime_type_t runtime,
 			int8_t* blob = (int8_t*)outputs[0]->layer->blobs[0]->blob;
 			float* out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0]);
 			r = nnt_is_equal(OUT, out,
-					layer_get_size(outputs[0]->layer), 5/100.0);
+					layer_get_size(outputs[0]->layer), 5/100.0, 1);
 			free(out);
+			/* if 85% data is okay, pass test */
+			EXPECT_LE(r, layer_get_size(outputs[0]->layer)*15/100);
 		}
 		else
 		{
 			r = nnt_is_equal(OUT, (float*)outputs[0]->data,
 					layer_get_size(outputs[0]->layer), EQUAL_THRESHOLD);
+			EXPECT_EQ(0, r);
 		}
-		EXPECT_TRUE(0 == r);
 
 		free(OUT);
 	}
@@ -125,6 +127,5 @@ TEST(RuntimeCPU, Conv2DQ8)
 		Conv2DTest(RUNTIME_CPU, test_cases[i].network_q8,
 				test_cases[i].input,
 				test_cases[i].output);
-		break;
 	}
 }
