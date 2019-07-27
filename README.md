@@ -12,6 +12,11 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 
 ![arch](docs/arch.png)
 
+| Layers/Runtime | cpu float |cpu q8 | opencl | Comments |
+| - | - | - | - | - |
+| Conv2D | Y | Y | N | |
+| EltmentWise Max | Y | Y | Y | |
+
 
 ## Development
 
