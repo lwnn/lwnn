@@ -11,6 +11,7 @@ class LWNNBaseC():
         self.GENL = {
                 'Input': self.gen_LayerInput,
                 'Conv': self.gen_LayerConv,
+                'Relu': self.gen_LayerRelu,
                 'Identity': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -145,6 +146,8 @@ class LWNNBaseC():
         raise NotImplementedError()
     def gen_LayerConv(self, layer):
         raise NotImplementedError()
+    def gen_LayerRelu(self, layer):
+        raise NotImplementedError()
     def gen_LayerOutput(self, layer):
         raise NotImplementedError()
 
@@ -167,6 +170,10 @@ class LWNNFloatC(LWNNBaseC):
         self.gen_layer_WBM(layer, W, B, M)
 
         self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerRelu(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_RELU ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerOutput(self, layer):
         self.gen_no_blobs(layer)
@@ -216,6 +223,10 @@ class LWNNQFormatC(LWNNBaseC):
 
         self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def gen_LayerRelu(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_RELU ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
     def gen_LayerOutput(self, layer):
         blobs= [self.get_Q_blob(layer)]
         self.gen_blobs(layer, blobs)
@@ -227,7 +238,8 @@ class LWNNModel():
         self.TRANSLATOR = {
                     'Transpose': self.to_LayerTranspose,
                     'Conv': self.to_LayerConv,
-                    'Identity': self.to_LayerIdentity }
+                    'Relu': self.to_LayerCommon,
+                    'Identity': self.to_LayerCommon }
         self.is_model_channel_first_cached=None
         self.name = name
         if(type(onnx_model) == str):
@@ -363,10 +375,6 @@ class LWNNModel():
         layer['filters'] = int(W.dims[0])
         layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
         layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
-        return layer
-
-    def to_LayerIdentity(self, node):
-        layer = self.to_LayerCommon(node)
         return layer
 
     def convert(self):

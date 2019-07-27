@@ -14,38 +14,21 @@ typedef struct {
 	const char* output;
 } test_case_t;
 /* ============================ [ DECLARES  ] ====================================================== */
-extern const network_t LWNN_conv2d_1_float;
-extern const network_t LWNN_conv2d_2_float;
-extern const network_t LWNN_conv2d_3_float;
-extern const network_t LWNN_conv2d_1_q8;
-extern const network_t LWNN_conv2d_2_q8;
-extern const network_t LWNN_conv2d_3_q8;
+extern const network_t LWNN_relu_1_q8;
 /* ============================ [ DATAS     ] ====================================================== */
 static test_case_t test_cases[] =
 {
 	{
-		&LWNN_conv2d_1_float,
-		&LWNN_conv2d_1_q8,
-		RAW_P "conv2d_1/golden/conv2d_1_input_01.raw",
-		RAW_P "conv2d_1/golden/conv2d_1_output_BiasAdd_0.raw"
-	},
-	{
-		&LWNN_conv2d_2_float,
-		&LWNN_conv2d_2_q8,
-		RAW_P "conv2d_2/golden/conv2d_2_input_01.raw",
-		RAW_P "conv2d_2/golden/conv2d_2_output_BiasAdd_0.raw"
-	},
-	{
-		&LWNN_conv2d_3_float,
-		&LWNN_conv2d_3_q8,
-		RAW_P "conv2d_3/golden/conv2d_3_input_01.raw",
-		RAW_P "conv2d_3/golden/conv2d_3_output_BiasAdd_0.raw"
+		NULL,
+		&LWNN_relu_1_q8,
+		RAW_P "relu_1/golden/relu_1_input_01.raw",
+		RAW_P "relu_1/golden/relu_1_output_Relu_0.raw"
 	},
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 
 /* ============================ [ FUNCTIONS ] ====================================================== */
-void Conv2DTest(runtime_type_t runtime,
+void ReLUTest(runtime_type_t runtime,
 		const network_t* network,
 		const char* input,
 		const char* output)
@@ -61,21 +44,11 @@ void Conv2DTest(runtime_type_t runtime,
 	}
 }
 
-TEST(RuntimeCPU, Conv2DFloat)
+TEST(RuntimeCPU, ReLUQ8)
 {
 	for(int i=0; i<ARRAY_SIZE(test_cases); i++)
 	{
-		Conv2DTest(RUNTIME_CPU, test_cases[i].network_float,
-				test_cases[i].input,
-				test_cases[i].output);
-	}
-}
-
-TEST(RuntimeCPU, Conv2DQ8)
-{
-	for(int i=0; i<ARRAY_SIZE(test_cases); i++)
-	{
-		Conv2DTest(RUNTIME_CPU, test_cases[i].network_q8,
+		ReLUTest(RUNTIME_CPU, test_cases[i].network_q8,
 				test_cases[i].input,
 				test_cases[i].output);
 	}

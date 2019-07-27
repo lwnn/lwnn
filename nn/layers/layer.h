@@ -75,6 +75,20 @@ extern "C" {
 			/* dtype */ L_DT_AUTO							\
 		}
 
+#define L_RELU(name, input)								\
+	static layer_context_container_t l_context_##name;	\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			L_REF(input), NULL };						\
+	static LCONST int l_dims_##name[] = { name##_DIMS, 0 };	\
+	static LCONST layer_t l_layer_##name = {			\
+		/* name */ #name,								\
+		/* inputs */ l_inputs_##name,					\
+		/* blobs */ l_blobs_##name,						\
+		/* dims */ l_dims_##name,						\
+		/* context */ &l_context_##name,				\
+		/* op */ L_OP_RELU,								\
+		/* dtype */ L_DT_AUTO							\
+	}
 
 #define L_REF(name) &l_layer_##name
 
@@ -95,6 +109,8 @@ extern "C" {
 	layer_data_type_t dtype
 
 #define NHWC_SIZE(nhwc) (((nhwc).N)*((nhwc).H)*((nhwc).W)*((nhwc).C))
+
+#define NHWC_BATCH_SIZE(nhwc) (((nhwc).H)*((nhwc).W)*((nhwc).C))
 
 #define UNSUPPORTED_LAYER_OPS(runtime, op)									\
 int layer_##runtime##_##op##_init(const nn_t* nn, const layer_t* layer)		\

@@ -35,4 +35,10 @@ void* nnt_load(const char* inraw, size_t *sz);
 
 int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q);
 float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q);
+void nnt_siso_network_test(runtime_type_t runtime,
+		const network_t* network,
+		const char* input,
+		const char* output,
+		float max_diff = EQUAL_THRESHOLD,
+		float qmax_diff = 0.15);
 #endif /* GTEST_NN_TEST_UTIL_H_ */

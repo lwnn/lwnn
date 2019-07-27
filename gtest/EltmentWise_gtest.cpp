@@ -76,8 +76,6 @@ static const int test_dims[][4] =
 /* ============================ [ FUNCTIONS ] ====================================================== */
 void EltmentWiseTest(runtime_type_t runtime, const int dims[4])
 {
-	nn_set_log_level(NN_DEBUG);
-
 	memcpy(l_dims_input0, dims, sizeof(int)*4);
 	memcpy(l_dims_input1, dims, sizeof(int)*4);
 

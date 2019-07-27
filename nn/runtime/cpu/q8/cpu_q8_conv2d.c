@@ -228,6 +228,9 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	int8_t wQ, bQ;
 	int* ints;
 
+	size_t batch;
+	size_t batch_size = NHWC_BATCH_SIZE(input_context->nhwc);
+
 	ints = (int*)layer->blobs[0]->dims;
 	knlY = ints[1];
 	knlX = ints[2];
@@ -246,7 +249,9 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			knlY, knlX, padY, padX, strideY, strideX,
 			input_context->Q, wQ, bQ, context->Q));
 
-	r = convolve(IN,
+	for(batch=0; batch<input_context->nhwc.N; batch++)
+	{
+		r = convolve(IN+batch_size*batch,
 			input_context->nhwc.W,
 			input_context->nhwc.H,
 			input_context->nhwc.C,
@@ -258,7 +263,7 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			bias,
 			wQ+input_context->Q-bQ,
 			wQ+input_context->Q-context->Q,
-			O,
+			O+batch_size*batch,
 			context->nhwc.W,
 			context->nhwc.H,
 #if defined (ARM_MATH_DSP)
@@ -267,7 +272,7 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			NULL
 #endif
 			);
-
+	}
 	return r;
 }
 

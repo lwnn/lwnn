@@ -9,7 +9,6 @@
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int nnt_run(const network_t* network,
 			runtime_type_t runtime,
@@ -199,5 +198,70 @@ float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q)
 	}
 
 	return out;
+}
+
+void nnt_siso_network_test(runtime_type_t runtime,
+		const network_t* network,
+		const char* input,
+		const char* output,
+		float max_diff,
+		float qmax_diff)
+{
+	nn_input_t** inputs = nnt_allocate_inputs({network->layers[0]});
+	nn_output_t** outputs = nnt_allocate_outputs({network->layers[2]});
+
+	size_t sz_in;
+	float* IN = (float*)nnt_load(input, &sz_in);
+	ASSERT_EQ(sz_in, layer_get_size((inputs[0])->layer)*sizeof(float));
+
+	int8_t* in8 = NULL;
+	if(network->layers[0]->dtype== L_DT_INT8)
+	{
+		int8_t* blob = (int8_t*)network->layers[0]->blobs[0]->blob;
+		in8 = nnt_quantize8(IN, sz_in/sizeof(float), blob[0]);
+		memcpy(inputs[0]->data, in8, sz_in/sizeof(float));
+	}
+	else
+	{
+		memcpy(inputs[0]->data, IN, sz_in);
+	}
+
+	int r = nnt_run(network, runtime, inputs, outputs);
+
+	if(0 == r)
+	{
+		size_t sz_out;
+		float* OUT = (float*)nnt_load(output, &sz_out);
+		ASSERT_EQ(sz_out, layer_get_size((outputs[0])->layer)*sizeof(float));
+
+		if(in8 != NULL)
+		{
+			int8_t* blob = (int8_t*)outputs[0]->layer->blobs[0]->blob;
+			float* out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0]);
+			r = nnt_is_equal(OUT, out,
+					layer_get_size(outputs[0]->layer), max_diff, 1);
+			free(out);
+			/* if (1-qmax_diff)*100 percent data is okay, pass test */
+			EXPECT_LE(r, layer_get_size(outputs[0]->layer)*qmax_diff);
+		}
+		else
+		{
+			r = nnt_is_equal(OUT, (float*)outputs[0]->data,
+					layer_get_size(outputs[0]->layer), max_diff);
+			EXPECT_EQ(0, r);
+		}
+
+		free(OUT);
+	}
+
+	if(in8 != NULL)
+	{
+		free(in8);
+	}
+
+	free(IN);
+
+	nnt_free_inputs(inputs);
+	nnt_free_outputs(outputs);
 }
 

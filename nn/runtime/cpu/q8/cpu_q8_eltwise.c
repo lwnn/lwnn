@@ -54,15 +54,15 @@ static int layer_cpu_q8_eltwise_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_q8_eltwise_context_t* context = (layer_cpu_q8_eltwise_context_t*)layer->C->context;
 	const layer_t* inputA = layer->inputs[0];
 	const layer_t* inputB = layer->inputs[1];
-	layer_cpu_context_t* inputA_context;
-	layer_cpu_context_t* inputB_context;
+	layer_cpu_q8_context_t* inputA_context;
+	layer_cpu_q8_context_t* inputB_context;
 	size_t sz = NHWC_SIZE(context->nhwc);
 	int8_t* A;
 	int8_t* B;
 	int8_t* O;
 
-	inputA_context = (layer_cpu_context_t*)inputA->C->context;
-	inputB_context = (layer_cpu_context_t*)inputB->C->context;
+	inputA_context = (layer_cpu_q8_context_t*)inputA->C->context;
+	inputB_context = (layer_cpu_q8_context_t*)inputB->C->context;
 
 	A = (int8_t*)inputA_context->out[0];
 	B = (int8_t*)inputB_context->out[0];

@@ -97,3 +97,7 @@ size_t layer_get_size(const layer_t* layer)
 
 	return sz;
 }
+
+/* ============================ [ UNSUPPORTED ] ==================================================== */
+UNSUPPORTED_LAYER_OPS(cpu_float, RELU)
+UNSUPPORTED_LAYER_OPS(cl, RELU)
