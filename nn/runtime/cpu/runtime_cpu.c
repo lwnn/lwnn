@@ -8,13 +8,6 @@
 #include "runtime_cpu.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
-typedef struct rte_cpu_buffer
-{
-	STAILQ_ENTRY(rte_cpu_buffer) entry;
-	const layer_t* owner;
-	void* data;
-	size_t sz;
-} rte_cpu_buffer_t;
 typedef struct
 {
 	runtime_cpu_type_t type;

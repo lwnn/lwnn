@@ -61,9 +61,14 @@ typedef struct
 	void* data;
 } nn_output_t;
 
+typedef struct {
+	const char* name;
+	const layer_t* const* layers;
+} network_t;
+
 typedef struct nn {
 	runtime_t runtime;
-	const layer_t* const* network;
+	const network_t* network;
 
 	runtime_type_t runtime_type;
 
@@ -93,7 +98,7 @@ extern int nn_log_level;
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-nn_t* nn_create(const layer_t* const* network, runtime_type_t runtime_type);
+nn_t* nn_create(const network_t* network, runtime_type_t runtime_type);
 int nn_predict(nn_t* nn, const nn_input_t* const * inputs,
 		const nn_output_t* const * outputs);
 

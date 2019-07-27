@@ -13,9 +13,12 @@ class LWNNBaseC():
                 'Conv': self.gen_LayerConv,
                 'Identity': self.gen_LayerOutput }
         self.model = model
+        self.T = T
         self.name = os.path.basename(self.model.name)
-        self.fpH = self.model.open('%s.h'%(T))
-        self.fpC = self.model.open('%s.c'%(T))
+
+    def generate(self):
+        self.fpH = self.model.open('%s.h'%(self.T))
+        self.fpC = self.model.open('%s.c'%(self.T))
         self.fpC.write('#include "%s"\n\n'%(os.path.basename(self.fpH.name)))
         self.gen()
         self.model.close(self.fpH)
@@ -25,13 +28,41 @@ class LWNNBaseC():
 
     def gen_goldens_for_gtest(self):
         p = self.model.path
+        p = os.path.abspath('%s/../golden'%(p))
         os.makedirs(p, exist_ok=True)
         outputs = self.model.run()
+        goldens = [n.name for n in self.model.onnx_model.graph.input] + \
+                [n.name for n in self.model.onnx_model.graph.output]
         for n, v in outputs.items():
             if(self.model.is_model_channel_first()):
                 if(len(v.shape) == 4):
                     v = v.transpose(0, 2, 3, 1)
-            v.tofile('%s/%s.raw'%(p, n))
+            if(n in goldens):
+                v.tofile('%s/%s.raw'%(p, n))
+
+    def quantize(self, blob, only_needQ=False):
+        min_value = np.min(blob)
+        max_value = np.max(blob)
+        if((min_value==0.0) and (max_value==0.0)):
+            int_bits = 0
+        else:
+            int_bits = int(np.ceil(np.log2(max(abs(min_value), abs(max_value)))))
+        if(self.T == 'q8'):
+            dec_bits = 7 - int_bits
+            dtype = np.int8
+        elif(self.T == 'q16'):
+            dec_bits = 15 - int_bits
+            dtype = np.int16
+            blobQ = np.round(blob * 2 ** dec_bits).astype(np.int16)
+        else:
+            raise Exception('quantization is not supported for %s model\n'%(self.T))
+
+        if(only_needQ==False):
+            blobQ = np.round(blob * 2 ** dec_bits).astype(dtype)
+        else:
+            blobQ = None
+
+        return blobQ,dec_bits
 
     def to_nhwc(self, shape):
         if(len(shape)==4):
@@ -53,8 +84,8 @@ class LWNNBaseC():
         self.fpH.write('};\n')
         self.fpH.write('static const int l_dims_%s[]={ %s,0 };\n'%(
             name, ','.join(['%s'%(s) for s in blob.shape])))
-        if(T=='int'):
-            T='int32'
+        if(T.endswith('_t')):
+            T=T[:-2]
         self.fpH.write('static const layer_blob_t l_blob_%s =\n{\n'%(name))
         self.fpH.write('\tl_dims_%s,\n'%(name))
         self.fpH.write('\tL_DT_%s,\n'%(T.upper()))
@@ -69,11 +100,18 @@ class LWNNBaseC():
             self.fpH.write('\t&l_blob_%s,\n'%(name))
         self.fpH.write('\tNULL\n};\n\n')
 
+    def gen_no_blobs(self, layer):
+        self.fpC.write('#define l_blobs_%s NULL\n'%(layer['name']))
+
     def get_blob_type(self, blob):
         if(blob.dtype == np.float32):
             return 'float'
         elif(blob.dtype == np.int32):
-            return 'int'
+            return 'int32_t'
+        elif(blob.dtype == np.int16):
+            return 'int16_t'
+        elif(blob.dtype == np.int8):
+            return 'int8_t'
         raise Exception('unsupported numpy type %s'%(blob.dtype))
 
     def gen_layer_WBM(self, layer, W, B, M=None):
@@ -89,10 +127,14 @@ class LWNNBaseC():
             self.GENL[layer['op']](layer)
 
     def gen_models(self):
-        self.fpC.write('const layer_t* const LWNN_%s[] =\n{\n'%(self.name))
+        self.fpC.write('static const layer_t* const %s_%s_layers[] =\n{\n'%(self.name, self.T))
         for layer in self.model.lwnn_model:
             self.fpC.write('\tL_REF(%s),\n'%(layer['name']))
-        self.fpC.write('\tNULL\n};\n')
+        self.fpC.write('\tNULL\n};\n\n')
+        self.fpC.write('const network_t LWNN_%s_%s =\n{\n'%(self.name, self.T))
+        self.fpC.write('\t"%s_%s",\n'%(self.name, self.T))
+        self.fpC.write('\t%s_%s_layers\n'%(self.name, self.T))
+        self.fpC.write('};\n\n')
 
     def gen_layer_common(self, layer):
         shape = self.get_shape(layer)
@@ -109,8 +151,10 @@ class LWNNBaseC():
 class LWNNFloatC(LWNNBaseC):
     def __init__(self, model):
         super().__init__(model, 'float')
+        self.generate()
 
     def gen_LayerInput(self, layer):
+        self.gen_no_blobs(layer)
         self.fpC.write('L_INPUT ({0}, L_DT_FLOAT);\n\n'.format(layer['name']))
 
     def gen_LayerConv(self, layer):
@@ -125,6 +169,56 @@ class LWNNFloatC(LWNNBaseC):
         self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerOutput(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+class LWNNQFormatC(LWNNBaseC):
+    def __init__(self, model, feeds, T):
+        super().__init__(model, T)
+        self.output_encodings = self.calculate_output_encoding(feeds)
+        self.generate()
+
+    def calculate_output_encoding(self, feeds):
+        encodings = {}
+        outputs = self.model.run(feeds)
+        for n,v in outputs.items():
+            _,vq = self.quantize(v, True)
+            encodings[n] = vq
+        return encodings
+
+    def get_encoding(self, layer, at=0):
+        return self.output_encodings[layer['outputs'][at]]
+
+    def get_Q_blob(self, layer):
+        return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer)]).astype(np.int8)
+
+    def gen_LayerInput(self, layer):
+        blobs= [self.get_Q_blob(layer)]
+        self.gen_blobs(layer, blobs)
+        if(self.T == 'q8'):
+            T = 'INT8'
+        elif(self.T == 'q16'):
+            T = 'INT16'
+        self.fpC.write('L_INPUT ({0}, L_DT_{1});\n\n'.format(layer['name'],T))
+
+    def gen_LayerConv(self, layer):
+        W = layer['weights']
+        if(len(W.shape)==4):
+            W = W.transpose(0,2,3,1)
+        B = layer['bias']
+
+        Oq = self.get_encoding(layer)
+        W,Wq = self.quantize(W)
+        B,Bq = self.quantize(B)
+
+        M = np.asarray(list(layer['pads']) + list(layer['strides']) + [Wq, Bq, Oq], np.int32)
+        self.gen_layer_WBM(layer, W, B, M)
+
+        self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerOutput(self, layer):
+        blobs= [self.get_Q_blob(layer)]
+        self.gen_blobs(layer, blobs)
         self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
 
@@ -153,7 +247,7 @@ class LWNNModel():
     @property
     def path(self):
         if('/' not in self.name):
-            p = 'models/%s'%(self.name)
+            p = 'models/%s/%s'%(self.name,self.name)
         else:
             p = self.name
         d = os.path.dirname(p)
@@ -174,6 +268,10 @@ class LWNNModel():
 
     def gen_float_c(self):
         LWNNFloatC(self)
+
+    def gen_quantized_c(self, feeds):
+        LWNNQFormatC(self, feeds, 'q8')
+        LWNNQFormatC(self, feeds, 'q16')
 
     def get_inputs(self, node):
         inputs = []
@@ -209,7 +307,8 @@ class LWNNModel():
                     shape[0] = 1
                 data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
                 feed[inp.name] = data
-                outputs[inp.name] = data
+        for n, v in feed.items():
+            outputs[n] = v
         rs = sess.run(None, feed)
         for r,o in zip(rs, newoutputs):
             outputs[o.name] = r
@@ -241,7 +340,7 @@ class LWNNModel():
         return layers
 
     def to_LayerCommon(self, node):
-        layer = {'name': node.name, 'op': node.op_type, 'inputs':self.get_inputs(node)}
+        layer = {'name': node.name, 'op': node.op_type, 'inputs':self.get_inputs(node), 'outputs':node.output}
         layer['shape'] = self.get_shape(node)
         return layer
 
@@ -278,6 +377,7 @@ class LWNNModel():
                 shape[0] = 1
             layer = {'name': inp.name, 
                      'op': 'Input',
+                     'outputs' : [inp.name],
                      'shape': shape }
             lwnn_model.append(layer)
         for node in self.onnx_model.graph.node:
@@ -387,6 +487,12 @@ class LWNNModel():
             cstr += '}\n'
         return cstr
 
-def onnx2lwnn(model, name):
+def onnx2lwnn(model, name, feeds=None):
+    '''
+    feeds: mainly used to do quantization
+    '''
     model = LWNNModel(model, name)
     model.gen_float_c()
+    if(feeds != None):
+        model.gen_quantized_c(feeds)
+

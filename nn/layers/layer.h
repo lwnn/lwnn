@@ -21,7 +21,7 @@ extern "C" {
 	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
 		/* inputs */ NULL,								\
-		/* blobs */ NULL,								\
+		/* blobs */ l_blobs_##name,						\
 		/* dims */ l_dims_##name,						\
 		/* context */ &l_context_##name,				\
 		/* op */ L_OP_INPUT,							\
@@ -36,7 +36,7 @@ extern "C" {
 	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
 		/* inputs */ l_inputs_##name,					\
-		/* blobs */ NULL,								\
+		/* blobs */ l_blobs_##name,						\
 		/* dims */ l_dims_##name,						\
 		/* context */ &l_context_##name,				\
 		/* op */ L_OP_OUTPUT,							\
@@ -48,7 +48,7 @@ extern "C" {
 	static LCONST layer_t l_layer_##name = {			\
 		/* name */ #name,								\
 		/* inputs */ l_inputs_##name,					\
-		/* blobs */ NULL,								\
+		/* blobs */ l_blobs_##name,						\
 		/* dims */ NULL,								\
 		/* context */ &l_context_##name,				\
 		/* op */ op,									\

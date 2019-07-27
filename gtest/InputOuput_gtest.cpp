@@ -8,17 +8,26 @@
 #define INPUT_DIMS 2,4,5,7
 #define input0_DIMS INPUT_DIMS
 #define output_DIMS INPUT_DIMS
+
+#define l_blobs_input0 NULL
+#define l_blobs_output NULL
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 L_INPUT (input0, L_DT_FLOAT);
 L_OUTPUT(output, input0);
-static const layer_t* const network1[] =
+static const layer_t* const network1_layers[] =
 {
 	L_REF(input0),
 	L_REF(output),
 	NULL
+};
+
+static const network_t network1 =
+{
+	"input_output",
+	network1_layers
 };
 
 static const int test_dims[][4] =
@@ -35,12 +44,13 @@ static void InputOutputTest(runtime_type_t runtime, const int dims[4])
 	nn_set_log_level(NN_DEBUG);
 
 	memcpy(l_dims_input0, dims, sizeof(int)*4);
+	memcpy(l_dims_output, dims, sizeof(int)*4);
 
 	nn_input_t** inputs = nnt_allocate_inputs({L_REF(input0)});
 	nn_output_t** outputs = nnt_allocate_outputs({L_REF(output)});
 
 	nnt_fill_inputs_with_random(inputs, -10, 10);
-	int r = nnt_run(network1, runtime, inputs, outputs);
+	int r = nnt_run(&network1, runtime, inputs, outputs);
 
 	if(0 == r)
 	{

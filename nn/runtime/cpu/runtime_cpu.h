@@ -20,6 +20,11 @@ extern "C" {
 		LAYER_CONTEXT_MEMBER;			\
 		size_t nout;					\
 		void** out
+
+#define LAYER_CPU_Q8_CONTEXT_MEMBER		\
+		LAYER_CPU_CONTEXT_MEMBER;		\
+		int8_t Q
+
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum {
 #ifndef DISABLE_RUNTIME_CPU_Q8
@@ -35,6 +40,19 @@ typedef struct
 {
 	LAYER_CPU_CONTEXT_MEMBER;
 } layer_cpu_context_t;
+
+typedef struct
+{
+	LAYER_CPU_Q8_CONTEXT_MEMBER;
+} layer_cpu_q8_context_t;
+
+typedef struct rte_cpu_buffer
+{
+	STAILQ_ENTRY(rte_cpu_buffer) entry;
+	const layer_t* owner;
+	void* data;
+	size_t sz;
+} rte_cpu_buffer_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */

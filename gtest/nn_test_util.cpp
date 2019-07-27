@@ -11,7 +11,7 @@
 /* ============================ [ LOCALS    ] ====================================================== */
 
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int nnt_run(const layer_t* const* network,
+int nnt_run(const network_t* network,
 			runtime_type_t runtime,
 			nn_input_t** inputs,
 			nn_output_t** outputs)
@@ -151,9 +151,18 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 {
 	int equal = 0;
 
+	assert(max_diff > 0.0);
+
 	for(size_t i=0; i<sz; i++)
 	{
-		if(std::fabs(A[i]-B[i]) > max_diff)
+		float base = std::fabs(A[i]);
+		if((base/max_diff) < 100)
+		{
+			base = max_diff*100;
+		}
+		float diff = std::fabs(A[i]-B[i])/base;
+
+		if(diff > max_diff)
 		{
 			equal++;
 			printf("@%d %f != %f\n", i, A[i], B[i]);
@@ -161,5 +170,31 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 	}
 
 	return equal;
+}
+
+int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q)
+{
+	int8_t* out = (int8_t*)malloc(sz);
+	assert(out);
+
+	for(size_t i=0; i<sz; i++)
+	{
+		out[i] = std::round(in[i]*(std::pow(2,Q)));
+	}
+
+	return out;
+}
+
+float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q)
+{
+	float* out = (float*)malloc(sz*sizeof(float));
+	assert(out);
+
+	for(size_t i=0; i<sz; i++)
+	{
+		out[i] = in[i]/(std::pow(2,Q));
+	}
+
+	return out;
 }
 

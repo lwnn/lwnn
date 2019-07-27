@@ -9,7 +9,7 @@
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
-	LAYER_CPU_CONTEXT_MEMBER;
+	LAYER_CPU_Q8_CONTEXT_MEMBER;
 } layer_cpu_q8_input_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -18,6 +18,7 @@ typedef struct {
 int layer_cpu_q8_INPUT_init(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
+	int8_t* int8s;
 	layer_cpu_q8_input_context_t* context;
 
 	r = rte_cpu_create_layer_context(nn, layer,
@@ -30,6 +31,9 @@ int layer_cpu_q8_INPUT_init(const nn_t* nn, const layer_t* layer)
 		RTE_CPU_LOG_LAYER_SHAPE(layer);
 
 		context->out[0] = NULL;
+
+		int8s = (int8_t*)layer->blobs[0]->blob;
+		context->Q = int8s[0];
 	}
 
 	return r;

@@ -8,7 +8,7 @@
 #include "../runtime_cpu.h"
 /* ============================ [ MACROS    ] ====================================================== */
 typedef struct {
-	LAYER_CPU_CONTEXT_MEMBER;
+	LAYER_CPU_Q8_CONTEXT_MEMBER;
 } layer_cpu_q8_eltwise_context_t;
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
@@ -31,7 +31,21 @@ static void layer_cpu_q8_max(int8_t* A, int8_t* B, int8_t* O, size_t sz)
 }
 static int layer_cpu_q8_eltwise_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q8_eltwise_context_t), sizeof(int8_t));
+	int r =0;
+	int8_t* int8s;
+	layer_cpu_q8_eltwise_context_t* context;
+
+	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q8_eltwise_context_t), sizeof(int8_t));
+
+	if(0 == r)
+	{
+		context = (layer_cpu_q8_eltwise_context_t*)layer->C->context;
+
+		int8s = (int8_t*)layer->blobs[0]->blob;
+		context->Q = int8s[0];
+	}
+
+	return r;
 }
 
 static int layer_cpu_q8_eltwise_execute(const nn_t* nn, const layer_t* layer)

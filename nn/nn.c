@@ -12,7 +12,7 @@
 int nn_log_level = NN_INFO;
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-nn_t* nn_create(const layer_t* const* network, runtime_type_t runtime_type)
+nn_t* nn_create(const network_t* network, runtime_type_t runtime_type)
 {
 	nn_t* nn;
 

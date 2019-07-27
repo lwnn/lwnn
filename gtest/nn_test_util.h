@@ -13,13 +13,13 @@
 #include <cstdlib>
 #include <stdio.h>
 /* ============================ [ MACROS    ] ====================================================== */
-#define EQUAL_THRESHOLD 0.000000001
+#define EQUAL_THRESHOLD (1.0/10000)
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int nnt_run(const layer_t* const* network,
+int nnt_run(const network_t* network,
 			runtime_type_t runtime,
 			nn_input_t** inputs,
 			nn_output_t** outputs);
@@ -32,4 +32,7 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 
 void nnt_fill_inputs_with_random(nn_input_t** inputs, float lo, float hi);
 void* nnt_load(const char* inraw, size_t *sz);
+
+int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q);
+float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q);
 #endif /* GTEST_NN_TEST_UTIL_H_ */
