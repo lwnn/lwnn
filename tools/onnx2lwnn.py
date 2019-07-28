@@ -13,6 +13,8 @@ class LWNNBaseC():
                 'Conv': self.gen_LayerConv,
                 'Relu': self.gen_LayerRelu,
                 'MaxPool': self.gen_LayerMaxPool,
+                'Reshape': self.gen_LayerReshape,
+                'Dense': self.gen_LayerDense,
                 'Identity': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -68,6 +70,7 @@ class LWNNBaseC():
 
     def to_nhwc(self, shape):
         if(len(shape)==4):
+            # ONNX generally in format NCHW
             shape = [shape[i] for i in [0,2,3,1]]
         return shape
 
@@ -160,6 +163,13 @@ class LWNNBaseC():
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_MAXPOOL ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def gen_LayerReshape(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_RESHAPE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerDense(self, layer):
+        raise NotImplementedError()
+
     def gen_LayerOutput(self, layer):
         raise NotImplementedError()
 
@@ -183,6 +193,16 @@ class LWNNFloatC(LWNNBaseC):
 
         self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def gen_LayerDense(self, layer):
+        W = layer['weights']
+        if(len(W.shape)==4):
+            W = W.transpose(0,2,3,1)
+        B = layer['bias']
+
+        self.gen_layer_WBM(layer, W, B)
+
+        self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
     def gen_LayerOutput(self, layer):
         self.gen_no_blobs(layer)
         self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
@@ -190,8 +210,11 @@ class LWNNFloatC(LWNNBaseC):
 class LWNNQFormatC(LWNNBaseC):
     def __init__(self, model, feeds, T):
         super().__init__(model, T)
+        lwnn_model = self.model.clone()
+        self.model.optimize(['ReshapeDense'])
         self.output_encodings = self.calculate_output_encoding(feeds)
         self.generate()
+        self.model.set(lwnn_model)
 
     def calculate_output_encoding(self, feeds):
         encodings = {}
@@ -231,6 +254,22 @@ class LWNNQFormatC(LWNNBaseC):
 
         self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def gen_LayerDense(self, layer):
+        W = layer['weights']
+        if(len(W.shape)==4):
+            W = W.transpose(0,2,3,1)
+        B = layer['bias']
+
+        Oq = self.get_encoding(layer)
+        W,Wq = self.quantize(W)
+        B,Bq = self.quantize(B)
+
+        M = np.asarray(list([Wq, Bq, Oq]), np.int8)
+
+        self.gen_layer_WBM(layer, W, B, M)
+
+        self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
     def gen_LayerOutput(self, layer):
         blobs= [self.get_Q_blob(layer)]
         self.gen_blobs(layer, blobs)
@@ -244,6 +283,15 @@ class LWNNModel():
                     'Conv': self.to_LayerConv,
                     'Relu': self.to_LayerCommon,
                     'MaxPool': self.to_LayerMaxPool,
+                    'Unsqueeze': self.to_LayerCommon,
+                    'Shape': self.to_LayerCommon,
+                    'Cast': self.to_LayerCommon,
+                    'Slice': self.to_LayerCommon,
+                    'ReduceProd': self.to_LayerCommon,
+                    'Concat': self.to_LayerCommon,
+                    'Reshape': self.to_LayerCommon,
+                    'MatMul': self.to_LayerMatMul,
+                    'Add': self.to_LayerAdd,
                     'Identity': self.to_LayerCommon }
         self.is_model_channel_first_cached=None
         self.name = name
@@ -255,7 +303,14 @@ class LWNNModel():
         self.shapes = self.eval_shapes()
         self.lwnn_model = self.convert()
         self.lwnn_model = self.remove_adjust_layer()
+        self.optimize()
         print(self)
+
+    def clone(self):
+        return [dict(ly) for ly in self.lwnn_model]
+
+    def set(self, model):
+        self.lwnn_model = model
 
     def save(self, onnx_model):
         with open(self.path+'.onnx','wb') as f:
@@ -301,6 +356,26 @@ class LWNNModel():
                     inputs.append(node2.name)
         return inputs
 
+    def eval_node_output_type(self, output):
+        # TODO: yes, this sounds stupid, is there anyway better?
+        def is_type_okay(oT):
+            oldoutputs = [n for n in self.onnx_model.graph.output]
+            del self.onnx_model.graph.output[:]
+            newoutputs = [onnx.helper.make_tensor_value_info(output, oT, None)]
+            self.onnx_model.graph.output.extend(newoutputs)
+            onnx.save(self.onnx_model, '.tmp.onnx')
+            del self.onnx_model.graph.output[:]
+            self.onnx_model.graph.output.extend(oldoutputs)
+            try:
+                sess = onnxruntime.InferenceSession('.tmp.onnx')
+                return True
+            except:
+                return False
+        for oT in [onnx.TensorProto.FLOAT, onnx.TensorProto.INT64, onnx.TensorProto.INT32]:
+            if(is_type_okay(oT)):
+                return oT
+        raise Exception("can't determint output type for %s"%(output))
+
     def run(self, feed=None):
         outputs = {}
         oldoutputs = [n for n in self.onnx_model.graph.output]
@@ -308,7 +383,8 @@ class LWNNModel():
         newoutputs = []
         for node in self.onnx_model.graph.node:
             for output in node.output:
-                newoutputs.append(onnx.helper.make_tensor_value_info(output, onnx.TensorProto.FLOAT, None))
+                oT = self.eval_node_output_type(output)
+                newoutputs.append(onnx.helper.make_tensor_value_info(output, oT, None))
         self.onnx_model.graph.output.extend(newoutputs)
 
         onnx.save(self.onnx_model, '.tmp.onnx')
@@ -387,6 +463,18 @@ class LWNNModel():
         for attr in node.attribute:
             if(attr.name in ['kernel_shape', 'strides']):
                 layer[attr.name] = attr.ints
+        return layer
+
+    def to_LayerMatMul(self, node):
+        layer = self.to_LayerCommon(node)
+        W = self.get_initializer(node.input[1])
+        layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
+        return layer
+
+    def to_LayerAdd(self, node):
+        layer = self.to_LayerCommon(node)
+        B = self.get_initializer(node.input[1])
+        layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
         return layer
 
     def convert(self):
@@ -494,6 +582,124 @@ class LWNNModel():
                 else:
                     model.append(dict(layer))
         return model
+
+    def get_consumers(self, layer):
+        consumers = []
+        for ly in self.lwnn_model:
+            if('inputs' not in ly): continue
+            if(layer['name'] in ly['inputs']):
+                consumers.append(ly)
+        return consumers
+
+    def is_there_op(self, layers, op):
+        for ly in layers:
+            if(ly['op'] == op):
+                return True
+        return False
+
+    def get_between_layers(self, fr, to):
+        layers = [fr]
+        stop = False
+        while(fr != to):
+            consumers = self.get_consumers(fr)
+            if(len(consumers) == 1):
+                fr = consumers[0]
+                if(fr != to):
+                    layers.append(fr)
+            else:
+                raise NotImplementedError()
+        return layers
+
+    def insert_after(self, after, layer):
+        for id,ly in enumerate(self.lwnn_model):
+            if(ly == after):
+                self.lwnn_model.insert(id, layer)
+                break
+
+    def optimize_reshape(self, layer):
+        consumers = self.get_consumers(layer)
+        if(consumers[0]['op'] == 'Reshape'):
+            to = consumers[0]
+            fr = consumers[1]
+        else:
+            to = consumers[1]
+            fr = consumers[0]
+
+        layers = self.get_between_layers(fr, to)
+        new_layer = dict(to)
+        new_layer['inputs'] = layer['inputs']
+        self.insert_after(to, new_layer)
+        for ly in [layer,to]+layers:
+            if(ly['op'] == 'Concat'):
+                inputs = self.get_layers(ly['inputs'])
+                for inp in inputs:
+                    if(inp in self.lwnn_model):
+                        self.lwnn_model.remove(inp)
+            self.lwnn_model.remove(ly)
+        return True
+
+    def optimize_dense(self, layer):
+        consumers = self.get_consumers(layer)
+        add = consumers[0]
+        new_layer = dict(add)
+        new_layer['op'] = 'Dense'
+        new_layer['inputs'] = layer['inputs']
+        new_layer['weights'] = layer['weights']
+        self.insert_after(add, new_layer)
+        for ly in [layer,add]:
+            self.lwnn_model.remove(ly)
+        return True
+
+    def optimize_reshape_dense(self, layer):
+        # yes, this only for CMSIS NN
+        consumers = self.get_consumers(layer)
+        dense = consumers[0]
+        new_layer = dict(dense)
+        new_layer['inputs'] = layer['inputs']
+        self.insert_after(dense, new_layer)
+        for ly in [layer,dense]:
+            self.lwnn_model.remove(ly)
+        return True
+
+    def optimize(self, additions=[]):
+        id = 1
+        num_layers = len(self.lwnn_model)
+        while(id < num_layers):
+            layer = self.lwnn_model[id]
+            consumers = self.get_consumers(layer)
+            if((layer['op'] == 'Identity') and 
+               (len(consumers) == 2) and
+               self.is_there_op(consumers, 'Reshape')):
+                r = self.optimize_reshape(layer)
+                if(True == r):
+                    id = 1
+                    num_layers = len(self.lwnn_model)
+                    continue
+                else:
+                    id += 1
+            elif((layer['op'] == 'MatMul') and 
+               (len(consumers) == 1) and
+               (consumers[0]['op'] == 'Add')):
+                r = self.optimize_dense(layer)
+                if(True == r):
+                    id = 1
+                    num_layers = len(self.lwnn_model)
+                    continue
+                else:
+                    id += 1
+            elif(('ReshapeDense' in additions) and
+                (layer['op'] == 'Reshape') and 
+               (len(consumers) == 1) and
+               (consumers[0]['op'] == 'Dense')):
+                r = self.optimize_reshape_dense(layer)
+                if(True == r):
+                    id = 1
+                    num_layers = len(self.lwnn_model)
+                    continue
+                else:
+                    id += 1
+            else:
+                id += 1
 
     def __str__(self):
         cstr = 'LWNN Model %s:\n'%(self.name)

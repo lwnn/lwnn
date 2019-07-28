@@ -60,6 +60,8 @@ extern "C" {
 #define L_CONV2D(name, input)		L_LAYER_SI(name, input, CONV2D)
 #define L_RELU(name, input)			L_LAYER_SI(name, input, RELU)
 #define L_MAXPOOL(name, input)		L_LAYER_SI(name, input, MAXPOOL)
+#define L_RESHAPE(name, input)		L_LAYER_SI(name, input, RESHAPE)
+#define L_DENSE(name, input)		L_LAYER_SI(name, input, DENSE)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\

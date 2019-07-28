@@ -10,6 +10,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define RTE_FETCH_INT8(blob, at) (((int8_t*)(blob))[at])
+#define RTE_FETCH_INT16(blob, at) (((int16_t*)(blob))[at])
+#define RTE_FETCH_INT32(blob, at) (((int32_t*)(blob))[at])
+#define RTE_FETCH_FLOAT(blob, at) (((float*)(blob))[at])
+
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum {
 #define RTE_DEF(rte) RUNTIME_##rte,

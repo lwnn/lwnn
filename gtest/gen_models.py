@@ -29,10 +29,19 @@ def maxpool(name, shape=[32,32,3], pool_size=(2, 2), strides=(2, 2)):
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def dense(name, row=8, units=1024):
+    input = Input(shape=[row], name=name+'_input')
+    output = Dense(units, name=name+'_output')(input)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10, row])).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 if(__name__ == '__main__'):
-    conv2d('conv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), strides=(1,1), padding="same")
-    conv2d('conv2d_2')
-    conv2d('conv2d_3',shape=[45,17,23], filters=13, kernel_size=(2,3), strides=(3,2), padding="valid")
-    relu('relu_1')
-    maxpool('maxpool_1')
-    maxpool('maxpool_2', shape=[30,20,5], pool_size=(3, 2), strides=(3, 2))
+#     conv2d('conv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), strides=(1,1), padding="same")
+#     conv2d('conv2d_2')
+#     conv2d('conv2d_3',shape=[45,17,23], filters=13, kernel_size=(2,3), strides=(3,2), padding="valid")
+#     relu('relu_1')
+#     maxpool('maxpool_1')
+#     maxpool('maxpool_2', shape=[30,20,5], pool_size=(3, 2), strides=(3, 2))
+     dense('dense_1')
+     dense('dense_2', 13, 1578)
