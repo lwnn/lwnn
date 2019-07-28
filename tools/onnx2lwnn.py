@@ -12,6 +12,7 @@ class LWNNBaseC():
                 'Input': self.gen_LayerInput,
                 'Conv': self.gen_LayerConv,
                 'Relu': self.gen_LayerRelu,
+                'MaxPool': self.gen_LayerMaxPool,
                 'Identity': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -147,7 +148,18 @@ class LWNNBaseC():
     def gen_LayerConv(self, layer):
         raise NotImplementedError()
     def gen_LayerRelu(self, layer):
-        raise NotImplementedError()
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_RELU ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerMaxPool(self, layer):
+        if('pads' not in layer):
+            pads = [0,0]
+        else:
+            pads = list(layer['pads'])
+        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides']), np.int32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_MAXPOOL ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
     def gen_LayerOutput(self, layer):
         raise NotImplementedError()
 
@@ -170,10 +182,6 @@ class LWNNFloatC(LWNNBaseC):
         self.gen_layer_WBM(layer, W, B, M)
 
         self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
-
-    def gen_LayerRelu(self, layer):
-        self.gen_no_blobs(layer)
-        self.fpC.write('L_RELU ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerOutput(self, layer):
         self.gen_no_blobs(layer)
@@ -223,10 +231,6 @@ class LWNNQFormatC(LWNNBaseC):
 
         self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
-    def gen_LayerRelu(self, layer):
-        self.gen_no_blobs(layer)
-        self.fpC.write('L_RELU ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
-
     def gen_LayerOutput(self, layer):
         blobs= [self.get_Q_blob(layer)]
         self.gen_blobs(layer, blobs)
@@ -239,6 +243,7 @@ class LWNNModel():
                     'Transpose': self.to_LayerTranspose,
                     'Conv': self.to_LayerConv,
                     'Relu': self.to_LayerCommon,
+                    'MaxPool': self.to_LayerMaxPool,
                     'Identity': self.to_LayerCommon }
         self.is_model_channel_first_cached=None
         self.name = name
@@ -375,6 +380,13 @@ class LWNNModel():
         layer['filters'] = int(W.dims[0])
         layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
         layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
+        return layer
+
+    def to_LayerMaxPool(self, node):
+        layer = self.to_LayerCommon(node)
+        for attr in node.attribute:
+            if(attr.name in ['kernel_shape', 'strides']):
+                layer[attr.name] = attr.ints
         return layer
 
     def convert(self):

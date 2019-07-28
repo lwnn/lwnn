@@ -18,24 +18,24 @@ typedef struct {
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-static int convolve(const int8_t * Im_in,  // input image
-		const int dim_im_in_x,  // input image dimension x
-		const int dim_im_in_y,  // input image dimension y
-		const int ch_im_in, // number of input image channels
-		const int8_t * wt, // kernel weights
-		const int ch_im_out, // number of filters, i.e., output image channels
-		const int dim_kernel_x, // filter kernel size x
-		const int dim_kernel_y, // filter kernel size y
-		const int padding_x,    // padding sizes x
-		const int padding_y,    // padding sizes y
-		const int stride_x, // stride x
-		const int stride_y, // stride y
-		const int8_t * bias,   // bias
+static int convolve(const int8_t * Im_in,  /* input image */
+		const int dim_im_in_x,  /* input image dimension x */
+		const int dim_im_in_y,  /* input image dimension y */
+		const int ch_im_in, /* number of input image channels */
+		const int8_t * wt, /* kernel weights */
+		const int ch_im_out, /* number of filters, i.e., output image channels */
+		const int dim_kernel_x, /* filter kernel size x */
+		const int dim_kernel_y, /* filter kernel size y */
+		const int padding_x,    /* padding sizes x */
+		const int padding_y,    /* padding sizes y */
+		const int stride_x, /* stride x */
+		const int stride_y, /* stride y */
+		const int8_t * bias,   /* bias */
 		const int8_t bias_shift,
 		const int8_t out_shift,
-		int8_t * Im_out, // output image
-		const int dim_im_out_x, // output image dimension x
-		const int dim_im_out_y,  // output image dimension y
+		int8_t * Im_out, /* output image */
+		const int dim_im_out_x, /* output image dimension x */
+		const int dim_im_out_y,  /* output image dimension y */
 		void* bufferA
 		)
 {
@@ -229,7 +229,8 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	int* ints;
 
 	size_t batch;
-	size_t batch_size = NHWC_BATCH_SIZE(input_context->nhwc);
+	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
+	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
 
 	ints = (int*)layer->blobs[0]->dims;
 	knlY = ints[1];
@@ -249,9 +250,9 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			knlY, knlX, padY, padX, strideY, strideX,
 			input_context->Q, wQ, bQ, context->Q));
 
-	for(batch=0; batch<input_context->nhwc.N; batch++)
+	for(batch=0; (batch<input_context->nhwc.N) && (0 == r); batch++)
 	{
-		r = convolve(IN+batch_size*batch,
+		r = convolve(IN+batch_sizeIn*batch,
 			input_context->nhwc.W,
 			input_context->nhwc.H,
 			input_context->nhwc.C,
@@ -263,7 +264,7 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			bias,
 			wQ+input_context->Q-bQ,
 			wQ+input_context->Q-context->Q,
-			O+batch_size*batch,
+			O+batch_sizeO*batch,
 			context->nhwc.W,
 			context->nhwc.H,
 #if defined (ARM_MATH_DSP)

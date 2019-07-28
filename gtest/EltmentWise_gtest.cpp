@@ -78,7 +78,7 @@ void EltmentWiseTest(runtime_type_t runtime, const int dims[4])
 {
 	memcpy(l_dims_input0, dims, sizeof(int)*4);
 	memcpy(l_dims_input1, dims, sizeof(int)*4);
-
+	memcpy(l_dims_max, dims, sizeof(int)*4);
 	memcpy(l_dims_output, dims, sizeof(int)*4);
 
 	nn_input_t** inputs = nnt_allocate_inputs({L_REF(input0), L_REF(input1)});
