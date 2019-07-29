@@ -19,6 +19,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | ReLU | N | Y | N | N | |
 | MaxPool | N | Y | N | N | |
 | Dense | N | Y | N | N | |
+| Softmax | N | Y | N | N | |
 
 ## Development
 

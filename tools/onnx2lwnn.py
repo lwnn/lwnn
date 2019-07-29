@@ -7,7 +7,7 @@ import numpy as np
 __all__ = ['onnx2lwnn']
 
 class LWNNBaseC():
-    def __init__(self, model, T):
+    def __init__(self, model, T, feeds = None):
         self.GENL = {
                 'Input': self.gen_LayerInput,
                 'Conv': self.gen_LayerConv,
@@ -15,9 +15,11 @@ class LWNNBaseC():
                 'MaxPool': self.gen_LayerMaxPool,
                 'Reshape': self.gen_LayerReshape,
                 'Dense': self.gen_LayerDense,
+                'Softmax': self.gen_LayerSoftmax,
                 'Identity': self.gen_LayerOutput }
         self.model = model
         self.T = T
+        self.feeds = feeds
         self.name = os.path.basename(self.model.name)
 
     def generate(self):
@@ -34,7 +36,7 @@ class LWNNBaseC():
         p = self.model.path
         p = os.path.abspath('%s/../golden'%(p))
         os.makedirs(p, exist_ok=True)
-        outputs = self.model.run()
+        outputs = self.model.run(self.feeds)
         goldens = [n.name for n in self.model.onnx_model.graph.input] + \
                 [n.name for n in self.model.onnx_model.graph.output]
         for n, v in outputs.items():
@@ -42,6 +44,7 @@ class LWNNBaseC():
                 if(len(v.shape) == 4):
                     v = v.transpose(0, 2, 3, 1)
             if(n in goldens):
+                v = v[0]    # just use the first batch as golden
                 v.tofile('%s/%s.raw'%(p, n))
 
     def quantize(self, blob, only_needQ=False):
@@ -170,6 +173,10 @@ class LWNNBaseC():
     def gen_LayerDense(self, layer):
         raise NotImplementedError()
 
+    def gen_LayerSoftmax(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_SOFTMAX ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
     def gen_LayerOutput(self, layer):
         raise NotImplementedError()
 
@@ -208,8 +215,8 @@ class LWNNFloatC(LWNNBaseC):
         self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
 class LWNNQFormatC(LWNNBaseC):
-    def __init__(self, model, feeds, T):
-        super().__init__(model, T)
+    def __init__(self, model, T, feeds):
+        super().__init__(model, T, feeds)
         lwnn_model = self.model.clone()
         self.model.optimize(['ReshapeDense'])
         self.output_encodings = self.calculate_output_encoding(feeds)
@@ -292,6 +299,7 @@ class LWNNModel():
                     'Reshape': self.to_LayerCommon,
                     'MatMul': self.to_LayerMatMul,
                     'Add': self.to_LayerAdd,
+                    'Softmax': self.to_LayerCommon,
                     'Identity': self.to_LayerCommon }
         self.is_model_channel_first_cached=None
         self.name = name
@@ -342,8 +350,8 @@ class LWNNModel():
         LWNNFloatC(self)
 
     def gen_quantized_c(self, feeds):
-        LWNNQFormatC(self, feeds, 'q8')
-        LWNNQFormatC(self, feeds, 'q16')
+        LWNNQFormatC(self, 'q8', feeds)
+        LWNNQFormatC(self, 'q16', feeds)
 
     def get_inputs(self, node):
         inputs = []
