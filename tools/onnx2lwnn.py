@@ -135,13 +135,25 @@ class LWNNBaseC():
             self.GENL[layer['op']](layer)
 
     def gen_models(self):
+        self.fpC.write('static const layer_t* const %s_%s_inputs[] =\n{\n'%(self.name, self.T))
+        for layer in self.model.lwnn_model:
+            if(layer['op'] == 'Input'):
+                self.fpC.write('\tL_REF(%s),\n'%(layer['name']))
+        self.fpC.write('\tNULL\n};\n\n')
+        self.fpC.write('static const layer_t* const %s_%s_outputs[] =\n{\n'%(self.name, self.T))
+        for layer in self.model.lwnn_model:
+            if(layer['op'] == 'Identity'):
+                self.fpC.write('\tL_REF(%s),\n'%(layer['name']))
+        self.fpC.write('\tNULL\n};\n\n')
         self.fpC.write('static const layer_t* const %s_%s_layers[] =\n{\n'%(self.name, self.T))
         for layer in self.model.lwnn_model:
             self.fpC.write('\tL_REF(%s),\n'%(layer['name']))
         self.fpC.write('\tNULL\n};\n\n')
         self.fpC.write('const network_t LWNN_%s_%s =\n{\n'%(self.name, self.T))
         self.fpC.write('\t"%s_%s",\n'%(self.name, self.T))
-        self.fpC.write('\t%s_%s_layers\n'%(self.name, self.T))
+        self.fpC.write('\t%s_%s_layers,\n'%(self.name, self.T))
+        self.fpC.write('\t%s_%s_inputs,\n'%(self.name, self.T))
+        self.fpC.write('\t%s_%s_outputs\n'%(self.name, self.T))
         self.fpC.write('};\n\n')
 
     def gen_layer_common(self, layer):

@@ -64,6 +64,8 @@ typedef struct
 typedef struct {
 	const char* name;
 	const layer_t* const* layers;
+	const layer_t* const* inputs;
+	const layer_t* const* outputs;
 } network_t;
 
 typedef struct nn {
