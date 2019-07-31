@@ -41,6 +41,10 @@ int layer_cpu_q8_DENSE_init(const nn_t* nn, const layer_t* layer)
 		{
 			rte_cpu_destory_layer_context(nn, layer);
 		}
+		else
+		{
+			rte_cpu_release_buffer(context->bufferA);
+		}
 #endif
 	}
 

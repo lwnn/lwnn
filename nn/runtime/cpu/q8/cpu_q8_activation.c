@@ -34,6 +34,9 @@ static int layer_cpu_q8_activation_init(const nn_t* nn, const layer_t* layer)
 		input = layer->inputs[0];
 		input_context = (layer_cpu_q8_context_t*)input->C->context;
 		context->Q = input_context->Q;
+
+		/* reuse its input layer's output buffer */
+		rte_cpu_take_buffer(input_context->out[0], layer);
 	}
 
 	return r;

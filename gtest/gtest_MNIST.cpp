@@ -42,7 +42,7 @@ void MNISTTest(runtime_type_t runtime,
 
 	size_t top1 = 0;
 
-	for(int i=0; i<B; i++)
+	for(int i=0; (i<B) && (r==0); i++)
 	{
 		float* in = x_test+H*W*C*i;
 		if(network->inputs[0]->dtype== L_DT_INT8)
@@ -97,6 +97,11 @@ void MNISTTest(runtime_type_t runtime,
 		if(IN != in)
 		{
 			free(IN);
+		}
+
+		if((i>0) && ((i%1000) == 0))
+		{
+			printf("MNIST on LWNN TOP1 is %f on %d test images\n", (float)top1/i, i);
 		}
 	}
 

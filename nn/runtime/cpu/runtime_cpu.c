@@ -47,6 +47,27 @@ static const layer_ops_t cpu_lops[][L_OP_NUMBER] =
 #endif
 };
 /* ============================ [ LOCALS    ] ====================================================== */
+#ifndef DISABLE_NN_LOG
+static int cpu_get_buffer_id(const nn_t* nn, rte_cpu_buffer_t* buffer)
+{
+	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
+	int bufferId = -1;
+	int id = -1;
+	rte_cpu_buffer_t* b;
+
+	STAILQ_FOREACH(b, &(rt->buffers), entry)
+	{
+		id ++;
+		if(b == buffer)
+		{
+			bufferId = id;
+			break;
+		}
+	}
+
+	return bufferId;
+}
+#endif
 static int cpu_get_runtime_type(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
@@ -165,6 +186,7 @@ static int cpu_adjust_layer_buffer(const nn_t* nn, const layer_t* layer)
 		if(NULL != buffer)
 		{
 			context->out[i] = buffer->data;
+			NNLOG(NN_DEBUG, (" layer %s out[%d] using buffer%d\n", layer->name, i, cpu_get_buffer_id(nn, buffer)));
 		}
 	}
 
@@ -188,6 +210,10 @@ int rte_CPU_init(const nn_t* nn)
 	int r;
 	rte_cpu_buffer_t* b;
 	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
+#ifndef DISABLE_NN_LOG
+	size_t sum = 0;
+	size_t bufferId = -1;
+#endif
 
 	rt->type = RTE_CPU_TYPE_UNKNOWN;
 	STAILQ_INIT(&(rt->buffers));
@@ -204,6 +230,7 @@ int rte_CPU_init(const nn_t* nn)
 
 	if(0 == r)
 	{
+		NNLOG(NN_DEBUG, ("Memory Usage:\n"));
 		STAILQ_FOREACH(b, &(rt->buffers), entry)
 		{
 			b->data = malloc(b->sz);
@@ -212,7 +239,14 @@ int rte_CPU_init(const nn_t* nn)
 				r = NN_E_NO_MEMORY;
 				break;
 			}
+
+			#ifndef DISABLE_NN_LOG
+			sum += b->sz;
+			bufferId ++;
+			#endif
+			NNLOG(NN_DEBUG, (" buffer%d: %d\n", bufferId, b->sz));
 		}
+		NNLOG(NN_DEBUG, (" summary: %d\n", sum));
 	}
 
 	if(0 == r)
@@ -329,11 +363,19 @@ void* rte_cpu_create_buffer(const nn_t* nn, const layer_t* layer, size_t sz)
 
 	STAILQ_FOREACH(b, &(rt->buffers), entry)
 	{
-		r = rte_is_layer_consumed_from(nn, layer, b->owner);
-		if(FALSE == r)
+		if(NULL == b->owner)
 		{
 			buffer = b;
 			break;
+		}
+		else
+		{
+			r = rte_is_layer_consumed_from(nn, b->owner, layer);
+			if(FALSE == r)
+			{
+				buffer = b;
+				break;
+			}
 		}
 	}
 
@@ -359,6 +401,18 @@ void* rte_cpu_create_buffer(const nn_t* nn, const layer_t* layer, size_t sz)
 	}
 
 	return buffer;
+}
+
+void rte_cpu_take_buffer(rte_cpu_buffer_t* buffer, const layer_t* layer)
+{
+	assert(buffer != NULL);
+	buffer->owner = layer;
+}
+
+void rte_cpu_release_buffer(rte_cpu_buffer_t* buffer)
+{
+	assert(buffer != NULL);
+	buffer->owner = NULL;
 }
 #endif /* DISABLE_RUNTIME_CPU */
 
