@@ -41,9 +41,20 @@ extern "C" {
 			printf msg ;									\
 		} 													\
 	}while(0)
+#ifndef DISABLE_NN_DDO
+#define NNDDO(level, action)									\
+		do {													\
+			if(level >= nn_log_level) {							\
+				action ;										\
+			} 													\
+		}while(0)
+#else
+#define NNDDO(level, action)
+#endif
 #else
 #define NN_LOG(level,msg)
 #endif
+
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))

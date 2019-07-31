@@ -80,6 +80,11 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	int knlX, knlY, padX, padY, strideX, strideY;
 	int* ints;
 
+	size_t batch;
+	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
+	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
+
+
 	ints = (int*)layer->blobs[0]->dims;
 	knlY = ints[1];
 	knlX = ints[2];
@@ -94,7 +99,9 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			layer->name,
 			knlY, knlX, padY, padX, strideY, strideX));
 
-	convolve_HWC_ref_nonsquare(IN,
+	for(batch=0; batch<input_context->nhwc.N; batch++)
+	{
+		convolve_HWC_ref_nonsquare(IN+batch_sizeIn*batch,
 			input_context->nhwc.W,
 			input_context->nhwc.H,
 			input_context->nhwc.C,
@@ -104,9 +111,10 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			padX, padY,
 			strideX, strideY,
 			bias,
-			O,
+			O+batch_sizeO*batch,
 			context->nhwc.W,
 			context->nhwc.H);
+	}
 
 	return r;
 }

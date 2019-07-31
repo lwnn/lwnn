@@ -11,4 +11,7 @@ third_party
 gtest/models
 *ipynb*
 *.onnx
+*.raw
+tmp
+
 

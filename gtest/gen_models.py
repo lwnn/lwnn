@@ -88,7 +88,7 @@ def mnist():
     x_test = x_test.reshape(x_test.shape[0],x_test.shape[1],x_test.shape[2],1)/255.0
     x_test = x_test.astype(np.float32)
     y_test = y_test.astype(np.int8)
-    keras2lwnn(model, 'mnist', {model.inputs[0]:x_test})
+    keras2lwnn(model, 'mnist', {model.inputs[0]:x_test[0:100]})
     x_test.tofile('models/mnist/golden/input.raw')
     y_test.tofile('models/mnist/golden/output.raw')
 

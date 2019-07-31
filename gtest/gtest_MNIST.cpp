@@ -28,17 +28,15 @@ void MNISTTest(runtime_type_t runtime,
 
 	ASSERT_EQ(B, y_test_sz);
 
+	nn_input_t x_input = { network->inputs[0], NULL };
+	nn_input_t* inputs[] = { &x_input, NULL };
 
-	nn_input_t** inputs = nnt_allocate_inputs({network->inputs[0]});
-	ASSERT_TRUE(inputs != NULL);
-	nn_output_t** outputs = nnt_allocate_outputs({network->outputs[0]});
-	ASSERT_TRUE(outputs != NULL);
+	int8_t y_out[10*sizeof(float)];
+	nn_output_t y_output = { network->outputs[0], y_out };
+	nn_output_t* outputs[] = { &y_output, NULL };
 
 	nn_t* nn = nn_create(network, runtime);
 	ASSERT_TRUE(nn != NULL);
-
-	outputs[0]->data = nn_allocate_output(network->outputs[0]);
-	ASSERT_TRUE(outputs[0]->data != NULL);
 
 	void* IN;
 
@@ -102,11 +100,10 @@ void MNISTTest(runtime_type_t runtime,
 		}
 	}
 
-	EXPECT_LT(top1, B*0.9);
-	nn_destory(nn);
+	printf("MNIST on LWNN TOP1 is %f\n", (float)top1/B);
 
-	nnt_free_inputs(inputs);
-	nnt_free_outputs(outputs);
+	EXPECT_GT(top1, B*0.9);
+	nn_destory(nn);
 
 	free(x_test);
 	free(y_test);

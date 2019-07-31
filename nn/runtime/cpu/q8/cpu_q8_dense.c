@@ -35,7 +35,7 @@ int layer_cpu_q8_DENSE_init(const nn_t* nn, const layer_t* layer)
 		context->Q = RTE_FETCH_INT8(layer->blobs[2]->blob, 2);
 
 #if defined (ARM_MATH_DSP)
-		context->bufferA = rte_cpu_create_buffer(nn, layer, RTE_FETCH_INT32(layer->blobs[0]->dims, 0));
+		context->bufferA = rte_cpu_create_buffer(nn, layer, RTE_FETCH_INT32(layer->blobs[0]->dims, 0)*sizeof(q15_t));
 
 		if(NULL == context->bufferA)
 		{

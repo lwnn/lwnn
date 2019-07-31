@@ -24,6 +24,10 @@ typedef struct
 #include "opdef.h"
 #undef OP_DEF
 #endif
+
+#ifndef DISABLE_NN_DDO
+extern void rte_ddo_save(const nn_t* nn, const layer_t* layer);
+#endif
 /* ============================ [ DATAS     ] ====================================================== */
 static const layer_ops_t cpu_lops[][L_OP_NUMBER] =
 {
@@ -121,6 +125,8 @@ static int cpu_execute_layer(const nn_t* nn, const layer_t* layer)
 		if(layer->op < ARRAY_SIZE(cpu_lops[rt->type]))
 		{
 			r = cpu_lops[rt->type][layer->op].execute(nn, layer);
+
+			NNDDO(NN_DEBUG, rte_ddo_save(nn, layer));
 		}
 	}
 	else

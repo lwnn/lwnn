@@ -43,7 +43,7 @@ void DenseTest(runtime_type_t runtime,
 
 	if(network->layers[0]->dtype== L_DT_INT8)
 	{
-		nnt_siso_network_test(runtime, network, input, output, 5.0/100, 0.15);
+		nnt_siso_network_test(runtime, network, input, output, 1.0/100, 0.05);
 	}
 	else
 	{

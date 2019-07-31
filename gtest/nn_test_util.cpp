@@ -146,7 +146,7 @@ void nnt_free_outputs(nn_output_t** ouputs)
 	delete ouputs;
 }
 
-int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff, int silence)
+int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff)
 {
 	int equal = 0;
 
@@ -164,7 +164,7 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 		if(diff > max_diff)
 		{
 			equal++;
-			if((!silence) || (equal < 8))
+			if(equal < 8)
 			{
 				printf("@%d %f != %f\n", i, A[i], B[i]);
 			}
@@ -207,8 +207,8 @@ void nnt_siso_network_test(runtime_type_t runtime,
 		float max_diff,
 		float qmax_diff)
 {
-	nn_input_t** inputs = nnt_allocate_inputs({network->layers[0]});
-	nn_output_t** outputs = nnt_allocate_outputs({network->layers[2]});
+	nn_input_t** inputs = nnt_allocate_inputs({network->inputs[0]});
+	nn_output_t** outputs = nnt_allocate_outputs({network->outputs[0]});
 
 	size_t sz_in;
 	float* IN = (float*)nnt_load(input, &sz_in);
@@ -239,7 +239,7 @@ void nnt_siso_network_test(runtime_type_t runtime,
 			int8_t* blob = (int8_t*)outputs[0]->layer->blobs[0]->blob;
 			float* out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0]);
 			r = nnt_is_equal(OUT, out,
-					layer_get_size(outputs[0]->layer), max_diff, 1);
+					layer_get_size(outputs[0]->layer), max_diff);
 			free(out);
 			/* if (1-qmax_diff)*100 percent data is okay, pass test */
 			EXPECT_LE(r, layer_get_size(outputs[0]->layer)*qmax_diff);
