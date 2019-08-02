@@ -105,6 +105,8 @@ enum {
 	NN_E_INPUT_TYPE_MISMATCH = -11,
 	NN_E_INVALID_NETWORK = -12,
 	NN_E_NO_INPUT_BUFFER_PROVIDED = -13,
+	NN_E_CREATE_CL_PROGRAM_FAILED = -14,
+	NN_E_CREATE_CL_KERNEL_FAILED = -15,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;

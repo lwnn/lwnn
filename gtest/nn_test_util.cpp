@@ -34,6 +34,10 @@ int nnt_run(const network_t* network,
 		EXPECT_EQ(0, r);
 		nn_destory(nn);
 	}
+	else
+	{
+		r = -99;
+	}
 
 	return r;
 }

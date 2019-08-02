@@ -11,28 +11,16 @@
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
+int NHWC_from(const int* dims, NHWC_t* nhwc)
 {
 	int r = 0;
 	int dim = 0;
-	const layer_t* input;
-	const int* dims = layer->dims;
 
-	if(NULL != dims)
-	{
-		while(dims[dim] != 0) {
-			dim ++;
-		};
-	}
-	else
-	{	/* get from its input 0 */
-		input = layer->inputs[0];
-		if((NULL != input) && (NULL != input->C->context))
-		{
-			dims = (int*)&(input->C->context->nhwc);
-			dim = 4;
-		}
-	}
+	assert(dims != NULL);
+
+	while((dims[dim] != 0) && (dim < 4)) {
+		dim ++;
+	};
 
 	switch(dim)
 	{
@@ -61,11 +49,17 @@ int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
 			nhwc->C = dims[3];
 			break;
 		default:
+			NNLOG(NN_ERROR, ("invalid dimension\n"));
 			r = NN_E_INVALID_DIMENSION;
 			break;
 	}
 
 	return r;
+}
+
+int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
+{
+	return NHWC_from(layer->dims, nhwc);
 }
 
 size_t layer_get_size(const layer_t* layer)

@@ -50,8 +50,12 @@ typedef struct
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, float* init_value);
+cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, const float* init_value);
 cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W);
+int rte_cl_image2d_copy_in(const nn_t* nn, cl_mem img2d, const float* in, NHWC_t* nhwc);
+int rte_cl_image2d_copy_out(const nn_t* nn, cl_mem img2d, float* out, NHWC_t* nhwc);
+cl_mem rte_cl_create_image2d_from_blob(const nn_t* nn, const layer_blob_t* blob);
+void rte_cl_destory_memory(cl_mem mem);
 int rte_cl_create_layer_context(
 			const nn_t* nn, const layer_t* layer,
 			const char* program, const char* kernel,
@@ -62,6 +66,9 @@ int rte_cl_set_layer_args(
 			uint32_t nhwc, size_t num, ...);
 int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, int use_cl_hw);
 int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz);
+
+int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
+		const char* program, const char* kernel, size_t ctx_sz);
 #ifdef __cplusplus
 }
 #endif

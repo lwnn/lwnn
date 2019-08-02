@@ -17,7 +17,6 @@ typedef struct {
 static int layer_cl_eltwise_init(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
-	layer_cl_eltwise_context_t* context;
 	const char* kernel;
 
 	switch(layer->op)
@@ -30,26 +29,9 @@ static int layer_cl_eltwise_init(const nn_t* nn, const layer_t* layer)
 			break;
 	}
 
-	r = rte_cl_create_layer_context(nn, layer,
+	r = rte_cl_create_layer_common(nn, layer,
 				OPENCL_PATH "eltwise.cl", kernel,
-				sizeof(layer_cl_eltwise_context_t), 1);
-
-	if(0 == r)
-	{
-		context = (layer_cl_eltwise_context_t*)layer->C->context;
-
-		RTE_CL_LOG_LAYER_SHAPE(layer);
-
-		context->out[0] = rte_cl_create_image2d(nn,
-					RTE_CL_NHWC_H(context->nhwc),
-					RTE_CL_NHWC_W(context->nhwc));
-
-		if(NULL == context->out[0])
-		{
-			r = NN_E_NO_MEMORY;
-			rte_cl_destory_layer_context(nn, layer);
-		}
-	}
+				sizeof(layer_cl_eltwise_context_t));
 
 	return r;
 }

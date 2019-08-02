@@ -192,6 +192,125 @@ static int cl_deinit_layer(const nn_t* nn, const layer_t* layer)
 
 	return 0;
 }
+
+static int cl_create_kernel(const nn_t* nn,
+		const char* program, const char* kernel,
+		cl_program *clprogram,
+		cl_kernel *clkernel)
+{
+	int r = 0;
+	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
+	cl_int errNum;
+
+	*clprogram = cl_create_program(rt->context, rt->device, program);
+	if(NULL != (*clprogram))
+	{
+		*clkernel = clCreateKernel(*clprogram, kernel, &errNum);
+
+		if((NULL == (*clkernel)) || (CL_SUCCESS != errNum))
+		{
+			NNLOG(NN_ERROR,("CL create kernel %s failed with %d\n", kernel, errNum));
+			clReleaseProgram(*clprogram);
+			*clprogram = NULL;
+			r = NN_E_CREATE_CL_KERNEL_FAILED;
+		}
+	}
+	else
+	{
+		*clkernel = NULL;
+		r = NN_E_CREATE_CL_PROGRAM_FAILED;
+	}
+
+	return r;
+}
+
+static int cl_set_kernel_args_v(cl_kernel kernel, uint32_t nhwcMask, NHWC_t* nhwc, size_t num, va_list valist)
+{
+	int r = 0;
+	int errNum = CL_SUCCESS;
+	int i;
+	size_t sz;
+	void* arg;
+
+	for(i = 0; (i < num) && (CL_SUCCESS == errNum); i++)
+	{
+		sz = va_arg(valist, size_t);
+		arg =  va_arg(valist, void*);
+		errNum = clSetKernelArg(kernel, i, sz, arg);
+	}
+
+	if(nhwcMask != 0)
+	{
+		int *dims = (int*)nhwc;
+		int d;
+
+		for(d=0; (d < 4) && (nhwcMask&(1<<d)) && (CL_SUCCESS == errNum); d++)
+		{
+			errNum = clSetKernelArg(kernel, i, sizeof(int), &dims[d]);
+			i++;
+		}
+	}
+
+	if(CL_SUCCESS != errNum)
+	{
+		NNLOG(NN_ERROR,("CL set args[%d] failed with %d\n", i, errNum));
+		r = NN_E_CL_SET_ARGS_FAILED;
+	}
+
+	return r;
+}
+
+static int cl_set_kernel_args(cl_kernel kernel, uint32_t nhwcMask, NHWC_t* nhwc, size_t num, ...)
+{
+	int r = 0;
+	va_list valist;
+
+	va_start(valist, num);
+	r = cl_set_kernel_args_v(kernel, nhwcMask, nhwc, num, valist);
+	va_end(valist);
+
+	return r;
+}
+
+static int cl_enqueue_kernel(const nn_t* nn, cl_kernel kernel, NHWC_t* nhwc, int use_cl_hw, int run)
+{
+	int r = 0;
+	cl_int errNum;
+	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
+
+	size_t globalWorkSize[2];
+	static const size_t localWorkSize[2] = { 1, 1 };
+
+	if(use_cl_hw)
+	{
+		globalWorkSize[0] = RTE_CL_NHWC_W(*nhwc);
+		globalWorkSize[1] = RTE_CL_NHWC_H(*nhwc);
+	}
+	else
+	{
+		globalWorkSize[0] = nhwc->W;
+		globalWorkSize[1] = nhwc->H;
+	};
+
+	errNum = clEnqueueNDRangeKernel(rt->command_queue, kernel, 2, NULL,
+									globalWorkSize, localWorkSize,
+									0, NULL, NULL);
+	if(CL_SUCCESS != errNum)
+	{
+		r = NN_E_CL_EXECUTE_FAILED;
+		NNLOG(NN_ERROR,("CL enqueue failed with %d\n", errNum));
+	}
+	else
+	{
+		if(TRUE == run)
+		{
+			clFlush(rt->command_queue);
+			clFinish(rt->command_queue);
+		}
+	}
+
+	return r;
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 runtime_t rte_OPENCL_create(const nn_t* nn)
 {
@@ -258,7 +377,7 @@ int rte_OPENCL_execute(const nn_t* nn)
 	return r;
 }
 
-cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, float* init_value)
+cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, const float* init_value)
 {
 	cl_int errNum;
 	cl_mem buffer;
@@ -271,7 +390,7 @@ cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, float* init_value)
 	}
 
 	buffer = clCreateBuffer(rt->context, flags,
-					sizeof(float) * sz, init_value, &errNum);
+					sizeof(float) * sz, (void*)init_value, &errNum);
 	if(errNum != CL_SUCCESS)
 	{
 		NNLOG(NN_ERROR,("CL create buffer(%d) failed with %d\n", sz, errNum));
@@ -313,6 +432,116 @@ cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W)
 	return img2d;
 }
 
+int rte_cl_image2d_copy_in(const nn_t* nn, cl_mem img2d, const float* in, NHWC_t* nhwc)
+{
+	int r = 0;
+	cl_program program;
+	cl_kernel kernel;
+	cl_mem inm;
+
+	r = cl_create_kernel(nn, OPENCL_PATH "input.cl", "input", &program, &kernel);
+	if(0 == r)
+	{
+		inm = rte_cl_create_buffer(nn, NHWC_SIZE(*nhwc), in);
+
+		if(NULL != inm)
+		{
+			r = cl_set_kernel_args(kernel, RTE_CL_ARGS_WITH_NHWC, nhwc, 2,
+							sizeof(cl_mem), &inm,
+							sizeof(cl_mem), &img2d);
+
+			if(0 == r)
+			{
+				r = cl_enqueue_kernel(nn, kernel, nhwc, FALSE, TRUE);
+			}
+
+			clReleaseMemObject(inm);
+		}
+
+		clReleaseProgram(program);
+		clReleaseKernel(kernel);
+	}
+
+	return r;
+}
+
+int rte_cl_image2d_copy_out(const nn_t* nn, cl_mem img2d, float* out, NHWC_t* nhwc)
+{
+	int r = 0;
+	cl_program program;
+	cl_kernel kernel;
+	cl_mem outm;
+
+	r = cl_create_kernel(nn, OPENCL_PATH "output.cl", "output", &program, &kernel);
+	if(0 == r)
+	{
+		outm = rte_cl_create_buffer(nn, NHWC_SIZE(*nhwc), NULL);
+
+		if(NULL != outm)
+		{
+			r = cl_set_kernel_args(kernel, RTE_CL_ARGS_WITH_NHWC, nhwc, 2,
+							sizeof(cl_mem), &img2d,
+							sizeof(cl_mem), &outm);
+
+			if(0 == r)
+			{
+				r = cl_enqueue_kernel(nn, kernel, nhwc, FALSE, TRUE);
+			}
+
+			if(0 == r)
+			{
+				r = rte_cl_read_buffer(nn, outm, out, NHWC_SIZE(*nhwc));
+			}
+
+			clReleaseMemObject(outm);
+		}
+
+		clReleaseProgram(program);
+		clReleaseKernel(kernel);
+	}
+
+	return r;
+}
+
+cl_mem rte_cl_create_image2d_from_blob(const nn_t* nn, const layer_blob_t* blob)
+{
+	cl_mem img2d = NULL;
+	int r = 0;
+	const int* dims = blob->dims;
+	NHWC_t nhwc;
+
+
+	r = NHWC_from(blob->dims, &nhwc);
+
+	NNLOG(NN_DEBUG,("cl create blob: [%dx%dx%dx%d] -> [1x%dx%dx4]\n",
+			nhwc.N, nhwc.H, nhwc.W, nhwc.C,
+			RTE_CL_NHWC_H(nhwc), RTE_CL_NHWC_W(nhwc)));
+
+	if(0 == r)
+	{
+		img2d = rte_cl_create_image2d(nn,
+					RTE_CL_NHWC_H(nhwc),
+					RTE_CL_NHWC_W(nhwc));
+		if(NULL != img2d)
+		{
+			r = rte_cl_image2d_copy_in(nn, img2d, (const float*)blob->blob, &nhwc);
+
+			if(0 != r)
+			{
+				rte_cl_destory_memory(img2d);
+				img2d = NULL;
+			}
+		}
+	}
+
+	return img2d;
+}
+
+void rte_cl_destory_memory(cl_mem mem)
+{
+	clReleaseMemObject(mem);
+}
+
 int rte_cl_create_layer_context(
 			const nn_t* nn, const layer_t* layer,
 			const char* program, const char* kernel,
@@ -321,7 +550,6 @@ int rte_cl_create_layer_context(
 	int r = 0;
 	cl_int errNum;
 	layer_cl_context_t* context = NULL;
-	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 
 	assert(sz >= sizeof(layer_cl_context_t));
 
@@ -345,21 +573,10 @@ int rte_cl_create_layer_context(
 
 	if(0 == r)
 	{
-		context->program = cl_create_program(rt->context, rt->device, program);
-		if(NULL != context->program)
-		{
-			context->kernel = clCreateKernel(context->program, kernel, &errNum);
-
-			if((NULL == context->kernel) || (CL_SUCCESS != errNum))
-			{
-				NNLOG(NN_ERROR,("CL create kernel %s failed with %d\n", kernel, errNum));
-
-				clReleaseProgram(context->program);
-			}
-		}
+		r = cl_create_kernel(nn, program, kernel, &context->program, &context->kernel);
 	}
 
-	if(NULL == context->kernel)
+	if(0 != r)
 	{
 		r = NN_E_CREATE_CL_CONTEXT_FAILED;
 		free(context);
@@ -401,38 +618,16 @@ int rte_cl_set_layer_args(
 			uint32_t nhwc, size_t num, ...)
 {
 	int r = 0;
-	int errNum = CL_SUCCESS;
-	int i;
 	va_list valist;
-	size_t sz;
-	void* arg;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 
 	va_start(valist, num);
-	for(i = 0; (i < num) && (CL_SUCCESS == errNum); i++)
-	{
-		sz = va_arg(valist, size_t);
-		arg =  va_arg(valist, void*);
-		errNum = clSetKernelArg(context->kernel, i, sz, arg);
-	}
+	r = cl_set_kernel_args_v(context->kernel, nhwc, &context->nhwc, num, valist);
 	va_end(valist);
 
-	if(nhwc != 0)
+	if(0 != r)
 	{
-		int *dims = (int*)&(context->nhwc);
-		int d;
-
-		for(d=0; (d < 4) && (nhwc&(1<<d)) && (CL_SUCCESS == errNum); d++)
-		{
-			errNum = clSetKernelArg(context->kernel, i, sizeof(int), &dims[d]);
-			i++;
-		}
-	}
-
-	if(CL_SUCCESS != errNum)
-	{
-		r = NN_E_CL_SET_ARGS_FAILED;
-		NNLOG(NN_ERROR,("CL set args[%d] for %s failed with %d\n", i, layer->name, errNum));
+		NNLOG(NN_ERROR,("CL set args for %s failed\n", layer->name));
 	}
 
 	return r;
@@ -441,31 +636,14 @@ int rte_cl_set_layer_args(
 int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, int use_cl_hw)
 {
 	int r = 0;
-	cl_int errNum;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 
-	size_t globalWorkSize[2];
+	r = cl_enqueue_kernel(nn, context->kernel, &context->nhwc, use_cl_hw, 0);
 
-	if(use_cl_hw)
+	if(0 != r)
 	{
-		globalWorkSize[0] = RTE_CL_NHWC_W(context->nhwc);
-		globalWorkSize[1] = RTE_CL_NHWC_H(context->nhwc);
-	}
-	else
-	{
-		globalWorkSize[0] = context->nhwc.W;
-		globalWorkSize[1] = context->nhwc.H;
-	};
-	size_t localWorkSize[2] = { 1, 1 };
-
-	errNum = clEnqueueNDRangeKernel(rt->command_queue, context->kernel, 2, NULL,
-									globalWorkSize, localWorkSize,
-									0, NULL, NULL);
-	if(CL_SUCCESS != errNum)
-	{
-		r = NN_E_CL_EXECUTE_FAILED;
-		NNLOG(NN_ERROR,("CL execute %s failed with %d\n", layer->name, errNum));
+		NNLOG(NN_ERROR,("CL execute for %s failed\n", layer->name));
 	}
 
 	return r;
@@ -484,6 +662,36 @@ int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz)
 	{
 		r = NN_E_CL_READ_BUFFER_FAILED;
 		NNLOG(NN_ERROR,("CL read buffer failed with %d\n", errNum));
+	}
+
+	return r;
+}
+
+int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
+		const char* program, const char* kernel, size_t ctx_sz)
+{
+	int r = 0;
+
+	layer_cl_context_t* context;
+
+	r = rte_cl_create_layer_context(nn, layer,
+				program, kernel, ctx_sz, 1);
+
+	if(0 == r)
+	{
+		context = (layer_cl_context_t*)layer->C->context;
+
+		RTE_CL_LOG_LAYER_SHAPE(layer);
+
+		context->out[0] = rte_cl_create_image2d(nn,
+					RTE_CL_NHWC_H(context->nhwc),
+					RTE_CL_NHWC_W(context->nhwc));
+
+		if(NULL == context->out[0])
+		{
+			r = NN_E_NO_MEMORY;
+			rte_cl_destory_layer_context(nn, layer);
+		}
 	}
 
 	return r;

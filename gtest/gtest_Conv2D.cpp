@@ -71,6 +71,16 @@ TEST(RuntimeCPU, Conv2DFloat)
 	}
 }
 
+TEST(RuntimeOPENCL, Conv2DFloat)
+{
+	for(int i=0; i<ARRAY_SIZE(test_cases); i++)
+	{
+		Conv2DTest(RUNTIME_OPENCL, test_cases[i].network_float,
+				test_cases[i].input,
+				test_cases[i].output);
+	}
+}
+
 TEST(RuntimeCPU, Conv2DQ8)
 {
 	for(int i=0; i<ARRAY_SIZE(test_cases); i++)

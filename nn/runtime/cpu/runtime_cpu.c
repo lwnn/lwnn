@@ -331,7 +331,6 @@ int rte_cpu_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx
 {
 	int r = 0;
 	layer_cpu_context_t* context;
-	const char* kernel;
 
 	r = rte_cpu_create_layer_context(nn, layer, ctx_sz, 1);
 

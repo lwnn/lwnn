@@ -14,22 +14,22 @@ typedef struct {
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-static void convolve_HWC_ref_nonsquare(const float * Im_in,  // input image
-		const int dim_im_in_x,  // input image dimension x
-		const int dim_im_in_y,  // input image dimension y
-		const int ch_im_in, // number of input image channels
-		const float * wt, // kernel weights
-		const int ch_im_out, // number of filters, i.e., output image channels
-		const int dim_kernel_x, // filter kernel size x
-		const int dim_kernel_y, // filter kernel size y
-		const int padding_x,    // padding sizes x
-		const int padding_y,    // padding sizes y
-		const int stride_x, // stride x
-		const int stride_y, // stride y
-		const float * bias,   // bias
-		float * Im_out, // output image
-		const int dim_im_out_x, // output image dimension x
-		const int dim_im_out_y  // output image dimension y
+static void convolve_HWC_ref_nonsquare(const float * Im_in,  /* input image */
+		const int dim_im_in_x,  /* input image dimension x */
+		const int dim_im_in_y,  /* input image dimension y */
+		const int ch_im_in, /* number of input image channels */
+		const float * wt, /* kernel weights */
+		const int ch_im_out, /* number of filters, i.e., output image channels */
+		const int dim_kernel_x, /* filter kernel size x */
+		const int dim_kernel_y, /* filter kernel size y */
+		const int padding_x,    /* padding sizes x */
+		const int padding_y,    /* padding sizes y */
+		const int stride_x, /* stride x */
+		const int stride_y, /* stride y */
+		const float * bias,   /* bias */
+		float * Im_out, /* output image */
+		const int dim_im_out_x, /* output image dimension x */
+		const int dim_im_out_y  /* output image dimension y */
 		)
 {
 	int i, j, k, l, m, n;
