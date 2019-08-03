@@ -15,11 +15,12 @@ typedef struct {
 } test_case_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 extern const network_t LWNN_relu_1_q8;
+extern const network_t LWNN_relu_1_float;
 /* ============================ [ DATAS     ] ====================================================== */
 static test_case_t test_cases[] =
 {
 	{
-		NULL,
+		&LWNN_relu_1_float,
 		&LWNN_relu_1_q8,
 		RAW_P "relu_1/golden/relu_1_input_01.raw",
 		RAW_P "relu_1/golden/relu_1_output_Relu_0.raw"
@@ -49,6 +50,16 @@ TEST(RuntimeCPU, ReLUQ8)
 	for(int i=0; i<ARRAY_SIZE(test_cases); i++)
 	{
 		ReLUTest(RUNTIME_CPU, test_cases[i].network_q8,
+				test_cases[i].input,
+				test_cases[i].output);
+	}
+}
+
+TEST(RuntimeOPENCL, ReLU)
+{
+	for(int i=0; i<ARRAY_SIZE(test_cases); i++)
+	{
+		ReLUTest(RUNTIME_OPENCL, test_cases[i].network_float,
 				test_cases[i].input,
 				test_cases[i].output);
 	}

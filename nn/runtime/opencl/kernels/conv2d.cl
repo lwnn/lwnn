@@ -85,7 +85,7 @@ __kernel void conv2d(
 				}
 			}
 		}
-		
+
 		write_imagef(out, (int2)(x*out_channels+c, y+n*dim_im_out_y), out0);
 	}
 }

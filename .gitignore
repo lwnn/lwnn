@@ -13,5 +13,7 @@ gtest/models
 *.onnx
 *.raw
 tmp
+download
+
 
 
