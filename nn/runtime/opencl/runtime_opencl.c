@@ -272,27 +272,38 @@ static int cl_set_kernel_args(cl_kernel kernel, uint32_t nhwcMask, NHWC_t* nhwc,
 	return r;
 }
 
-static int cl_enqueue_kernel(const nn_t* nn, cl_kernel kernel, NHWC_t* nhwc, int use_cl_hw, int run)
+static int cl_enqueue_kernel(const nn_t* nn, cl_kernel kernel, NHWC_t* nhwc, rte_cl_global_work_type_t gwt, int run)
 {
 	int r = 0;
 	cl_int errNum;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 
-	size_t globalWorkSize[2];
-	static const size_t localWorkSize[2] = { 1, 1 };
+	size_t globalWorkSize[4] = { 1, 1, 1, 1 };
+	static const size_t localWorkSize[4] = { 1, 1, 1, 1 };
+	size_t sz = 2;
 
-	if(use_cl_hw)
+	switch(gwt)
 	{
-		globalWorkSize[0] = RTE_CL_NHWC_W(*nhwc);
-		globalWorkSize[1] = RTE_CL_NHWC_H(*nhwc);
+		case RTE_GWT_W_H:
+			globalWorkSize[0] = nhwc->W;
+			globalWorkSize[1] = nhwc->H;
+			break;
+		case RTE_GWT_CL_W_H:
+			globalWorkSize[0] = RTE_CL_NHWC_W(*nhwc);
+			globalWorkSize[1] = RTE_CL_NHWC_H(*nhwc);
+			break;
+		case RTE_GWT_W_H_C:
+			globalWorkSize[0] = nhwc->W;
+			globalWorkSize[1] = nhwc->H;
+			globalWorkSize[2] = RTE_CL_NHWC_C(*nhwc);
+			sz = 3;
+			break;
+		default:
+			assert(0);
+			break;
 	}
-	else
-	{
-		globalWorkSize[0] = nhwc->W;
-		globalWorkSize[1] = nhwc->H;
-	};
 
-	errNum = clEnqueueNDRangeKernel(rt->command_queue, kernel, 2, NULL,
+	errNum = clEnqueueNDRangeKernel(rt->command_queue, kernel, sz, NULL,
 									globalWorkSize, localWorkSize,
 									0, NULL, NULL);
 	if(CL_SUCCESS != errNum)
@@ -452,7 +463,7 @@ int rte_cl_image2d_copy_in(const nn_t* nn, cl_mem img2d, const float* in, NHWC_t
 
 			if(0 == r)
 			{
-				r = cl_enqueue_kernel(nn, kernel, nhwc, FALSE, TRUE);
+				r = cl_enqueue_kernel(nn, kernel, nhwc, RTE_GWT_W_H_C, TRUE);
 			}
 
 			clReleaseMemObject(inm);
@@ -485,7 +496,7 @@ int rte_cl_image2d_copy_out(const nn_t* nn, cl_mem img2d, float* out, NHWC_t* nh
 
 			if(0 == r)
 			{
-				r = cl_enqueue_kernel(nn, kernel, nhwc, FALSE, TRUE);
+				r = cl_enqueue_kernel(nn, kernel, nhwc, RTE_GWT_W_H_C, TRUE);
 			}
 
 			if(0 == r)
@@ -633,13 +644,13 @@ int rte_cl_set_layer_args(
 	return r;
 }
 
-int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, int use_cl_hw)
+int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, rte_cl_global_work_type_t gwt)
 {
 	int r = 0;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 
-	r = cl_enqueue_kernel(nn, context->kernel, &context->nhwc, use_cl_hw, 0);
+	r = cl_enqueue_kernel(nn, context->kernel, &context->nhwc, gwt, 0);
 
 	if(0 != r)
 	{

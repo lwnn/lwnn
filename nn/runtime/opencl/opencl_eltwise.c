@@ -57,7 +57,7 @@ static int layer_cl_eltwise_execute(const nn_t* nn, const layer_t* layer)
 
 	if(0 == r)
 	{
-		r = rte_cl_execute_layer(nn, layer, TRUE);
+		r = rte_cl_execute_layer(nn, layer, RTE_GWT_CL_W_H);
 	}
 
 	return r;

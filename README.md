@@ -14,7 +14,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 
 | Layers/Runtime | cpu float | CMSIS NN q8 | CMSIS NN q16 | opencl | comments |
 | - | - | - | - | - | - |
-| Conv2D | Y | Y | N | N | |
+| Conv2D | Y | Y | N | Y | |
 | EltmentWise Max | Y | Y | N | Y | |
 | ReLU | N | Y | N | N | |
 | MaxPool | N | Y | N | N | |

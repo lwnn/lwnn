@@ -2,7 +2,7 @@
  * LWNN - Lightweight Neural Network
  * Copyright (C) 2019  Parai Wang <parai@foxmail.com>
  */
-
+#define USING_GWT_C
 __kernel void output(
 		__read_only image2d_t in,
 		__global float *out,
@@ -19,11 +19,15 @@ __kernel void output(
 	float4 value;
 	int x = get_global_id(0);
 	int y = get_global_id(1);
-	
+#ifdef USING_GWT_C
+	c = get_global_id(2)*4;
+#endif
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
 	for(n=0; n<N; n++) {
+#ifndef USING_GWT_C
 		for(c=0; c<C; c+=4)
+#endif
 		{
 			offset = n*H*W*C + y*W*C+x*C+c;
 			

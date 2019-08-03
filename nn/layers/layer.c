@@ -26,9 +26,9 @@ int NHWC_from(const int* dims, NHWC_t* nhwc)
 	{
 		case 1:
 			nhwc->N = 1;
-			nhwc->H = dims[0];
+			nhwc->H = 1;
 			nhwc->W = 1;
-			nhwc->C = 1;
+			nhwc->C = dims[0];
 			break;
 		case 2:
 			nhwc->N = 1;

@@ -96,7 +96,7 @@ int layer_cl_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 
 	if(0 == r)
 	{
-		r = rte_cl_execute_layer(nn, layer, TRUE);
+		r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H_C);
 	}
 
 	return r;
