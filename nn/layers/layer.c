@@ -96,7 +96,6 @@ size_t layer_get_size(const layer_t* layer)
 UNSUPPORTED_LAYER_OPS(cpu_float, RELU)
 
 UNSUPPORTED_LAYER_OPS(cpu_float, MAXPOOL)
-UNSUPPORTED_LAYER_OPS(cl, MAXPOOL)
 
 UNSUPPORTED_LAYER_OPS(cpu_float, RESHAPE)
 UNSUPPORTED_LAYER_OPS(cpu_q8, RESHAPE)

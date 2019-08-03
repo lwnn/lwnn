@@ -244,10 +244,13 @@ static int cl_set_kernel_args_v(cl_kernel kernel, uint32_t nhwcMask, NHWC_t* nhw
 		int *dims = (int*)nhwc;
 		int d;
 
-		for(d=0; (d < 4) && (nhwcMask&(1<<d)) && (CL_SUCCESS == errNum); d++)
+		for(d=0; (d < 4) && (CL_SUCCESS == errNum); d++)
 		{
-			errNum = clSetKernelArg(kernel, i, sizeof(int), &dims[d]);
-			i++;
+			if(nhwcMask&(1<<d))
+			{
+				errNum = clSetKernelArg(kernel, i, sizeof(int), &dims[d]);
+				i++;
+			}
 		}
 	}
 
