@@ -55,23 +55,23 @@ def mnist():
         y_train = to_categorical(y_train)
         y_test = to_categorical(y_test)
         x = Input(shape=x_train.shape[1:])
-    
+
         conv1 = Conv2D(32, kernel_size=(5, 5), strides=(1, 1), padding='same')(x)
         h_conv1 = ReLU()(conv1)
         h_pool1 = MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(h_conv1)
-        
+
         conv2 = Conv2D(64, (5, 5), strides=(1, 1), padding='same')(h_pool1)
         h_conv2 = ReLU()(conv2)
         h_pool2 = MaxPooling2D(pool_size=(2, 2), strides=(2, 2))(h_conv2)
-        
+
         flat1 = Flatten()(h_pool2)
         fc1 = Dense(1024)(flat1)
         h_fc1 = ReLU()(fc1)
-        
+
         fc2 = Dense(10)(h_fc1)
-    
+
         y = Softmax()(fc2)
-        
+
         model = Model(inputs=x, outputs=y)
         model.compile(loss=keras.losses.categorical_crossentropy, optimizer=keras.optimizers.SGD(lr=0.01), metrics=['accuracy'])
         model.fit(x_train, y_train, batch_size=128, epochs=12, verbose=1, validation_data=(x_test, y_test))

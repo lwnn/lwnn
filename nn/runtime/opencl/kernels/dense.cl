@@ -30,7 +30,7 @@ __kernel void dense(
 		for(in_c=0; in_c<ch_im_in; in_c+=4)
 		{
 			value = read_imagef(in, sampler, (int2)((in_c/4), n));
-			weight = read_imagef(weights, sampler, (int2)((c*4)*in_channels+(in_c/4), n));
+			weight = read_imagef(weights, sampler, (int2)((in_c/4), c*4));
 			out0.x += weight.x*value.x;
 			out0.x += weight.y*value.y;
 			out0.x += weight.z*value.z;
@@ -38,7 +38,7 @@ __kernel void dense(
 
 			if((ch_im_out-c*4) > 1)
 			{
-				weight = read_imagef(weights, sampler, (int2)((c*4+1)*in_channels+(in_c/4), n));
+				weight = read_imagef(weights, sampler, (int2)((in_c/4), c*4+1));
 				out0.y += weight.x*value.x;
 				out0.y += weight.y*value.y;
 				out0.y += weight.z*value.z;
@@ -47,7 +47,7 @@ __kernel void dense(
 
 			if((ch_im_out-c*4) > 2)
 			{
-				weight = read_imagef(weights, sampler, (int2)((c*4+2)*in_channels+(in_c/4), n));
+				weight = read_imagef(weights, sampler, (int2)((in_c/4), c*4+2));
 				out0.z += weight.x*value.x;
 				out0.z += weight.y*value.y;
 				out0.z += weight.z*value.z;
@@ -56,7 +56,7 @@ __kernel void dense(
 
 			if((ch_im_out-c*4) > 3)
 			{
-				weight = read_imagef(weights, sampler, (int2)((c*4+3)*in_channels+(in_c/4), n));
+				weight = read_imagef(weights, sampler, (int2)((in_c/4), c*4+3));
 				out0.w += weight.x*value.x;
 				out0.w += weight.y*value.y;
 				out0.w += weight.z*value.z;

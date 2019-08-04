@@ -11,10 +11,12 @@
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int NHWC_from(const int* dims, NHWC_t* nhwc)
+int layer_get_blob_NHWC(const layer_blob_t* blob, NHWC_t* nhwc)
 {
 	int r = 0;
 	int dim = 0;
+
+	const int* dims = blob->dims;
 
 	assert(dims != NULL);
 
@@ -32,8 +34,8 @@ int NHWC_from(const int* dims, NHWC_t* nhwc)
 			break;
 		case 2:
 			nhwc->N = 1;
-			nhwc->H = 1;
-			nhwc->W = dims[0];
+			nhwc->H = dims[0];
+			nhwc->W = 1;
 			nhwc->C = dims[1];
 			break;
 		case 3:
@@ -49,7 +51,7 @@ int NHWC_from(const int* dims, NHWC_t* nhwc)
 			nhwc->C = dims[3];
 			break;
 		default:
-			NNLOG(NN_ERROR, ("invalid dimension\n"));
+			NNLOG(NN_ERROR, ("invalid dimension of blob\n"));
 			r = NN_E_INVALID_DIMENSION;
 			break;
 	}
@@ -59,7 +61,43 @@ int NHWC_from(const int* dims, NHWC_t* nhwc)
 
 int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
 {
-	return NHWC_from(layer->dims, nhwc);
+	int r = 0;
+	int dim = 0;
+	const int* dims = layer->dims;
+
+	assert(dims != NULL);
+
+	while((dims[dim] != 0) && (dim < 4)) {
+		dim ++;
+	};
+
+	switch(dim)
+	{
+		case 2:
+			nhwc->N = dims[0];
+			nhwc->H = 1;
+			nhwc->W = 1;
+			nhwc->C = dims[1];
+			break;
+		case 3:
+			nhwc->N = dims[0];
+			nhwc->H = dims[1];
+			nhwc->W = dims[2];
+			nhwc->C = 1;
+			break;
+		case 4:
+			nhwc->N = dims[0];
+			nhwc->H = dims[1];
+			nhwc->W = dims[2];
+			nhwc->C = dims[3];
+			break;
+		default:
+			NNLOG(NN_ERROR, ("invalid dimension for %s\n", layer->name));
+			r = NN_E_INVALID_DIMENSION;
+			break;
+	}
+
+	return r;
 }
 
 size_t layer_get_size(const layer_t* layer)
@@ -99,7 +137,6 @@ UNSUPPORTED_LAYER_OPS(cpu_float, MAXPOOL)
 
 UNSUPPORTED_LAYER_OPS(cpu_float, RESHAPE)
 UNSUPPORTED_LAYER_OPS(cpu_q8, RESHAPE)
-UNSUPPORTED_LAYER_OPS(cl, RESHAPE)
 
 UNSUPPORTED_LAYER_OPS(cpu_float, DENSE)
 

@@ -140,12 +140,36 @@ int rte_is_layer_consumed_from(const nn_t* nn, const layer_t* layer, const layer
 #ifndef DISABLE_RUNTIME_CPU
 #include "cpu/runtime_cpu.h"
 #endif
+#ifndef DISABLE_RUNTIME_OPENCL
+#include "opencl/runtime_opencl.h"
+#endif
+static void rte_ddo_save_raw(const char* lname, int i, void* data, size_t sz)
+{
+	char name[128];
+	FILE* fp;
+	snprintf(name, sizeof(name), "tmp/%s-%d.raw", lname, i);
+	#ifdef _WIN32
+	mkdir("tmp");
+	#else
+	mkdir("tmp", S_IRWXU);
+	#endif
+	fp = fopen(name, "wb");
+
+	if(fp != NULL)
+	{
+		fwrite(data, sz, 1, fp);
+		fclose(fp);
+	}
+	else
+	{
+		printf("failed to create debug output %s\n", name);
+	}
+}
+
 void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 {
 	size_t sz = layer_get_size(layer);
-	char name[128];
 	int i;
-
 
 	if(L_DT_INT8 == nn->network->layers[0]->dtype)
 	{
@@ -166,24 +190,32 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 		layer_cpu_context_t* context = (layer_cpu_context_t*)layer->C->context;
 		for(i=0; i<context->nout; i++)
 		{
-			FILE* fp;
-			snprintf(name, sizeof(name), "tmp/%s-%d.raw", layer->name, i);
-			#ifdef _WIN32
-			mkdir("tmp");
-			#else
-			mkdir("tmp", S_IRWXU);
-			#endif
-			fp = fopen(name, "wb");
-
-			if(fp != NULL)
+			rte_ddo_save_raw(layer->name, i, context->out[i], sz);
+		}
+	}
+#endif
+#ifndef DISABLE_RUNTIME_CPU
+	if(RUNTIME_OPENCL == nn->runtime_type)
+	{
+		int r;
+		layer_cl_context_t* context;
+		void* data = malloc(sz);
+		if(NULL != data)
+		{
+			context = (layer_cl_context_t*)layer->C->context;
+			for(i=0; i<context->nout; i++)
 			{
-				fwrite(context->out[i], sz, 1, fp);
-				fclose(fp);
+				r = rte_cl_image2d_copy_out(nn, context->out[i], (float*)data, &(context->nhwc));
+				if(0 == r)
+				{
+					rte_ddo_save_raw(layer->name, i, data, sz);
+				}
+				else
+				{
+					printf("failed to fetch CL output %s\n", layer->name);
+				}
 			}
-			else
-			{
-				printf("failed to create debug output %s\n", name);
-			}
+			free(data);
 		}
 	}
 #endif

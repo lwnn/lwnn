@@ -9,6 +9,7 @@
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 extern const network_t LWNN_mnist_q8;
+extern const network_t LWNN_mnist_float;
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 
@@ -118,4 +119,9 @@ void MNISTTest(runtime_type_t runtime,
 TEST(RuntimeCPU, MNISTQ8)
 {
 	MNISTTest(RUNTIME_CPU, &LWNN_mnist_q8);
+}
+
+TEST(RuntimeOPENCL, MNIST)
+{
+	MNISTTest(RUNTIME_OPENCL, &LWNN_mnist_float);
 }

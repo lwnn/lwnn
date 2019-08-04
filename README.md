@@ -20,6 +20,9 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | MaxPool | N | Y | N | Y | |
 | Dense | N | Y | N | Y | |
 | Softmax | N | Y | N | Y | |
+| Reshape | N | O | N | Y | |
+
+* O: Optimized out, not required
 
 ## Development
 

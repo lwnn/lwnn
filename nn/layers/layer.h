@@ -175,7 +175,7 @@ typedef struct
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int NHWC_from(const int* dims, NHWC_t* nhwc);
+int layer_get_blob_NHWC(const layer_blob_t* blob, NHWC_t* nhwc);
 int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc);
 size_t layer_get_size(const layer_t* layer);
 #ifdef __cplusplus

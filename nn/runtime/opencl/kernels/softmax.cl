@@ -49,6 +49,7 @@ __kernel void softmax(
 		}
 		if((C-c*4) > 0) {
 			data = read_imagef(in, sampler, (int2)(c, n));
+			data = native_exp(data-max_value);
 			sum += data.x;
 			if((C-c*4) > 1) {
 				sum += data.y;

@@ -14,11 +14,18 @@ typedef struct
 	cl_device_id device;
 	cl_command_queue command_queue;
 
+	cl_program iprg;
+	cl_program oprg;
+	cl_kernel iknl;
+	cl_kernel oknl;
 } rte_cl_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 #define OP_DEF(op) L_OPS_DECLARE(cl_##op);
 #include "opdef.h"
 #undef OP_DEF
+#ifndef DISABLE_NN_DDO
+extern void rte_ddo_save(const nn_t* nn, const layer_t* layer);
+#endif
 /* ============================ [ DATAS     ] ====================================================== */
 static const layer_ops_t cl_lops[] =
 {
@@ -170,6 +177,16 @@ static int cl_execute_layer(const nn_t* nn, const layer_t* layer)
 
 	return r;
 }
+#ifndef DISABLE_NN_DDO
+static int cl_ddo_layer(const nn_t* nn, const layer_t* layer)
+{
+	if(layer->op != L_OP_OUTPUT)
+	{
+		NNDDO(NN_DEBUG, rte_ddo_save(nn, layer));
+	}
+	return 0;
+}
+#endif
 
 static int cl_init_layer(const nn_t* nn, const layer_t* layer)
 {
@@ -212,6 +229,7 @@ static int cl_create_kernel(const nn_t* nn,
 			NNLOG(NN_ERROR,("CL create kernel %s failed with %d\n", kernel, errNum));
 			clReleaseProgram(*clprogram);
 			*clprogram = NULL;
+			*clkernel = NULL;
 			r = NN_E_CREATE_CL_KERNEL_FAILED;
 		}
 	}
@@ -281,8 +299,8 @@ static int cl_enqueue_kernel(const nn_t* nn, cl_kernel kernel, NHWC_t* nhwc, rte
 	cl_int errNum;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 
-	size_t globalWorkSize[4] = { 1, 1, 1, 1 };
-	static const size_t localWorkSize[4] = { 1, 1, 1, 1 };
+	size_t globalWorkSize[3] = { 1, 1, 1 };
+	static const size_t localWorkSize[3] = { 1, 1, 1 };
 	size_t sz = 2;
 
 	switch(gwt)
@@ -352,6 +370,13 @@ runtime_t rte_OPENCL_create(const nn_t* nn)
 		free(rt);
 		rt = NULL;
 	}
+	else
+	{
+		rt->iprg = NULL;
+		rt->oprg = NULL;
+		rt->iknl = NULL;
+		rt->oknl = NULL;
+	}
 
 	return rt;
 }
@@ -362,8 +387,30 @@ void rte_OPENCL_destory(const nn_t* nn)
 
 	rte_do_for_each_layer(nn, cl_deinit_layer);
 
+	if(rt->iknl != NULL)
+	{
+		clReleaseKernel(rt->iknl);
+	}
+
+	if(rt->iprg != NULL)
+	{
+		clReleaseProgram(rt->iprg);
+	}
+
+	if(rt->oknl != NULL)
+	{
+		clReleaseKernel(rt->oknl);
+	}
+
+	if(rt->oprg != NULL)
+	{
+		clReleaseProgram(rt->oprg);
+	}
+
 	clReleaseCommandQueue(rt->command_queue);
 	clReleaseContext(rt->context);
+
+	free(rt);
 }
 
 int rte_OPENCL_init(const nn_t* nn)
@@ -386,6 +433,10 @@ int rte_OPENCL_execute(const nn_t* nn)
 	{
 		clFlush(rt->command_queue);
 		clFinish(rt->command_queue);
+
+#ifndef DISABLE_NN_DDO
+		rte_do_for_each_layer(nn, cl_ddo_layer);
+#endif
 	}
 
 	return r;
@@ -449,31 +500,35 @@ cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W)
 int rte_cl_image2d_copy_in(const nn_t* nn, cl_mem img2d, const float* in, NHWC_t* nhwc)
 {
 	int r = 0;
-	cl_program program;
-	cl_kernel kernel;
+	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 	cl_mem inm;
 
-	r = cl_create_kernel(nn, OPENCL_PATH "input.cl", "input", &program, &kernel);
+	if(NULL == rt->iknl)
+	{
+		r = cl_create_kernel(nn, OPENCL_PATH "input.cl", "input", &rt->iprg, &rt->iknl);
+	}
+
 	if(0 == r)
 	{
 		inm = rte_cl_create_buffer(nn, NHWC_SIZE(*nhwc), in);
 
 		if(NULL != inm)
 		{
-			r = cl_set_kernel_args(kernel, RTE_CL_ARGS_WITH_NHWC, nhwc, 2,
+			r = cl_set_kernel_args(rt->iknl, RTE_CL_ARGS_WITH_NHWC, nhwc, 2,
 							sizeof(cl_mem), &inm,
 							sizeof(cl_mem), &img2d);
 
 			if(0 == r)
 			{
-				r = cl_enqueue_kernel(nn, kernel, nhwc, RTE_GWT_W_H_C, TRUE);
+				r = cl_enqueue_kernel(nn, rt->iknl, nhwc, RTE_GWT_W_H_C, TRUE);
 			}
 
 			clReleaseMemObject(inm);
 		}
-
-		clReleaseProgram(program);
-		clReleaseKernel(kernel);
+		else
+		{
+			r = NN_E_NO_MEMORY;
+		}
 	}
 
 	return r;
@@ -482,24 +537,29 @@ int rte_cl_image2d_copy_in(const nn_t* nn, cl_mem img2d, const float* in, NHWC_t
 int rte_cl_image2d_copy_out(const nn_t* nn, cl_mem img2d, float* out, NHWC_t* nhwc)
 {
 	int r = 0;
+	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 	cl_program program;
 	cl_kernel kernel;
 	cl_mem outm;
 
-	r = cl_create_kernel(nn, OPENCL_PATH "output.cl", "output", &program, &kernel);
+	if(NULL == rt->oknl)
+	{
+		r = cl_create_kernel(nn, OPENCL_PATH "output.cl", "output", &rt->oprg, &rt->oknl);
+	}
+
 	if(0 == r)
 	{
 		outm = rte_cl_create_buffer(nn, NHWC_SIZE(*nhwc), NULL);
 
 		if(NULL != outm)
 		{
-			r = cl_set_kernel_args(kernel, RTE_CL_ARGS_WITH_NHWC, nhwc, 2,
+			r = cl_set_kernel_args(rt->oknl, RTE_CL_ARGS_WITH_NHWC, nhwc, 2,
 							sizeof(cl_mem), &img2d,
 							sizeof(cl_mem), &outm);
 
 			if(0 == r)
 			{
-				r = cl_enqueue_kernel(nn, kernel, nhwc, RTE_GWT_W_H_C, TRUE);
+				r = cl_enqueue_kernel(nn, rt->oknl, nhwc, RTE_GWT_W_H_C, TRUE);
 			}
 
 			if(0 == r)
@@ -509,9 +569,10 @@ int rte_cl_image2d_copy_out(const nn_t* nn, cl_mem img2d, float* out, NHWC_t* nh
 
 			clReleaseMemObject(outm);
 		}
-
-		clReleaseProgram(program);
-		clReleaseKernel(kernel);
+		else
+		{
+			r = NN_E_NO_MEMORY;
+		}
 	}
 
 	return r;
@@ -521,11 +582,9 @@ cl_mem rte_cl_create_image2d_from_blob(const nn_t* nn, const layer_blob_t* blob)
 {
 	cl_mem img2d = NULL;
 	int r = 0;
-	const int* dims = blob->dims;
 	NHWC_t nhwc;
 
-
-	r = NHWC_from(blob->dims, &nhwc);
+	r = layer_get_blob_NHWC(blob, &nhwc);
 
 	NNLOG(NN_DEBUG,("cl create blob: [%dx%dx%dx%d] -> [1x%dx%dx4]\n",
 			nhwc.N, nhwc.H, nhwc.W, nhwc.C,
