@@ -15,11 +15,12 @@ typedef struct {
 } test_case_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 extern const network_t LWNN_softmax_1_q8;
+extern const network_t LWNN_softmax_1_float;
 /* ============================ [ DATAS     ] ====================================================== */
 static test_case_t test_cases_maxpool[] =
 {
 	{
-		NULL,
+		&LWNN_softmax_1_float,
 		&LWNN_softmax_1_q8,
 		RAW_P "softmax_1/golden/softmax_1_input_01.raw",
 		RAW_P "softmax_1/golden/softmax_1_output_Softmax_0.raw"
@@ -49,6 +50,16 @@ TEST(RuntimeCPU, SoftmaxQ8)
 	for(int i=0; i<ARRAY_SIZE(test_cases_maxpool); i++)
 	{
 		SoftmaxTest(RUNTIME_CPU, test_cases_maxpool[i].network_q8,
+				test_cases_maxpool[i].input,
+				test_cases_maxpool[i].output);
+	}
+}
+
+TEST(RuntimeOPENCL, Softmax)
+{
+	for(int i=0; i<ARRAY_SIZE(test_cases_maxpool); i++)
+	{
+		SoftmaxTest(RUNTIME_OPENCL, test_cases_maxpool[i].network_float,
 				test_cases_maxpool[i].input,
 				test_cases_maxpool[i].output);
 	}
