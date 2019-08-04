@@ -36,11 +36,12 @@ __kernel void conv2d(
 	
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
-	float4 out0 = read_imagef(bias, sampler, (int2)(0, c));
+	float4 out0;
 	float4 value;
 	float4 weight;
 
 	for(n=0; n<N; n++) {
+		out0 = read_imagef(bias, sampler, (int2)(0, c));
 		for (knlY = 0; knlY < dim_kernel_y; knlY++) {
 			for (knlX = 0; knlX < dim_kernel_x; knlX++) {
 				in_row = stride_y * y + knlY - padding_y;

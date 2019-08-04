@@ -32,9 +32,9 @@ int NHWC_from(const int* dims, NHWC_t* nhwc)
 			break;
 		case 2:
 			nhwc->N = 1;
-			nhwc->H = dims[0];
-			nhwc->W = dims[1];
-			nhwc->C = 1;
+			nhwc->H = 1;
+			nhwc->W = dims[0];
+			nhwc->C = dims[1];
 			break;
 		case 3:
 			nhwc->N = 1;
@@ -102,7 +102,6 @@ UNSUPPORTED_LAYER_OPS(cpu_q8, RESHAPE)
 UNSUPPORTED_LAYER_OPS(cl, RESHAPE)
 
 UNSUPPORTED_LAYER_OPS(cpu_float, DENSE)
-UNSUPPORTED_LAYER_OPS(cl, DENSE)
 
 UNSUPPORTED_LAYER_OPS(cpu_float, SOFTMAX)
 UNSUPPORTED_LAYER_OPS(cl, SOFTMAX)

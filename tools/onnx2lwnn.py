@@ -214,8 +214,7 @@ class LWNNFloatC(LWNNBaseC):
 
     def gen_LayerDense(self, layer):
         W = layer['weights']
-        if(len(W.shape)==4):
-            W = W.transpose(0,2,3,1)
+        W = W.transpose(1,0)
         B = layer['bias']
 
         self.gen_layer_WBM(layer, W, B)

@@ -94,7 +94,7 @@ extern "C" {
 #define UNSUPPORTED_LAYER_OPS(runtime, op)									\
 int layer_##runtime##_##op##_init(const nn_t* nn, const layer_t* layer)		\
 {																			\
-	NNLOG(NN_ERROR,("OP " #op " is not supported on runtime " #runtime));	\
+	NNLOG(NN_ERROR,("OP " #op " is not supported on runtime " #runtime "\n"));	\
 	return NN_E_NOT_SUPPORTED;												\
 }																			\
 int layer_##runtime##_##op##_execute(const nn_t* nn, const layer_t* layer)	\

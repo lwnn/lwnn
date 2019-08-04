@@ -16,17 +16,19 @@ typedef struct {
 /* ============================ [ DECLARES  ] ====================================================== */
 extern const network_t LWNN_dense_1_q8;
 extern const network_t LWNN_dense_2_q8;
+extern const network_t LWNN_dense_1_float;
+extern const network_t LWNN_dense_2_float;
 /* ============================ [ DATAS     ] ====================================================== */
 static test_case_t test_cases_maxpool[] =
 {
 	{
-		NULL,
+		&LWNN_dense_1_float,
 		&LWNN_dense_1_q8,
 		RAW_P "dense_1/golden/dense_1_input_01.raw",
 		RAW_P "dense_1/golden/dense_1_output_BiasAdd_0.raw"
 	},
 	{
-		NULL,
+		&LWNN_dense_2_float,
 		&LWNN_dense_2_q8,
 		RAW_P "dense_2/golden/dense_2_input_01.raw",
 		RAW_P "dense_2/golden/dense_2_output_BiasAdd_0.raw"
@@ -56,6 +58,16 @@ TEST(RuntimeCPU, DenseQ8)
 	for(int i=0; i<ARRAY_SIZE(test_cases_maxpool); i++)
 	{
 		DenseTest(RUNTIME_CPU, test_cases_maxpool[i].network_q8,
+				test_cases_maxpool[i].input,
+				test_cases_maxpool[i].output);
+	}
+}
+
+TEST(RuntimeOPENCL, Dense)
+{
+	for(int i=0; i<ARRAY_SIZE(test_cases_maxpool); i++)
+	{
+		DenseTest(RUNTIME_OPENCL, test_cases_maxpool[i].network_float,
 				test_cases_maxpool[i].input,
 				test_cases_maxpool[i].output);
 	}

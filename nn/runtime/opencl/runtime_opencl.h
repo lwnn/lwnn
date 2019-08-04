@@ -47,6 +47,7 @@ typedef enum
 #define RTE_CL_ARGS_WITH_C	0x08
 #define RTE_CL_ARGS_WITH_NHWC	0x0F
 #define RTE_CL_ARGS_WITH_NHC	(0x01|0x02|0x08)
+#define RTE_CL_ARGS_WITH_NC	(0x01|0x08)
 
 #define RTE_CL_LOG_LAYER_SHAPE(layer) 											\
 	NNLOG(NN_DEBUG, ("%s dims: [%dx%dx%dx%d] -> [1x%dx%dx4]\n",					\
