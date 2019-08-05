@@ -92,6 +92,16 @@ def mnist():
     x_test.tofile('models/mnist/golden/input.raw')
     y_test.tofile('models/mnist/golden/output.raw')
 
+# https://keras-cn.readthedocs.io/en/latest/other/application/
+def resnet50():
+    from keras.applications import ResNet50
+    model = ResNet50(weights='imagenet')
+    keras2lwnn(model, 'resnet50')
+def mobilenetv2():
+    from keras.applications import MobileNetV2
+    model = MobileNetV2(weights='imagenet')
+    keras2lwnn(model, 'mobilenetv2')
+
 if(__name__ == '__main__'):
     conv2d('conv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), strides=(1,1), padding="same")
     conv2d('conv2d_2')

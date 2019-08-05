@@ -379,6 +379,7 @@ class LWNNModel():
         self.TRANSLATOR = {
                     'Transpose': self.to_LayerTranspose,
                     'Conv': self.to_LayerConv,
+                    'BatchNormalization': self.to_LayerCommon,
                     'Relu': self.to_LayerCommon,
                     'MaxPool': self.to_LayerMaxPool,
                     'Unsqueeze': self.to_LayerCommon,
@@ -386,7 +387,9 @@ class LWNNModel():
                     'Cast': self.to_LayerCommon,
                     'Slice': self.to_LayerCommon,
                     'ReduceProd': self.to_LayerCommon,
+                    'ReduceMean': self.to_LayerCommon,
                     'Concat': self.to_LayerCommon,
+                    'Pad': self.to_LayerCommon,
                     'Reshape': self.to_LayerCommon,
                     'MatMul': self.to_LayerMatMul,
                     'Add': self.to_LayerAdd,
@@ -401,8 +404,11 @@ class LWNNModel():
         self.onnx_model = onnx_model
         self.shapes = self.eval_shapes()
         self.lwnn_model = self.convert()
-        self.lwnn_model = self.remove_adjust_layer()
+        self.lwnn_model = self.convert_to_nchw()
+        #intentionally do it twice
+        self.lwnn_model = self.convert_to_nchw()
         self.optimize()
+        self.check()
         print(self)
 
     def clone(self):
@@ -606,8 +612,18 @@ class LWNNModel():
             and (layer['perm'][1] == 3)
             and (layer['perm'][2] == 1)
             and (layer['perm'][3] == 2)):
-            inputs = self.get_layers(layer['inputs'])
-            if(inputs[0]['op'] == 'Input'):
+            if(self.is_model_channel_first_cached == None):
+                # yes, don't to be too aggressive
+                inp = self.get_layers(layer['inputs'])[0]
+                if(inp['op'] == 'Input'):
+                    r = True
+                else:
+                    # resnet50 case: Input->Pad->Transpose
+                    inp_inputs = self.get_layers(inp['inputs'])
+                    for l in inp_inputs:
+                        if(l['op'] == 'Input'):
+                            r = True
+            else:
                 r = True
         return r
 
@@ -622,15 +638,17 @@ class LWNNModel():
 
     def is_output_channel_adjusted(self, layer):
         r = False
-        if(layer['op'] == 'Identity'):
-            inp = self.get_layers(layer['inputs'])[0]
-            if((inp['op'] == 'Transpose')
-                and (len(inp['perm']) == 4)
-                and (inp['perm'][0] == 0)
-                and (inp['perm'][1] == 2)
-                and (inp['perm'][2] == 3)
-                and (inp['perm'][3] == 1)):
-                r = True
+        if(layer['op'] != 'Input'):
+            inputs = self.get_layers(layer['inputs'])
+            if(len(inputs) == 1):
+                inp = inputs[0]
+                if((inp['op'] == 'Transpose')
+                    and (len(inp['perm']) == 4)
+                    and (inp['perm'][0] == 0)
+                    and (inp['perm'][1] == 2)
+                    and (inp['perm'][2] == 3)
+                    and (inp['perm'][3] == 1)):
+                    r = True
         return r
 
     def is_model_channel_first(self):
@@ -643,16 +661,17 @@ class LWNNModel():
         self.is_model_channel_first_cached = r
         return r
 
-    def remove_adjust_layer(self):
+    def convert_to_nchw(self):
         if(self.is_model_channel_first()):
             model = self.lwnn_model
         else:
             model = []
             # for ONNX models exported from keras, it was maybe channel last
-            # so firstly need to strip those input/ouput adjust
+            # so firstly need to strip those input/ouput adjust,
+            # convert the model to format NCHW
             for layer in self.lwnn_model:
                 if(self.is_any_of_inputs_input_channel_adjusted(layer)):
-                    # previous layer is a adjust layer
+                    # previous layer is an adjust layer
                     new_inputs = []
                     inputs = self.get_layers(layer['inputs'])
                     for inp in inputs: 
@@ -666,13 +685,21 @@ class LWNNModel():
                     model.append(new_layer)
                 elif(self.is_input_channel_adjusted(layer)):
                     inputs = self.get_layers(layer['inputs'], model)
-                    inp = inputs[0]
+                    if(len(inputs) == 0):
+                        inputs = self.get_layers(layer['inputs'])
+                        inp = inputs[0]
+                    else:
+                        inp = inputs[0]
                     shape = inp['shape']
                     inp['shape'] = [shape[i] for i in [0,3,1,2]]
                 elif(self.is_output_channel_adjusted(layer)):
                     inputs = self.get_layers(layer['inputs'], model)
-                    inp = inputs[0]
-                    model.remove(inp)
+                    if(len(inputs) == 0):
+                        inputs = self.get_layers(layer['inputs'])
+                        inp = inputs[0]
+                    else:
+                        inp = inputs[0]
+                        model.remove(inp)
                     new_layer = dict(layer)
                     new_layer['inputs'] = inp['inputs']
                     shape = new_layer['shape']
@@ -766,7 +793,12 @@ class LWNNModel():
         while(id < num_layers):
             layer = self.lwnn_model[id]
             consumers = self.get_consumers(layer)
-            if((layer['op'] == 'Identity') and 
+            if((len(consumers) == 0) and (layer['op'] != 'Identity')):
+                self.lwnn_model.remove(layer)
+                id = 1
+                num_layers = len(self.lwnn_model)
+                continue
+            elif((layer['op'] == 'Identity') and 
                (len(consumers) == 2) and
                self.is_there_op(consumers, 'Reshape')):
                 r = self.optimize_reshape(layer)
@@ -800,6 +832,14 @@ class LWNNModel():
             else:
                 id += 1
 
+    def check(self):
+        for id,layer in enumerate(self.lwnn_model):
+            if('inputs' in layer):
+                # check that inputs are before me
+                inputs = self.get_layers(layer['inputs'],self.lwnn_model[:id])
+                if(len(inputs) != len(layer['inputs'])):
+                    raise Exception('layer %s inputs is not before me:\n%s'%(layer['name'], self))
+
     def __str__(self):
         cstr = 'LWNN Model %s:\n'%(self.name)
         for layer in self.lwnn_model:
@@ -821,3 +861,13 @@ def onnx2lwnn(model, name, feeds=None):
     if(feeds != None):
         model.gen_quantized_c(feeds)
 
+
+if(__name__ == '__main__'):
+    import argparse
+    parser = argparse.ArgumentParser(description='convert onnx to lwnn')
+    parser.add_argument('-i', '--input', help='input onnx model', type=str, required=True)
+    parser.add_argument('-o', '--output', help='output lwnn model', type=str, default=None, required=False)
+    args = parser.parse_args()
+    if(args.output == None):
+        args.output = os.path.basename(args.input)[:-5]
+    onnx2lwnn(args.input, args.output)

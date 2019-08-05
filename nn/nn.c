@@ -31,6 +31,7 @@ nn_t* nn_create(const network_t* network, runtime_type_t runtime_type)
 
 		if(0 != r)
 		{
+			NNLOG(NN_ERROR,("nn create failed with %d\n", r));
 			rte_destory(nn);
 			nn->runtime = NULL;
 		}
