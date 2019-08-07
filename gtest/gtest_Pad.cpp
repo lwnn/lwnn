@@ -5,19 +5,20 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn_test_util.h"
 /* ============================ [ MACROS    ] ====================================================== */
-#define NNT_Softmax_MAX_DIFF  5.0/100
-#define NNT_Softmax_MAX_QDIFF 0.15
+#define NNT_Pad_MAX_DIFF 5.0/100
+#define NNT_Pad_MAX_QDIFF 0.05
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
-NNT_CASE_REF(softmax_1);
+NNT_CASE_REF(pad_1);
+NNT_CASE_REF(pad_2);
 /* ============================ [ DATAS     ] ====================================================== */
-NNT_CASE_DEF(Softmax) =
+NNT_CASE_DEF(Pad) =
 {
-	NNT_CASE_DESC(softmax_1, Softmax),
+	NNT_CASE_DESC(pad_1, BiasAdd),
+	NNT_CASE_DESC(pad_2, BiasAdd),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
-
 /* ============================ [ FUNCTIONS ] ====================================================== */
-NNT_TEST_DEF(CPU, Softmax, Q8)
-NNT_TEST_DEF(CPU, Softmax, Float)
-NNT_TEST_DEF(OPENCL, Softmax, Float)
+NNT_TEST_DEF(CPU, Pad, Q8)
+NNT_TEST_DEF(CPU, Pad, Float)
+NNT_TEST_DEF(OPENCL, Pad, Float)

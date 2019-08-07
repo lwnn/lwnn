@@ -269,3 +269,21 @@ void nnt_siso_network_test(runtime_type_t runtime,
 	nnt_free_outputs(outputs);
 }
 
+void NNTTestGeneral(runtime_type_t runtime,
+		const network_t* network,
+		const char* input,
+		const char* output,
+		float max_diff,
+		float qmax_diff)
+{
+
+	if(network->layers[0]->dtype== L_DT_INT8)
+	{
+		nnt_siso_network_test(runtime, network, input, output, max_diff, qmax_diff);
+	}
+	else
+	{
+		nnt_siso_network_test(runtime, network, input, output);
+	}
+}
+

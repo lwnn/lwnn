@@ -131,13 +131,5 @@ size_t layer_get_size(const layer_t* layer)
 }
 
 /* ============================ [ UNSUPPORTED ] ==================================================== */
-UNSUPPORTED_LAYER_OPS(cpu_float, RELU)
+UNSUPPORTED_LAYER_OPS(cl, PAD)
 
-UNSUPPORTED_LAYER_OPS(cpu_float, MAXPOOL)
-
-UNSUPPORTED_LAYER_OPS(cpu_float, RESHAPE)
-UNSUPPORTED_LAYER_OPS(cpu_q8, RESHAPE)
-
-UNSUPPORTED_LAYER_OPS(cpu_float, DENSE)
-
-UNSUPPORTED_LAYER_OPS(cpu_float, SOFTMAX)

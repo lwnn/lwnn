@@ -25,6 +25,9 @@ extern "C" {
 		LAYER_CPU_CONTEXT_MEMBER;		\
 		int8_t Q
 
+#ifndef FLT_MAX
+#define FLT_MAX  3.40282347e+38F
+#endif
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum {
 #ifndef DISABLE_RUNTIME_CPU_Q8

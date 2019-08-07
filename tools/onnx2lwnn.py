@@ -15,6 +15,7 @@ class LWNNBaseC():
                 'MaxPool': self.gen_LayerMaxPool,
                 'Reshape': self.gen_LayerReshape,
                 'Dense': self.gen_LayerDense,
+                'Pad': self.gen_LayerPad,
                 'Softmax': self.gen_LayerSoftmax,
                 'Identity': self.gen_LayerOutput }
         self.model = model
@@ -29,7 +30,7 @@ class LWNNBaseC():
         self.gen()
         self.model.close(self.fpH)
         self.model.close(self.fpC)
-        if('1' == os.getenv('LWNN_GTEST')):
+        if(('1' == os.getenv('LWNN_GTEST')) and(self.T == 'float')):
             self.gen_goldens_for_gtest()
 
     def gen_goldens_for_gtest(self):
@@ -184,6 +185,11 @@ class LWNNBaseC():
 
     def gen_LayerDense(self, layer):
         raise NotImplementedError()
+
+    def gen_LayerPad(self, layer):
+        M = np.asarray(layer['pads'], np.int32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_PAD ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerSoftmax(self, layer):
         self.gen_no_blobs(layer)
@@ -377,24 +383,9 @@ class LWNNQFormatC(LWNNBaseC):
 class LWNNModel():
     def __init__(self, onnx_model, name):
         self.TRANSLATOR = {
-                    'Transpose': self.to_LayerTranspose,
                     'Conv': self.to_LayerConv,
-                    'BatchNormalization': self.to_LayerCommon,
-                    'Relu': self.to_LayerCommon,
-                    'MaxPool': self.to_LayerMaxPool,
-                    'Unsqueeze': self.to_LayerCommon,
-                    'Shape': self.to_LayerCommon,
-                    'Cast': self.to_LayerCommon,
-                    'Slice': self.to_LayerCommon,
-                    'ReduceProd': self.to_LayerCommon,
-                    'ReduceMean': self.to_LayerCommon,
-                    'Concat': self.to_LayerCommon,
-                    'Pad': self.to_LayerCommon,
-                    'Reshape': self.to_LayerCommon,
                     'MatMul': self.to_LayerMatMul,
-                    'Add': self.to_LayerAdd,
-                    'Softmax': self.to_LayerCommon,
-                    'Identity': self.to_LayerCommon }
+                    'Add': self.to_LayerAdd }
         self.is_model_channel_first_cached=None
         self.name = name
         if(type(onnx_model) == str):
@@ -540,20 +531,12 @@ class LWNNModel():
     def to_LayerCommon(self, node):
         layer = {'name': node.name, 'op': node.op_type, 'inputs':self.get_inputs(node), 'outputs':node.output}
         layer['shape'] = self.get_shape(node)
-        return layer
-
-    def to_LayerTranspose(self, node):
-        layer = self.to_LayerCommon(node)
         for attr in node.attribute:
-            if(attr.name == 'perm'):
-                layer[attr.name] = attr.ints
+            layer[attr.name] = onnx.helper.get_attribute_value(attr)
         return layer
 
     def to_LayerConv(self, node):
         layer = self.to_LayerCommon(node)
-        for attr in node.attribute:
-            if(attr.name in ['dilations', 'kernel_shape', 'strides', 'pads']):
-                layer[attr.name] = attr.ints
         if('pads' not in layer):
             layer['pads'] = [0,0,0,0]
         W = self.get_initializer(node.input[1])
@@ -561,13 +544,6 @@ class LWNNModel():
         layer['filters'] = int(W.dims[0])
         layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
         layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
-        return layer
-
-    def to_LayerMaxPool(self, node):
-        layer = self.to_LayerCommon(node)
-        for attr in node.attribute:
-            if(attr.name in ['kernel_shape', 'strides']):
-                layer[attr.name] = attr.ints
         return layer
 
     def to_LayerMatMul(self, node):
@@ -595,13 +571,14 @@ class LWNNModel():
             lwnn_model.append(layer)
         for node in self.onnx_model.graph.node:
             if(node.op_type in self.TRANSLATOR):
-                layer = self.TRANSLATOR[node.op_type](node)
-                if(layer != None):
-                    lwnn_model.append(layer)
-                else:
-                    print('WARNINING: layer %s is ignored:\n%s\n'%(node.name, node))
+                translator = self.TRANSLATOR[node.op_type]
             else:
-                raise Exception('ERROR: OP %s is not supported:\n%s\n'%(node.op_type, node))
+                translator = self.to_LayerCommon
+            layer = translator(node)
+            if(layer != None):
+                lwnn_model.append(layer)
+            else:
+                print('WARNINING: layer %s is ignored:\n%s\n'%(node.name, node))
         return lwnn_model
 
     def is_input_channel_adjusted(self, layer):
@@ -690,6 +667,11 @@ class LWNNModel():
                         inp = inputs[0]
                     else:
                         inp = inputs[0]
+                    if(inp['op'] == 'Pad'):
+                        inp_inputs = self.get_layers(inp['inputs'], model)
+                        ly = inp_inputs[0]
+                        shape = ly['shape']
+                        ly['shape'] = [shape[i] for i in [0,3,1,2]]
                     shape = inp['shape']
                     inp['shape'] = [shape[i] for i in [0,3,1,2]]
                 elif(self.is_output_channel_adjusted(layer)):

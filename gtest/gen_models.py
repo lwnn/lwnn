@@ -45,6 +45,14 @@ def softmax(name, units=32):
     feeds = {input:np.array([float(i*i*i)/(units*units) for i in range(units)],dtype=np.float32).reshape(1,units)}
     keras2lwnn(model, name, feeds)
 
+def pad(name, shape=[32,32,3], padding=(3,3)):
+    input = Input(shape=shape, name=name+'_input')
+    p = ZeroPadding2D(padding=padding)(input)
+    output = Conv2D(3, kernel_size=(3,3), strides=(1,1), padding='same', name=name+'_output')(p)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 def mnist():
     from keras.datasets import mnist
     from keras.utils import to_categorical
@@ -113,4 +121,6 @@ if(__name__ == '__main__'):
     dense('dense_2', 13, 1578)
     softmax('softmax_1')
     mnist()
+    pad('pad_1')
+    pad('pad_2',shape=[52,12,7], padding=(2,5))
 

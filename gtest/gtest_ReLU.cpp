@@ -5,62 +5,18 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn_test_util.h"
 /* ============================ [ MACROS    ] ====================================================== */
-#define RAW_P "gtest/models/"
+#define NNT_ReLU_MAX_DIFF  5.0/100
+#define NNT_ReLU_MAX_QDIFF 0.15
 /* ============================ [ TYPES     ] ====================================================== */
-typedef struct {
-	const network_t* network_float;
-	const network_t* network_q8;
-	const char* input;
-	const char* output;
-} test_case_t;
 /* ============================ [ DECLARES  ] ====================================================== */
-extern const network_t LWNN_relu_1_q8;
-extern const network_t LWNN_relu_1_float;
+NNT_CASE_REF(relu_1);
 /* ============================ [ DATAS     ] ====================================================== */
-static test_case_t test_cases[] =
+NNT_CASE_DEF(ReLU) =
 {
-	{
-		&LWNN_relu_1_float,
-		&LWNN_relu_1_q8,
-		RAW_P "relu_1/golden/relu_1_input_01.raw",
-		RAW_P "relu_1/golden/relu_1_output_Relu_0.raw"
-	},
+	NNT_CASE_DESC(relu_1, Relu),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
-
 /* ============================ [ FUNCTIONS ] ====================================================== */
-void ReLUTest(runtime_type_t runtime,
-		const network_t* network,
-		const char* input,
-		const char* output)
-{
-
-	if(network->layers[0]->dtype== L_DT_INT8)
-	{
-		nnt_siso_network_test(runtime, network, input, output, 5.0/100, 0.15);
-	}
-	else
-	{
-		nnt_siso_network_test(runtime, network, input, output);
-	}
-}
-
-TEST(RuntimeCPU, ReLUQ8)
-{
-	for(int i=0; i<ARRAY_SIZE(test_cases); i++)
-	{
-		ReLUTest(RUNTIME_CPU, test_cases[i].network_q8,
-				test_cases[i].input,
-				test_cases[i].output);
-	}
-}
-
-TEST(RuntimeOPENCL, ReLU)
-{
-	for(int i=0; i<ARRAY_SIZE(test_cases); i++)
-	{
-		ReLUTest(RUNTIME_OPENCL, test_cases[i].network_float,
-				test_cases[i].input,
-				test_cases[i].output);
-	}
-}
+NNT_TEST_DEF(CPU, ReLU, Q8)
+NNT_TEST_DEF(CPU, ReLU, Float)
+NNT_TEST_DEF(OPENCL, ReLU, Float)

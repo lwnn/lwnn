@@ -5,7 +5,7 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn_test_util.h"
 /* ============================ [ MACROS    ] ====================================================== */
-#define RAW_P "gtest/models/mnist/golden/"
+#define MNIST_RAW_P RAW_P "mnist/golden/"
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 extern const network_t LWNN_mnist_q8;
@@ -20,8 +20,8 @@ void MNISTTest(runtime_type_t runtime,
 	int r;
 	size_t x_test_sz;
 	size_t y_test_sz;
-	float* x_test = (float*)nnt_load(RAW_P "input.raw",&x_test_sz);
-	int8_t* y_test = (int8_t*)nnt_load(RAW_P "output.raw",&y_test_sz);
+	float* x_test = (float*)nnt_load(MNIST_RAW_P "input.raw",&x_test_sz);
+	int8_t* y_test = (int8_t*)nnt_load(MNIST_RAW_P "output.raw",&y_test_sz);
 	int H = RTE_FETCH_INT32(network->inputs[0]->dims, 1);
 	int W = RTE_FETCH_INT32(network->inputs[0]->dims, 2);
 	int C = RTE_FETCH_INT32(network->inputs[0]->dims, 3);
@@ -119,6 +119,11 @@ void MNISTTest(runtime_type_t runtime,
 TEST(RuntimeCPU, MNISTQ8)
 {
 	MNISTTest(RUNTIME_CPU, &LWNN_mnist_q8);
+}
+
+TEST(RuntimeCPU, MNISTFloat)
+{
+	MNISTTest(RUNTIME_CPU, &LWNN_mnist_float);
 }
 
 TEST(RuntimeOPENCL, MNIST)

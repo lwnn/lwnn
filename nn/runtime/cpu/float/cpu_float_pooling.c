@@ -4,20 +4,17 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
-#ifndef DISABLE_RUNTIME_CPU_Q8
+#ifndef DISABLE_RUNTIME_CPU_FLOAT
 #include "../runtime_cpu.h"
-
-#include "arm_math.h"
-#include "arm_nnfunctions.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
-	LAYER_CPU_Q8_CONTEXT_MEMBER;
-} layer_cpu_q8_pool_context_t;
+	LAYER_CPU_CONTEXT_MEMBER;
+} layer_cpu_float_pool_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-static void maxpooling(const int8_t * Im_in,
+static void maxpooling(const float * Im_in,
 		const int dim_im_in_x,
 		const int dim_im_in_y,
 		const int ch_im_in,
@@ -28,12 +25,12 @@ static void maxpooling(const int8_t * Im_in,
 		const int padding_y,
 		const int stride_x,
 		const int stride_y,
-		int8_t * Im_out,
+		float * Im_out,
 		const int dim_im_out_x,
 		const int dim_im_out_y)
 {
-	int16_t   i_ch_in, i_x, i_y;
-	int16_t   k_x, k_y;
+	int   i_ch_in, i_x, i_y;
+	int   k_x, k_y;
 
 	for (i_ch_in = 0; i_ch_in < ch_im_in; i_ch_in++)
 	{
@@ -41,7 +38,7 @@ static void maxpooling(const int8_t * Im_in,
 		{
 			for (i_x = 0; i_x < dim_im_out_x; i_x++)
 			{
-				int       max = -129;
+				float       max = -FLT_MAX;
 				for (k_y = i_y * stride_y - padding_y; k_y < i_y * stride_y - padding_y + dim_kernel_y; k_y++)
 				{
 					for (k_x = i_x * stride_x - padding_x; k_x < i_x * stride_x - padding_x + dim_kernel_x; k_x++)
@@ -60,7 +57,7 @@ static void maxpooling(const int8_t * Im_in,
 		}
 	}
 }
-static int pooling(const int8_t * Im_in,
+static int pooling(const float * Im_in,
 		const int dim_im_in_x,
 		const int dim_im_in_y,
 		const int ch_im_in,
@@ -71,7 +68,7 @@ static int pooling(const int8_t * Im_in,
 		const int padding_y,
 		const int stride_x,
 		const int stride_y,
-		int8_t * Im_out,
+		float * Im_out,
 		const int dim_im_out_x,
 		const int dim_im_out_y,
 		layer_operation_t op)
@@ -81,37 +78,20 @@ static int pooling(const int8_t * Im_in,
 	switch(op)
 	{
 		case L_OP_MAXPOOL:
-			if((dim_im_in_x==dim_im_in_y) &&
-				(dim_kernel_x==dim_kernel_y) &&
-				(stride_x==stride_x))
-			{
-				arm_maxpool_q7_HWC((q7_t*)Im_in,
-					dim_im_in_x,
-					ch_im_in,
-					dim_kernel_x,
-					padding_x,
-					stride_x,
-					dim_im_out_x,
-					NULL,
-					Im_out);
-			}
-			else
-			{
-				maxpooling(Im_in,
-					dim_im_in_x,
-					dim_im_in_y,
-					ch_im_in,
-					ch_im_out,
-					dim_kernel_x,
-					dim_kernel_y,
-					padding_x,
-					padding_y,
-					stride_x,
-					stride_y,
-					Im_out,
-					dim_im_out_x,
-					dim_im_out_y);
-			}
+			maxpooling(Im_in,
+				dim_im_in_x,
+				dim_im_in_y,
+				ch_im_in,
+				ch_im_out,
+				dim_kernel_x,
+				dim_kernel_y,
+				padding_x,
+				padding_y,
+				stride_x,
+				stride_y,
+				Im_out,
+				dim_im_out_x,
+				dim_im_out_y);
 			break;
 		default:
 			r = NN_E_INVALID_LAYER;
@@ -120,36 +100,19 @@ static int pooling(const int8_t * Im_in,
 
 	return r;
 }
-static int layer_cpu_q8_pool_init(const nn_t* nn, const layer_t* layer)
+static int layer_cpu_float_pool_init(const nn_t* nn, const layer_t* layer)
 {
-	int r =0;
-	layer_cpu_q8_pool_context_t* context;
-
-	const layer_t* input;
-	layer_cpu_q8_context_t* input_context;
-
-	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q8_pool_context_t), sizeof(int8_t));
-
-	if(0 == r)
-	{
-		context = (layer_cpu_q8_pool_context_t*)layer->C->context;
-
-		input = layer->inputs[0];
-		input_context = (layer_cpu_q8_context_t*)input->C->context;
-		context->Q = input_context->Q;
-	}
-
-	return r;
+	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_pool_context_t), sizeof(float));
 }
 
-static int layer_cpu_q8_pool_execute(const nn_t* nn, const layer_t* layer)
+static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
-	layer_cpu_q8_pool_context_t* context = (layer_cpu_q8_pool_context_t*)layer->C->context;
+	layer_cpu_float_pool_context_t* context = (layer_cpu_float_pool_context_t*)layer->C->context;
 	const layer_t* input = layer->inputs[0];
-	layer_cpu_q8_context_t* input_context = (layer_cpu_q8_context_t*)input->C->context;;
-	int8_t* IN = (int8_t*)input_context->out[0];
-	int8_t *O = (int8_t*)context->out[0];
+	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;;
+	float* IN = (float*)input_context->out[0];
+	float *O = (float*)context->out[0];
 
 	int* ints;
 	int knlX, knlY, padX, padY, strideX, strideY;
@@ -188,23 +151,23 @@ static int layer_cpu_q8_pool_execute(const nn_t* nn, const layer_t* layer)
 	return r;
 }
 
-static void layer_cpu_q8_pool_deinit(const nn_t* nn, const layer_t* layer)
+static void layer_cpu_float_pool_deinit(const nn_t* nn, const layer_t* layer)
 {
 	rte_cpu_destory_layer_context(nn, layer);
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int layer_cpu_q8_MAXPOOL_init(const nn_t* nn, const layer_t* layer)
+int layer_cpu_float_MAXPOOL_init(const nn_t* nn, const layer_t* layer)
 {
-	return layer_cpu_q8_pool_init(nn, layer);
+	return layer_cpu_float_pool_init(nn, layer);
 }
 
-int layer_cpu_q8_MAXPOOL_execute(const nn_t* nn, const layer_t* layer)
+int layer_cpu_float_MAXPOOL_execute(const nn_t* nn, const layer_t* layer)
 {
-	return layer_cpu_q8_pool_execute(nn, layer);
+	return layer_cpu_float_pool_execute(nn, layer);
 }
 
-void layer_cpu_q8_MAXPOOL_deinit(const nn_t* nn, const layer_t* layer)
+void layer_cpu_float_MAXPOOL_deinit(const nn_t* nn, const layer_t* layer)
 {
-	layer_cpu_q8_pool_deinit(nn, layer);
+	layer_cpu_float_pool_deinit(nn, layer);
 }
-#endif /* DISABLE_RUNTIME_CPU_Q8 */
+#endif /* DISABLE_RUNTIME_CPU_FLOAT */

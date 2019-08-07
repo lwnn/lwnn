@@ -16,13 +16,12 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | - | - | - | - | - | - |
 | Conv2D | Y | Y | N | Y | |
 | EltmentWise Max | Y | Y | N | Y | |
-| ReLU | N | Y | N | Y | |
-| MaxPool | N | Y | N | Y | |
-| Dense | N | Y | N | Y | |
-| Softmax | N | Y | N | Y | |
-| Reshape | N | O | N | Y | |
-
-* O: Optimized out, not required
+| ReLU | Y | Y | N | Y | |
+| MaxPool | Y | Y | N | Y | |
+| Dense | Y | Y | N | Y | |
+| Softmax | Y | Y | N | Y | |
+| Reshape | Y | Y | N | Y | |
+| Pad | N | Y | Y | N | |
 
 ## Development
 

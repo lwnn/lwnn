@@ -14,7 +14,44 @@
 #include <stdio.h>
 /* ============================ [ MACROS    ] ====================================================== */
 #define EQUAL_THRESHOLD (1.0/10000)
+
+#define RAW_P "gtest/models/"
+
+#define NNT_CASE_REF(name)						\
+	extern const network_t LWNN_##name##_q8;	\
+	extern const network_t LWNN_##name##_float
+
+#define NNT_CASE_DESC(name, output)									\
+	{																\
+		&LWNN_##name##_float,										\
+		&LWNN_##name##_q8,											\
+		RAW_P #name "/golden/" #name "_input_01.raw",				\
+		RAW_P #name "/golden/" #name "_output_" #output "_0.raw"	\
+	}
+
+#define NNT_CASE_DEF(name)	\
+		static const nnt_case_t name##_cases[]
+
+#define NNT_TEST_DEF(runtime, name, T)					\
+TEST(Runtime##runtime, name##T)							\
+{														\
+	for(int i=0; i<ARRAY_SIZE(name##_cases); i++)		\
+	{													\
+		NNTTestGeneral(RUNTIME_##runtime,				\
+				name##_cases[i].network##T,				\
+				name##_cases[i].input,					\
+				name##_cases[i].output,					\
+				NNT_##name##_MAX_DIFF,					\
+				NNT_##name##_MAX_QDIFF);				\
+	}													\
+}
 /* ============================ [ TYPES     ] ====================================================== */
+typedef struct {
+	const network_t* networkFloat;
+	const network_t* networkQ8;
+	const char* input;
+	const char* output;
+} nnt_case_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
@@ -41,4 +78,10 @@ void nnt_siso_network_test(runtime_type_t runtime,
 		const char* output,
 		float max_diff = EQUAL_THRESHOLD,
 		float qmax_diff = 0.15);
+void NNTTestGeneral(runtime_type_t runtime,
+		const network_t* network,
+		const char* input,
+		const char* output,
+		float max_diff,
+		float qmax_diff);
 #endif /* GTEST_NN_TEST_UTIL_H_ */
