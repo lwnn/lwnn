@@ -39,7 +39,7 @@ __kernel void reshape(
 		in_x = offset/(in_C);
 		in_c = offset%(in_C);
 
-		data = read_imagef(in, sampler, (int2)(in_x*in_channels+in_c/4, in_y+n*in_H));
+		data = read_imagef(in, sampler, (int2)(in_x*in_channels+in_c/4, in_y+in_n*in_H));
 		write_imagef(out, (int2)(x*out_channels+c, y+n*H), data);
 	}
 }

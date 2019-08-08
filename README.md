@@ -21,7 +21,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | Dense | Y | Y | N | Y | |
 | Softmax | Y | Y | N | Y | |
 | Reshape | Y | Y | N | Y | |
-| Pad | N | Y | Y | N | |
+| Pad | Y | Y | N | Y | |
 
 ## Development
 
