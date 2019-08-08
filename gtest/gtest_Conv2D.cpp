@@ -22,5 +22,6 @@ NNT_CASE_DEF(Conv2D) =
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, Conv2D, Q8)
+NNT_TEST_DEF(CPU, Conv2D, Q16)
 NNT_TEST_DEF(CPU, Conv2D, Float)
 NNT_TEST_DEF(OPENCL, Conv2D, Float)

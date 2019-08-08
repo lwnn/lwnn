@@ -22,5 +22,6 @@ NNT_CASE_DEF(Dense) =
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, Dense, Q8)
+NNT_TEST_DEF(CPU, Dense, Q16)
 NNT_TEST_DEF(CPU, Dense, Float)
 NNT_TEST_DEF(OPENCL, Dense, Float)

@@ -204,6 +204,32 @@ float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q)
 	return out;
 }
 
+int16_t* nnt_quantize16(float* in, size_t sz, int8_t Q)
+{
+	int16_t* out = (int16_t*)malloc(sz*sizeof(int16_t));
+	assert(out);
+
+	for(size_t i=0; i<sz; i++)
+	{
+		out[i] = std::round(in[i]*(std::pow(2,Q)));
+	}
+
+	return out;
+}
+
+float* nnt_dequantize16(int16_t* in , size_t sz, int8_t Q)
+{
+	float* out = (float*)malloc(sz*sizeof(float));
+	assert(out);
+
+	for(size_t i=0; i<sz; i++)
+	{
+		out[i] = in[i]/(std::pow(2,Q));
+	}
+
+	return out;
+}
+
 void nnt_siso_network_test(runtime_type_t runtime,
 		const network_t* network,
 		const char* input,
@@ -219,11 +245,18 @@ void nnt_siso_network_test(runtime_type_t runtime,
 	ASSERT_EQ(sz_in, layer_get_size((inputs[0])->layer)*sizeof(float));
 
 	int8_t* in8 = NULL;
+	int16_t* in16 = NULL;
 	if(network->layers[0]->dtype== L_DT_INT8)
 	{
 		int8_t* blob = (int8_t*)network->layers[0]->blobs[0]->blob;
 		in8 = nnt_quantize8(IN, sz_in/sizeof(float), blob[0]);
 		memcpy(inputs[0]->data, in8, sz_in/sizeof(float));
+	}
+	else if(network->layers[0]->dtype== L_DT_INT16)
+	{
+		int8_t* blob = (int8_t*)network->layers[0]->blobs[0]->blob;
+		in16 = nnt_quantize16(IN, sz_in/sizeof(float), blob[0]);
+		memcpy(inputs[0]->data, in16, sz_in*sizeof(int16_t)/sizeof(float));
 	}
 	else
 	{
@@ -248,6 +281,16 @@ void nnt_siso_network_test(runtime_type_t runtime,
 			/* if (1-qmax_diff)*100 percent data is okay, pass test */
 			EXPECT_LE(r, layer_get_size(outputs[0]->layer)*qmax_diff);
 		}
+		else if(in16 != NULL)
+		{
+			int8_t* blob = (int8_t*)outputs[0]->layer->blobs[0]->blob;
+			float* out = nnt_dequantize16((int16_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0]);
+			r = nnt_is_equal(OUT, out,
+					layer_get_size(outputs[0]->layer), max_diff);
+			free(out);
+			/* if (1-qmax_diff)*100 percent data is okay, pass test */
+			EXPECT_LE(r, layer_get_size(outputs[0]->layer)*qmax_diff);
+		}
 		else
 		{
 			r = nnt_is_equal(OUT, (float*)outputs[0]->data,
@@ -263,6 +306,11 @@ void nnt_siso_network_test(runtime_type_t runtime,
 		free(in8);
 	}
 
+	if(in16 != NULL)
+	{
+		free(in16);
+	}
+
 	free(IN);
 
 	nnt_free_inputs(inputs);
@@ -276,8 +324,11 @@ void NNTTestGeneral(runtime_type_t runtime,
 		float max_diff,
 		float qmax_diff)
 {
-
 	if(network->layers[0]->dtype== L_DT_INT8)
+	{
+		nnt_siso_network_test(runtime, network, input, output, max_diff, qmax_diff);
+	}
+	else if(network->layers[0]->dtype== L_DT_INT16)
 	{
 		nnt_siso_network_test(runtime, network, input, output, max_diff, qmax_diff);
 	}

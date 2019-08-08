@@ -14,14 +14,14 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 
 | Layers/Runtime | cpu float | CMSIS NN q8 | CMSIS NN q16 | opencl | comments |
 | - | - | - | - | - | - |
-| Conv2D | Y | Y | N | Y | |
-| EltmentWise Max | Y | Y | N | Y | |
-| ReLU | Y | Y | N | Y | |
-| MaxPool | Y | Y | N | Y | |
-| Dense | Y | Y | N | Y | |
-| Softmax | Y | Y | N | Y | |
-| Reshape | Y | Y | N | Y | |
-| Pad | Y | Y | N | Y | |
+| Conv2D | Y | Y | Y | Y | |
+| EltmentWise Max | Y | Y | Y | Y | |
+| ReLU | Y | Y | Y | Y | |
+| MaxPool | Y | Y | Y | Y | |
+| Dense | Y | Y | Y | Y | |
+| Softmax | Y | Y | Y | Y | |
+| Reshape | Y | Y | Y | Y | |
+| Pad | Y | Y | Y | Y | |
 
 ## Development
 

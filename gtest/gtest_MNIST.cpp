@@ -9,6 +9,7 @@
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 extern const network_t LWNN_mnist_q8;
+extern const network_t LWNN_mnist_q16;
 extern const network_t LWNN_mnist_float;
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
@@ -51,6 +52,11 @@ void MNISTTest(runtime_type_t runtime,
 			IN = nnt_quantize8(in, H*W*C, RTE_FETCH_INT8(network->inputs[0]->blobs[0]->blob, 0));
 			ASSERT_TRUE(IN != NULL);
 		}
+		else if(network->inputs[0]->dtype== L_DT_INT16)
+		{
+			IN = nnt_quantize16(in, H*W*C, RTE_FETCH_INT8(network->inputs[0]->blobs[0]->blob, 0));
+			ASSERT_TRUE(IN != NULL);
+		}
 		else
 		{
 			IN = in;
@@ -69,6 +75,10 @@ void MNISTTest(runtime_type_t runtime,
 			if(network->inputs[0]->dtype== L_DT_INT8)
 			{
 				out = nnt_dequantize8((int8_t*)out, 10, RTE_FETCH_INT8(network->outputs[0]->blobs[0]->blob, 0));
+			}
+			else if(network->inputs[0]->dtype== L_DT_INT16)
+			{
+				out = nnt_dequantize16((int16_t*)out, 10, RTE_FETCH_INT8(network->outputs[0]->blobs[0]->blob, 0));
 			}
 
 			for(int j=0; j<10; j++)
@@ -120,6 +130,12 @@ TEST(RuntimeCPU, MNISTQ8)
 {
 	MNISTTest(RUNTIME_CPU, &LWNN_mnist_q8);
 }
+
+TEST(RuntimeCPU, MNISTQ16)
+{
+	MNISTTest(RUNTIME_CPU, &LWNN_mnist_q16);
+}
+
 
 TEST(RuntimeCPU, MNISTFloat)
 {

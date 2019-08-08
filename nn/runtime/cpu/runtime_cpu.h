@@ -25,6 +25,10 @@ extern "C" {
 		LAYER_CPU_CONTEXT_MEMBER;		\
 		int8_t Q
 
+#define LAYER_CPU_Q16_CONTEXT_MEMBER		\
+		LAYER_CPU_CONTEXT_MEMBER;		\
+		int8_t Q
+
 #ifndef FLT_MAX
 #define FLT_MAX  3.40282347e+38F
 #endif
@@ -32,6 +36,9 @@ extern "C" {
 typedef enum {
 #ifndef DISABLE_RUNTIME_CPU_Q8
 	RET_CPU_TYPE_Q8,
+#endif
+#ifndef DISABLE_RUNTIME_CPU_Q16
+	RET_CPU_TYPE_Q16,
 #endif
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 	RTE_CPU_TYPE_FLOAT,
@@ -48,6 +55,11 @@ typedef struct
 {
 	LAYER_CPU_Q8_CONTEXT_MEMBER;
 } layer_cpu_q8_context_t;
+
+typedef struct
+{
+	LAYER_CPU_Q16_CONTEXT_MEMBER;
+} layer_cpu_q16_context_t;
 
 typedef struct rte_cpu_buffer
 {

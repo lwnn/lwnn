@@ -19,12 +19,14 @@
 
 #define NNT_CASE_REF(name)						\
 	extern const network_t LWNN_##name##_q8;	\
+	extern const network_t LWNN_##name##_q16;	\
 	extern const network_t LWNN_##name##_float
 
 #define NNT_CASE_DESC(name, output)									\
 	{																\
-		&LWNN_##name##_float,										\
 		&LWNN_##name##_q8,											\
+		&LWNN_##name##_q16,											\
+		&LWNN_##name##_float,										\
 		RAW_P #name "/golden/" #name "_input_01.raw",				\
 		RAW_P #name "/golden/" #name "_output_" #output "_0.raw"	\
 	}
@@ -47,8 +49,9 @@ TEST(Runtime##runtime, name##T)							\
 }
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
-	const network_t* networkFloat;
 	const network_t* networkQ8;
+	const network_t* networkQ16;
+	const network_t* networkFloat;
 	const char* input;
 	const char* output;
 } nnt_case_t;
@@ -72,6 +75,8 @@ void* nnt_load(const char* inraw, size_t *sz);
 
 int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q);
 float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q);
+int16_t* nnt_quantize16(float* in, size_t sz, int8_t Q);
+float* nnt_dequantize16(int16_t* in , size_t sz, int8_t Q);
 void nnt_siso_network_test(runtime_type_t runtime,
 		const network_t* network,
 		const char* input,

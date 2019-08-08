@@ -59,9 +59,10 @@ class LWNNBaseC():
             dec_bits = 7 - int_bits
             dtype = np.int8
         elif(self.T == 'q16'):
-            dec_bits = 15 - int_bits
+            # Note: here it was not 15, set to 10 to reduce the possiblity of
+            # int32 overflow
+            dec_bits = 10 - int_bits
             dtype = np.int16
-            blobQ = np.round(blob * 2 ** dec_bits).astype(np.int16)
         else:
             raise Exception('quantization is not supported for %s model\n'%(self.T))
 

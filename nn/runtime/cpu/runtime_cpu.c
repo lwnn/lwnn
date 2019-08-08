@@ -19,6 +19,11 @@ typedef struct
 #include "opdef.h"
 #undef OP_DEF
 #endif
+#ifndef DISABLE_RUNTIME_CPU_Q16
+#define OP_DEF(op) L_OPS_DECLARE(cpu_q16_##op);
+#include "opdef.h"
+#undef OP_DEF
+#endif
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 #define OP_DEF(op) L_OPS_DECLARE(cpu_float_##op);
 #include "opdef.h"
@@ -34,6 +39,13 @@ static const layer_ops_t cpu_lops[][L_OP_NUMBER] =
 #ifndef DISABLE_RUNTIME_CPU_Q8
 	{
 		#define OP_DEF(op) L_OPS_REF(cpu_q8_##op),
+		#include "opdef.h"
+		#undef OP_DEF
+	},
+#endif
+#ifndef DISABLE_RUNTIME_CPU_Q16
+	{
+		#define OP_DEF(op) L_OPS_REF(cpu_q16_##op),
 		#include "opdef.h"
 		#undef OP_DEF
 	},
@@ -81,6 +93,11 @@ static int cpu_get_runtime_type(const nn_t* nn, const layer_t* layer)
 			#ifndef DISABLE_RUNTIME_CPU_Q8
 			case L_DT_INT8:
 				type = RET_CPU_TYPE_Q8;
+				break;
+			#endif
+			#ifndef DISABLE_RUNTIME_CPU_Q16
+			case L_DT_INT16:
+				type = RET_CPU_TYPE_Q16;
 				break;
 			#endif
 			#ifndef DISABLE_RUNTIME_CPU_FLOAT
@@ -281,6 +298,11 @@ int rte_cpu_create_layer_context(
 			#ifndef DISABLE_RUNTIME_CPU_Q8
 			case RET_CPU_TYPE_Q8:
 				context->dtype = L_DT_INT8;
+				break;
+			#endif
+			#ifndef DISABLE_RUNTIME_CPU_Q16
+			case RET_CPU_TYPE_Q16:
+				context->dtype = L_DT_INT16;
 				break;
 			#endif
 			#ifndef DISABLE_RUNTIME_CPU_FLOAT

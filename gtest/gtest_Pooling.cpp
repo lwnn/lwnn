@@ -20,5 +20,6 @@ NNT_CASE_DEF(MaxPool) =
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, MaxPool, Q8)
+NNT_TEST_DEF(CPU, MaxPool, Q16)
 NNT_TEST_DEF(CPU, MaxPool, Float)
 NNT_TEST_DEF(OPENCL, MaxPool, Float)

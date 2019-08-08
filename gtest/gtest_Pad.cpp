@@ -20,5 +20,6 @@ NNT_CASE_DEF(Pad) =
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, Pad, Q8)
+NNT_TEST_DEF(CPU, Pad, Q16)
 NNT_TEST_DEF(CPU, Pad, Float)
 NNT_TEST_DEF(OPENCL, Pad, Float)

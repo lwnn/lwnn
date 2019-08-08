@@ -175,6 +175,10 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 	{
 		/* pass */
 	}
+	else if(L_DT_INT16 == nn->network->layers[0]->dtype)
+	{
+		sz = sz*sizeof(int16_t);
+	}
 	else if(L_DT_FLOAT == nn->network->layers[0]->dtype)
 	{
 		sz = sz*sizeof(float);
