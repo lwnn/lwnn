@@ -19,6 +19,6 @@ NNT_CASE_DEF(Softmax) =
 
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, Softmax, Q8)
-NNT_TEST_DEF(CPU, Softmax, Q16)
+//NNT_TEST_DEF(CPU, Softmax, Q16)
 NNT_TEST_DEF(CPU, Softmax, Float)
 NNT_TEST_DEF(OPENCL, Softmax, Float)

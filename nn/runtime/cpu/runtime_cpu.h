@@ -35,10 +35,10 @@ extern "C" {
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum {
 #ifndef DISABLE_RUNTIME_CPU_Q8
-	RET_CPU_TYPE_Q8,
+	RTE_CPU_TYPE_Q8,
 #endif
 #ifndef DISABLE_RUNTIME_CPU_Q16
-	RET_CPU_TYPE_Q16,
+	RTE_CPU_TYPE_Q16,
 #endif
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 	RTE_CPU_TYPE_FLOAT,

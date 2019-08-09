@@ -155,7 +155,8 @@ class LWNNBaseC():
         self.fpC.write('\t"%s_%s",\n'%(self.name, self.T))
         self.fpC.write('\t%s_%s_layers,\n'%(self.name, self.T))
         self.fpC.write('\t%s_%s_inputs,\n'%(self.name, self.T))
-        self.fpC.write('\t%s_%s_outputs\n'%(self.name, self.T))
+        self.fpC.write('\t%s_%s_outputs,\n'%(self.name, self.T))
+        self.fpC.write('\tNETWORK_TYPE_%s,\n'%(self.T.upper()))
         self.fpC.write('};\n\n')
 
     def gen_layer_common(self, layer):

@@ -72,11 +72,18 @@ typedef struct
 	void* data;
 } nn_output_t;
 
+typedef enum {
+	NETWORK_TYPE_Q8,
+	NETWORK_TYPE_Q16,
+	NETWORK_TYPE_FLOAT,
+} network_type_t;
+
 typedef struct {
 	const char* name;
 	const layer_t* const* layers;
 	const layer_t* const* inputs;
 	const layer_t* const* outputs;
+	network_type_t type;
 } network_t;
 
 typedef struct nn {

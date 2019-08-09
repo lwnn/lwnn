@@ -80,54 +80,34 @@ static int cpu_get_buffer_id(const nn_t* nn, rte_cpu_buffer_t* buffer)
 	return bufferId;
 }
 #endif
-static int cpu_get_runtime_type(const nn_t* nn, const layer_t* layer)
+
+static int cpu_get_runtime_type(const nn_t* nn)
 {
 	int r = 0;
 	runtime_cpu_type_t type;
 	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
 
-	if(L_OP_INPUT == layer->op)
+	switch(nn->network->type)
 	{
-		switch(layer->dtype)
-		{
-			#ifndef DISABLE_RUNTIME_CPU_Q8
-			case L_DT_INT8:
-				type = RET_CPU_TYPE_Q8;
-				break;
-			#endif
-			#ifndef DISABLE_RUNTIME_CPU_Q16
-			case L_DT_INT16:
-				type = RET_CPU_TYPE_Q16;
-				break;
-			#endif
-			#ifndef DISABLE_RUNTIME_CPU_FLOAT
-			case L_DT_FLOAT:
-				type = RTE_CPU_TYPE_FLOAT;
-				break;
-			#endif
-			default:
-				r = NN_E_NOT_SUPPORTED;
-				break;
-		}
-		if(0 == r)
-		{
-			if(RTE_CPU_TYPE_UNKNOWN == rt->type)
-			{
-				rt->type = type;
-			}
-			else if(type == rt->type)
-			{
-				/* Pass, inputs' type are consistent */
-			}
-			else
-			{
-				r = NN_E_INPUT_TYPE_MISMATCH;
-			}
-		}
-	}
-	else
-	{
-		r = NN_EXIT_OK;
+		#ifndef DISABLE_RUNTIME_CPU_Q8
+		case NETWORK_TYPE_Q8:
+			rt->type = RTE_CPU_TYPE_Q8;
+			break;
+		#endif
+		#ifndef DISABLE_RUNTIME_CPU_Q16
+		case NETWORK_TYPE_Q16:
+			rt->type = RTE_CPU_TYPE_Q16;
+			break;
+		#endif
+		#ifndef DISABLE_RUNTIME_CPU_FLOAT
+		case NETWORK_TYPE_FLOAT:
+			rt->type = RTE_CPU_TYPE_FLOAT;
+			break;
+		#endif
+		default:
+			rt->type = RTE_CPU_TYPE_UNKNOWN;
+			r = NN_E_NOT_SUPPORTED;
+			break;
 	}
 
 	return r;
@@ -232,17 +212,13 @@ int rte_CPU_init(const nn_t* nn)
 	size_t bufferId = -1;
 #endif
 
-	rt->type = RTE_CPU_TYPE_UNKNOWN;
 	STAILQ_INIT(&(rt->buffers));
-	r = rte_do_for_each_layer(nn, cpu_get_runtime_type);
 
-	if((r == NN_EXIT_OK) && (rt->type != RTE_CPU_TYPE_UNKNOWN))
+	r = cpu_get_runtime_type(nn);
+
+	if(0 == r)
 	{
 		r = rte_do_for_each_layer(nn, cpu_init_layer);
-	}
-	else
-	{
-		r = NN_E_INVALID_NETWORK;
 	}
 
 	if(0 == r)
@@ -296,12 +272,12 @@ int rte_cpu_create_layer_context(
 		switch(rt->type)
 		{
 			#ifndef DISABLE_RUNTIME_CPU_Q8
-			case RET_CPU_TYPE_Q8:
+			case RTE_CPU_TYPE_Q8:
 				context->dtype = L_DT_INT8;
 				break;
 			#endif
 			#ifndef DISABLE_RUNTIME_CPU_Q16
-			case RET_CPU_TYPE_Q16:
+			case RTE_CPU_TYPE_Q16:
 				context->dtype = L_DT_INT16;
 				break;
 			#endif
