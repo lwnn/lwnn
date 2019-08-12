@@ -53,6 +53,14 @@ def pad(name, shape=[32,32,3], padding=(3,3)):
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def conv2d_bn(name, shape=[16,16,3], filters=10, kernel_size=(3,3), strides=(1,1), padding="same"):
+    input = Input(shape=shape, name=name+'_input')
+    conv = Conv2D(filters, kernel_size=kernel_size, strides=strides, padding=padding)(input)
+    output = BatchNormalization(name=name+'_output')(conv)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 def mnist():
     from keras.datasets import mnist
     from keras.utils import to_categorical
@@ -123,4 +131,4 @@ if(__name__ == '__main__'):
     mnist()
     pad('pad_1')
     pad('pad_2',shape=[52,12,7], padding=(2,5))
-
+    conv2d_bn('conv2dbn_1')

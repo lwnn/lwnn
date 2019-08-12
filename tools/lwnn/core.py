@@ -8,8 +8,16 @@ class LWNNModel():
     def __init__(self, onnx_model, name):
         self.TRANSLATOR = {
                     'Conv': self.to_LayerConv,
+                    'BatchNormalization': self.to_LayerBatchNormalization,
                     'MatMul': self.to_LayerMatMul,
                     'Add': self.to_LayerAdd }
+        self.OPTIMIER = [
+            (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
+            (self.opt_IsLayerBeforeReshape, self.opt_LayerBeforeReshape, None),
+            (self.opt_IsLayerDense, self.opt_LayerDense, None),
+            (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
+            (self.opt_IsLayerReshape, self.opt_RemoveReshape, 'RemoveReshape'),
+            ]
         self.is_model_channel_first_cached=None
         self.name = name
         if(type(onnx_model) == str):
@@ -143,6 +151,11 @@ class LWNNModel():
                 return init
         raise Exception('ERROR: weights %s is not found'%(name))
 
+    def get_weights(self, layer, node, wl):
+        for id,name in enumerate(wl):
+            W = self.get_initializer(node.input[id+1])
+            layer[name] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
+
     def get_layers(self, names, model=None):
         layers = []
         if(model == None):
@@ -168,6 +181,11 @@ class LWNNModel():
         layer['filters'] = int(W.dims[0])
         layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
         layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
+        return layer
+
+    def to_LayerBatchNormalization(self, node):
+        layer = self.to_LayerCommon(node)
+        self.get_weights(layer, node, ['scale', 'bias', 'mean', 'var'])
         return layer
 
     def to_LayerMatMul(self, node):
@@ -348,7 +366,49 @@ class LWNNModel():
                 self.lwnn_model.insert(id, layer)
                 break
 
-    def optimize_reshape(self, layer):
+    def opt_IsLayerConvBeforeBN(self, layer):
+        r = False
+        consumers = self.get_consumers(layer)
+        if((layer['op'] == 'Conv') and 
+               (len(consumers) == 1) and
+               (consumers[0]['op'] == 'BatchNormalization')):
+            r = True
+        return r
+
+    def opt_FuseConvBN(self, layer):
+        consumers = self.get_consumers(layer)
+        bn = consumers[0]
+        c_w = layer['weights']
+        c_b = layer['bias']
+        bn_gamma = bn['scale']
+        bn_beta = bn['bias']
+        bn_mean = bn['mean']
+        bn_variance = bn['var']
+        epsilon = bn['epsilon']
+        if(len(c_w.shape) == 4):
+            for i in range(c_w.shape[0]):
+                c_w[i] *= bn_gamma[i] / np.sqrt(bn_variance[i] + epsilon)
+                c_b[i] = (bn_gamma[i] * (c_b[i] - bn_mean[i]) / np.sqrt(bn_variance[i] + epsilon)) + bn_beta[i]
+        layer['weights'] = c_w
+        layer['bias'] = c_b
+        bn_consumers = self.get_consumers(bn)
+        for ly in bn_consumers:
+            new_ly = dict(ly)
+            new_ly['inputs'] = bn['inputs']
+            self.insert_after(bn, new_ly)
+        for ly in [bn] + bn_consumers:
+            self.lwnn_model.remove(ly)
+        return True
+
+    def opt_IsLayerBeforeReshape(self, layer):
+        r = False
+        consumers = self.get_consumers(layer)
+        if((len(consumers) == 2) and
+           self.is_there_op(consumers, 'Reshape')):
+            r = True
+        return r
+
+    def opt_LayerBeforeReshape(self, layer):
         consumers = self.get_consumers(layer)
         if(consumers[0]['op'] == 'Reshape'):
             to = consumers[0]
@@ -370,7 +430,16 @@ class LWNNModel():
             self.lwnn_model.remove(ly)
         return True
 
-    def optimize_dense(self, layer):
+    def opt_IsLayerDense(self, layer):
+        r = False
+        consumers = self.get_consumers(layer)
+        if((layer['op'] == 'MatMul') and 
+               (len(consumers) == 1) and
+               (consumers[0]['op'] == 'Add')):
+            r = True
+        return r
+
+    def opt_LayerDense(self, layer):
         consumers = self.get_consumers(layer)
         add = consumers[0]
         new_layer = dict(add)
@@ -382,61 +451,47 @@ class LWNNModel():
             self.lwnn_model.remove(ly)
         return True
 
-    def optimize_reshape_dense(self, layer):
-        # yes, this only for CMSIS NN
+    def opt_IsLayerReshape(self, layer):
+        r = False
+        if(layer['op'] == 'Reshape'):
+            r = True
+        return r
+
+    def opt_RemoveReshape(self, layer):
         consumers = self.get_consumers(layer)
-        dense = consumers[0]
-        new_layer = dict(dense)
-        new_layer['inputs'] = layer['inputs']
-        self.insert_after(dense, new_layer)
-        for ly in [layer,dense]:
+        for ly in consumers:
+            new_layer = dict(ly)
+            new_layer['inputs'] = layer['inputs']
+            self.insert_after(layer, new_layer)
+        for ly in [layer] + consumers:
             self.lwnn_model.remove(ly)
         return True
 
+    def opt_IsLayerUnused(self, layer):
+        r = False
+        consumers = self.get_consumers(layer)
+        if((len(consumers) == 0) and (layer['op'] != 'Identity')):
+            r = True
+        return r
+
+    def opt_LayerUnusedAction(self, layer):
+        self.lwnn_model.remove(layer)
+        return True
+
     def optimize(self, additions=[]):
-        id = 1
+        id = 0
         num_layers = len(self.lwnn_model)
-        while(id < num_layers):
+        while(id < (num_layers-1)):
+            id += 1
             layer = self.lwnn_model[id]
-            consumers = self.get_consumers(layer)
-            if((len(consumers) == 0) and (layer['op'] != 'Identity')):
-                self.lwnn_model.remove(layer)
-                id = 1
-                num_layers = len(self.lwnn_model)
-                continue
-            elif((layer['op'] == 'Identity') and 
-               (len(consumers) == 2) and
-               self.is_there_op(consumers, 'Reshape')):
-                r = self.optimize_reshape(layer)
-                if(True == r):
-                    id = 1
-                    num_layers = len(self.lwnn_model)
-                    continue
-                else:
-                    id += 1
-            elif((layer['op'] == 'MatMul') and 
-               (len(consumers) == 1) and
-               (consumers[0]['op'] == 'Add')):
-                r = self.optimize_dense(layer)
-                if(True == r):
-                    id = 1
-                    num_layers = len(self.lwnn_model)
-                    continue
-                else:
-                    id += 1
-            elif(('ReshapeDense' in additions) and
-                (layer['op'] == 'Reshape') and 
-               (len(consumers) == 1) and
-               (consumers[0]['op'] == 'Dense')):
-                r = self.optimize_reshape_dense(layer)
-                if(True == r):
-                    id = 1
-                    num_layers = len(self.lwnn_model)
-                    continue
-                else:
-                    id += 1
-            else:
-                id += 1
+            for isopt, optact, oname in self.OPTIMIER:
+                if(isopt(layer) and
+                   ((oname == None) or (oname in additions))):
+                    r = optact(layer)
+                    if(True == r):
+                        id = 0
+                        num_layers = len(self.lwnn_model)
+                        break
 
     def check(self):
         for id,layer in enumerate(self.lwnn_model):

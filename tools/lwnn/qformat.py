@@ -7,7 +7,7 @@ class LWNNQFormatC(LWNNBaseC):
     def __init__(self, model, T, feeds):
         super().__init__(model, T, feeds)
         lwnn_model = self.model.clone()
-        self.model.optimize(['ReshapeDense'])
+        self.model.optimize(['RemoveReshape'])
         self.output_encodings = self.calculate_output_encoding(feeds)
         self.generate()
         self.model.set(lwnn_model)
