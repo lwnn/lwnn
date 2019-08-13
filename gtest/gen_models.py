@@ -69,6 +69,13 @@ def conv1d(name, shape=[128,9], filters=32, kernel_size=9, strides=2, padding="s
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def dwconv2d(name, shape=[32,32,5], kernel_size=(3,3), strides=(1,1), padding="same"):
+    input = Input(shape=shape, name=name+'_input')
+    output = DepthwiseConv2D(kernel_size=kernel_size, strides=strides, padding=padding, name=name+'_output')(input)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 def mnist():
     from keras.datasets import mnist
     from keras.utils import to_categorical
@@ -141,3 +148,7 @@ if(__name__ == '__main__'):
     pad('pad_2',shape=[52,12,7], padding=(2,5))
     conv2d_bn('conv2dbn_1')
     conv1d('conv1d_1')
+    dwconv2d('dwconv2d_1')
+    dwconv2d('dwconv2d_2',shape=[57,15,3],kernel_size=(2,2), strides=(1,1), padding="same")
+    dwconv2d('dwconv2d_3',shape=[45,17,23], kernel_size=(2,3), strides=(3,2), padding="valid")
+

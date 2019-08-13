@@ -64,6 +64,7 @@ extern "C" {
 #define L_DENSE(name, input)		L_LAYER_SI(name, input, DENSE)
 #define L_SOFTMAX(name, input)		L_LAYER_SI(name, input, SOFTMAX)
 #define L_PAD(name, input)			L_LAYER_SI(name, input, PAD)
+#define L_DWCONV2D(name, input)		L_LAYER_SI(name, input, DWCONV2D)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\

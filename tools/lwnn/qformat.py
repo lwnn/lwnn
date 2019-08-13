@@ -61,7 +61,13 @@ class LWNNQFormatC(LWNNBaseC):
         M = np.asarray(list(layer['pads']) + list(layer['strides']) + [Wq, Bq, Oq], np.int32)
         self.gen_layer_WBM(layer, W, B, M)
 
-        self.fpC.write('L_CONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+        if(layer['group'] == 1):
+            op = 'CONV2D'
+        elif(layer['group'] == layer['shape'][1]):
+            op = 'DWCONV2D'
+        else:
+            raise Exception('convolution with group !=1 or !=C is not supported')
+        self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
 
     def convert_to_x4_weights(self, weights):
         if(self.T == 'q8'):
