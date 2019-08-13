@@ -44,6 +44,8 @@ class LWNNBaseC():
             if(self.model.is_model_channel_first()):
                 if(len(v.shape) == 4):
                     v = v.transpose(0, 2, 3, 1)
+                elif(len(v.shape) == 3):
+                    v = v.transpose(0, 2, 1)
             if(n in goldens):
                 v = v[0]    # just use the first batch as golden
                 v.tofile('%s/%s.raw'%(p, n))
@@ -59,9 +61,9 @@ class LWNNBaseC():
             dec_bits = 7 - int_bits
             dtype = np.int8
         elif(self.T == 'q16'):
-            # Note: here it was not 15, set to 10 to reduce the possiblity of
+            # Note: here it was not 15, set to 8 to reduce the possiblity of
             # int32 overflow
-            dec_bits = 10 - int_bits
+            dec_bits = 8 - int_bits
             dtype = np.int16
         else:
             raise Exception('quantization is not supported for %s model\n'%(self.T))
@@ -77,6 +79,8 @@ class LWNNBaseC():
         if(len(shape)==4):
             # ONNX generally in format NCHW
             shape = [shape[i] for i in [0,2,3,1]]
+        elif(len(shape)==3):
+            shape = [shape[i] for i in [0,2,1]]
         return shape
 
     def get_shape(self, layer):

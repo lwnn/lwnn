@@ -43,7 +43,6 @@ void MNISTTest(runtime_type_t runtime,
 	void* IN;
 
 	size_t top1 = 0;
-
 	for(int i=0; (i<B) && (r==0); i++)
 	{
 		float* in = x_test+H*W*C*i;

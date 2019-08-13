@@ -21,7 +21,20 @@ class LWNNQFormatC(LWNNBaseC):
         return encodings
 
     def get_encoding(self, layer, at=0):
-        return self.output_encodings[layer['outputs'][at]]
+        Q = self.output_encodings[layer['outputs'][at]]
+        if('inputs' in layer):
+            inputs = self.model.get_layers(layer['inputs'])
+        if((layer['op'] == 'Softmax') or
+           ((layer['op'] == 'Identity') and 
+            (len(inputs) == 1) and 
+            (inputs[0]['op'] == 'Softmax'))):
+            if(self.T == 'q8'):
+                Q = 7
+            elif(self.T == 'q16'):
+                Q = 15
+            else:
+                assert(0)
+        return Q
 
     def get_Q_blob(self, layer):
         return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer)]).astype(np.int8)

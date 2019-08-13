@@ -15,6 +15,7 @@ class LWNNModel():
             (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
             (self.opt_IsLayerBeforeReshape, self.opt_LayerBeforeReshape, None),
             (self.opt_IsLayerDense, self.opt_LayerDense, None),
+            (self.opt_IsLayerConv1D, self.opt_LayerConv1D, None),
             (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
             (self.opt_IsLayerReshape, self.opt_RemoveReshape, 'RemoveReshape'),
             ]
@@ -226,11 +227,8 @@ class LWNNModel():
     def is_input_channel_adjusted(self, layer):
         r = False
         if((layer['op'] == 'Transpose')
-            and (len(layer['perm']) == 4)
-            and (layer['perm'][0] == 0)
-            and (layer['perm'][1] == 3)
-            and (layer['perm'][2] == 1)
-            and (layer['perm'][3] == 2)):
+            and ((list(layer['perm']) == [0, 3, 1, 2]) or 
+                  (list(layer['perm']) == [0, 2, 1]))):
             if(self.is_model_channel_first_cached == None):
                 # yes, don't to be too aggressive
                 inp = self.get_layers(layer['inputs'])[0]
@@ -243,7 +241,12 @@ class LWNNModel():
                         if(l['op'] == 'Input'):
                             r = True
             else:
-                r = True
+                if(list(layer['perm']) == [0, 2, 1]):
+                    inp = self.get_layers(layer['inputs'])[0]
+                    if(inp['op'] == 'Input'):
+                        r = True
+                else:
+                    r = True
         return r
 
     def is_any_of_inputs_input_channel_adjusted(self, layer):
@@ -262,11 +265,8 @@ class LWNNModel():
             if(len(inputs) == 1):
                 inp = inputs[0]
                 if((inp['op'] == 'Transpose')
-                    and (len(inp['perm']) == 4)
-                    and (inp['perm'][0] == 0)
-                    and (inp['perm'][1] == 2)
-                    and (inp['perm'][2] == 3)
-                    and (inp['perm'][3] == 1)):
+                    and ((list(inp['perm']) == [0, 2, 3, 1]) or 
+                          (list(inp['perm']) == [0, 2, 1]))):
                     r = True
         return r
 
@@ -313,9 +313,15 @@ class LWNNModel():
                         inp_inputs = self.get_layers(inp['inputs'], model)
                         ly = inp_inputs[0]
                         shape = ly['shape']
-                        ly['shape'] = [shape[i] for i in [0,3,1,2]]
+                        if(len(shape) == 4):
+                            ly['shape'] = [shape[i] for i in [0,3,1,2]]
+                        else:
+                            ly['shape'] = [shape[i] for i in [0,2,1]]
                     shape = inp['shape']
-                    inp['shape'] = [shape[i] for i in [0,3,1,2]]
+                    if(len(shape) == 4):
+                        inp['shape'] = [shape[i] for i in [0,3,1,2]]
+                    else:
+                        inp['shape'] = [shape[i] for i in [0,2,1]]
                 elif(self.is_output_channel_adjusted(layer)):
                     inputs = self.get_layers(layer['inputs'], model)
                     if(len(inputs) == 0):
@@ -327,7 +333,10 @@ class LWNNModel():
                     new_layer = dict(layer)
                     new_layer['inputs'] = inp['inputs']
                     shape = new_layer['shape']
-                    new_layer['shape'] = [shape[i] for i in [0, 3, 1, 2]]
+                    if(len(shape) == 4):
+                        new_layer['shape'] = [shape[i] for i in [0, 3, 1, 2]]
+                    else:
+                        new_layer['shape'] = [shape[i] for i in [0, 2, 1]]
                     model.append(new_layer)
                 else:
                     model.append(dict(layer))
@@ -451,6 +460,26 @@ class LWNNModel():
             self.lwnn_model.remove(ly)
         return True
 
+    def opt_IsLayerConv1D(self, layer):
+        r = False
+        if((layer['op'] == 'Conv') and 
+            (len(layer['weights'].shape) == 3)):
+            r = True
+        return r
+
+    def opt_LayerConv1D(self, layer):
+        W = layer['weights']
+        shape = list(W.shape) + [1]
+        W = W.reshape(shape)
+        layer['weights'] = W
+        strides = layer['strides']
+        layer['strides'] = list(strides)+ [1]
+        pads = layer['pads']
+        layer['pads'] = [pads[0], 0, pads[1], 0]
+        kernel_shape = layer['kernel_shape']
+        layer['kernel_shape'] = list(kernel_shape)+ [1]
+        return False
+
     def opt_IsLayerReshape(self, layer):
         r = False
         if(layer['op'] == 'Reshape'):
@@ -488,7 +517,7 @@ class LWNNModel():
                 if(isopt(layer) and
                    ((oname == None) or (oname in additions))):
                     r = optact(layer)
-                    if(True == r):
+                    if(True == r): # if there is remove action, restart optimization
                         id = 0
                         num_layers = len(self.lwnn_model)
                         break

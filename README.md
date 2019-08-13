@@ -14,6 +14,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 
 | Layers/Runtime | cpu float | cpu q8 | cpu q16 | opencl | comments |
 | - | - | - | - | - | - |
+| Conv1D | Y | Y | Y | Y | based on Conv2D |
 | Conv2D | Y | Y | Y | Y | |
 | EltmentWise Max | Y | Y | Y | Y | |
 | ReLU | Y | Y | Y | Y | |

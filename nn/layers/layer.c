@@ -82,8 +82,8 @@ int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
 		case 3:
 			nhwc->N = dims[0];
 			nhwc->H = dims[1];
-			nhwc->W = dims[2];
-			nhwc->C = 1;
+			nhwc->W = 1;
+			nhwc->C = dims[2];
 			break;
 		case 4:
 			nhwc->N = dims[0];

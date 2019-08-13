@@ -49,7 +49,6 @@ if(__name__ == '__main__'):
     if(args.type == 'float'):
         inp = np.fromfile(args.input, dtype=np.float32)
     elif(args.type == 'q8'):
-        print('xxx')
         inp = np.fromfile(args.input, dtype=np.int8)*math.pow(2, -args.Q)
     elif(args.type == 'q16'):
         inp = np.fromfile(args.input, dtype=np.int16)*math.pow(2, -args.Q)
