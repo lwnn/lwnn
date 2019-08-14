@@ -3,7 +3,7 @@
  * Copyright (C) 2019  Parai Wang <parai@foxmail.com>
  */
 
-__kernel void conv2d(
+__kernel void dwconv2d(
 		__read_only image2d_t in,
 		__read_only image2d_t weights,
 		__read_only image2d_t bias,
@@ -48,41 +48,12 @@ __kernel void conv2d(
 				in_col = stride_x * x + knlX - padding_x;
 				if ((in_row >= 0) && (in_col >= 0) &&
 					(in_row < dim_im_in_y) && (in_col < dim_im_in_x)) {
-					for (l = 0; l < ch_im_in; l+=4) {
-						value = read_imagef(in, sampler, (int2)(in_col*in_channels+(l/4), in_row+n*dim_im_in_y));
-						weight = read_imagef(weights, sampler, (int2)(knlX*in_channels+(l/4), knlY+(c*4)*dim_kernel_y));
-						out0.x += weight.x*value.x;
-						out0.x += weight.y*value.y;
-						out0.x += weight.z*value.z;
-						out0.x += weight.w*value.w;
-						
-						if((ch_im_out-c*4) > 1)
-						{
-							weight = read_imagef(weights, sampler, (int2)(knlX*in_channels+(l/4), knlY+(c*4+1)*dim_kernel_y));
-							out0.y += weight.x*value.x;
-							out0.y += weight.y*value.y;
-							out0.y += weight.z*value.z;
-							out0.y += weight.w*value.w;
-						}
-
-						if((ch_im_out-c*4) > 2)
-						{
-							weight = read_imagef(weights, sampler, (int2)(knlX*in_channels+(l/4), knlY+(c*4+2)*dim_kernel_y));
-							out0.z += weight.x*value.x;
-							out0.z += weight.y*value.y;
-							out0.z += weight.z*value.z;
-							out0.z += weight.w*value.w;
-						}
-
-						if((ch_im_out-c*4) > 3)
-						{
-							weight = read_imagef(weights, sampler, (int2)(knlX*in_channels+(l/4), knlY+(c*4+3)*dim_kernel_y));
-							out0.w += weight.x*value.x;
-							out0.w += weight.y*value.y;
-							out0.w += weight.z*value.z;
-							out0.w += weight.w*value.w;
-						}
-					}
+					value = read_imagef(in, sampler, (int2)(in_col*in_channels+c, in_row+n*dim_im_in_y));
+					weight = read_imagef(weights, sampler, (int2)(knlX*in_channels+c, knlY));
+					out0.x += weight.x*value.x;
+					out0.y += weight.y*value.y;
+					out0.z += weight.z*value.z;
+					out0.w += weight.w*value.w;
 				}
 			}
 		}

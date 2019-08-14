@@ -53,7 +53,7 @@ static void depthwise_convolve_HWC_ref_nonsquare(const float * Im_in,
 						if ((in_row >= 0) && (in_col >= 0) && (in_row < dim_im_in_y) && (in_col < dim_im_in_x))
 						{
 							conv_out += Im_in[(in_row * dim_im_in_x + in_col) * ch_im_in + i_ch_out] *
-								wt[dim_kernel_y*dim_kernel_x*i_ch_out + i_ker_y*dim_kernel_x + i_ker_x];
+								wt[(i_ker_y * dim_kernel_x + i_ker_x) * ch_im_out + i_ch_out];
 						}
 					}
 				}

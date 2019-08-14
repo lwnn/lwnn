@@ -17,6 +17,7 @@ class LWNNModel():
             (self.opt_IsLayerDense, self.opt_LayerDense, None),
             (self.opt_IsLayerConv1D, self.opt_LayerConv1D, None),
             (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
+            (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
             (self.opt_IsLayerReshape, self.opt_RemoveReshape, 'RemoveReshape'),
             ]
         self.is_model_channel_first_cached=None
@@ -480,6 +481,26 @@ class LWNNModel():
         layer['kernel_shape'] = list(kernel_shape)+ [1]
         return False
 
+    def opt_IsLayerConv(self, layer):
+        r = False
+        if(layer['op'] == 'Conv'):
+            r = True
+        return r
+
+    def opt_LayerConvWeightsReorder(self, layer):
+        # Conv: [M x C/group x kH x kW] -> [M x kH x kW x C/group]
+        # DwConv: [M x C/group x kH x kW] -> [C/group x kH x kW x M]
+        W = layer['weights']
+        if(len(W.shape)==4):
+            W = W.transpose(0,2,3,1)
+        if(layer['group'] == 1):
+            pass
+        elif(layer['group'] == layer['shape'][1]):
+            if(len(W.shape)==4):
+                W = W.transpose(3,1,2,0)
+        layer['weights'] = W
+        return False
+
     def opt_IsLayerReshape(self, layer):
         r = False
         if(layer['op'] == 'Reshape'):
@@ -515,7 +536,8 @@ class LWNNModel():
             layer = self.lwnn_model[id]
             for isopt, optact, oname in self.OPTIMIER:
                 if(isopt(layer) and
-                   ((oname == None) or (oname in additions))):
+                   (((oname == None) and (len(additions) == 0)) 
+                    or (oname in additions))):
                     r = optact(layer)
                     if(True == r): # if there is remove action, restart optimization
                         id = 0

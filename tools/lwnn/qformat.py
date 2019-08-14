@@ -50,8 +50,6 @@ class LWNNQFormatC(LWNNBaseC):
 
     def gen_LayerConv(self, layer):
         W = layer['weights']
-        if(len(W.shape)==4):
-            W = W.transpose(0,2,3,1)
         B = layer['bias']
 
         Oq = self.get_encoding(layer)
