@@ -1,6 +1,9 @@
 from building import *
 Import('asenv')
 
+cwd = GetCurrentDir()
+print(cwd)
+
 objs = []
 objs += Glob('layers/*.c')
 objs += Glob('runtime/*.c')
@@ -9,7 +12,7 @@ objs += Glob('runtime/cpu/*/*.c')
 objs += Glob('runtime/opencl/*.c')
 objs += Glob('*.c')
 
-asenv.Append(CPPPATH=['nn','nn/layers','nn/runtime'])
+asenv.Append(CPPPATH=['%s/%s'%(cwd,d) for d in ['','layers','runtime']])
 
 if(IsPlatformWindows()):
     asenv.AppendENVPath('PATH', os.getenv('PATH'))

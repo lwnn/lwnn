@@ -8,8 +8,10 @@ cmd = 'cd %s && python gen_models.py && date > %s'%(cwd, tgt)
 
 MKObject(src, tgt, cmd)
 
-asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++'])
+asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++', 'dl'])
 
 objs = Glob('*.cpp')
-objs += Glob('models/*/*.c')
+objsM = Glob('models/*/*.c')
+for obj in objsM:
+    asenv.SharedLibrary(obj)
 Return('objs')

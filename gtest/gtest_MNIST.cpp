@@ -6,16 +6,14 @@
 #include "nn_test_util.h"
 /* ============================ [ MACROS    ] ====================================================== */
 #define MNIST_RAW_P RAW_P "mnist/golden/"
+#define MNIST_PATH "build/" RAW_P "mnist/mnist_"
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
-extern const network_t LWNN_mnist_q8;
-extern const network_t LWNN_mnist_q16;
-extern const network_t LWNN_mnist_float;
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 
 /* ============================ [ FUNCTIONS ] ====================================================== */
-void MNISTTest(runtime_type_t runtime,
+void MNISTTestMain(runtime_type_t runtime,
 		const network_t* network)
 {
 	int r;
@@ -125,23 +123,37 @@ void MNISTTest(runtime_type_t runtime,
 
 }
 
+void MNISTTest(runtime_type_t runtime, const char* netpath)
+{
+	const network_t* network;
+	void* dll;
+	network = nnt_load_network(netpath, &dll);
+	EXPECT_TRUE(network != NULL);
+	if(network == NULL)
+	{
+		return;
+	}
+	MNISTTestMain(runtime, network);
+	dlclose(dll);
+}
+
 TEST(RuntimeCPU, MNISTQ8)
 {
-	MNISTTest(RUNTIME_CPU, &LWNN_mnist_q8);
+	MNISTTest(RUNTIME_CPU, MNIST_PATH "q8.dll");
 }
 
 TEST(RuntimeCPU, MNISTQ16)
 {
-	MNISTTest(RUNTIME_CPU, &LWNN_mnist_q16);
+	MNISTTest(RUNTIME_CPU, MNIST_PATH "q16.dll");
 }
 
 
 TEST(RuntimeCPU, MNISTFloat)
 {
-	MNISTTest(RUNTIME_CPU, &LWNN_mnist_float);
+	MNISTTest(RUNTIME_CPU, MNIST_PATH "float.dll");
 }
 
 TEST(RuntimeOPENCL, MNIST)
 {
-	MNISTTest(RUNTIME_OPENCL, &LWNN_mnist_float);
+	MNISTTest(RUNTIME_OPENCL, MNIST_PATH "float.dll");
 }

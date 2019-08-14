@@ -180,7 +180,10 @@ def PrepareBuilding(env):
           ASPPCOMSTR = 'AS $SOURCE',
           CCCOMSTR = 'CC $SOURCE',
           CXXCOMSTR = 'CXX $SOURCE',
-          LINKCOMSTR = 'LINK $TARGET'
+          LINKCOMSTR = 'LINK $TARGET',
+          SHCCCOMSTR = 'SHCC $SOURCE',
+          SHCXXCOMSTR = 'SHCXX $SOURCE',
+          SHLINKCOMSTR = 'SHLINK $TARGET'
         )
 
 def MKDir(p):

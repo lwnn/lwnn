@@ -317,13 +317,63 @@ void nnt_siso_network_test(runtime_type_t runtime,
 	nnt_free_outputs(outputs);
 }
 
+const network_t* nnt_load_network(const char* netpath, void** dll)
+{
+	const network_t* network = NULL;
+	char path[256];
+	char* bname;
+	char* cwd;
+	char symbol[128];
+
+	cwd = getcwd(NULL,0);
+	assert(cwd != NULL);
+	snprintf(path, sizeof(path),"%s/%s",cwd, netpath);
+	free(cwd);
+
+	*dll = dlopen(path, RTLD_NOW);
+	if((*dll) != NULL)
+	{
+		bname = basename(path);
+		assert(bname != NULL);
+		#ifdef _WIN32
+		bname[strlen(bname)-4] = 0;
+		#else
+		bname[strlen(bname)-3] = 0;
+		#endif
+		snprintf(symbol, sizeof(symbol), "LWNN_%s", bname);
+		network = (const network_t*)dlsym(*dll, symbol);
+		if(NULL == network)
+		{
+			printf("failed to lookup symbol %s from %s\n", symbol, path);
+			dlclose(*dll);
+			*dll = NULL;
+		}
+	}
+	else
+	{
+		printf("failed to load %s: %s\n", path, dlerror());
+	}
+
+	return network;
+}
+
 void NNTTestGeneral(runtime_type_t runtime,
-		const network_t* network,
+		const char* netpath,
 		const char* input,
 		const char* output,
 		float max_diff,
 		float qmax_diff)
 {
+	const network_t* network;
+	void* dll;
+
+	network = nnt_load_network(netpath, &dll);
+	EXPECT_TRUE(network != NULL);
+	if(network == NULL)
+	{
+		return;
+	}
+
 	if(network->layers[0]->dtype== L_DT_INT8)
 	{
 		nnt_siso_network_test(runtime, network, input, output, max_diff, qmax_diff);
@@ -336,5 +386,7 @@ void NNTTestGeneral(runtime_type_t runtime,
 	{
 		nnt_siso_network_test(runtime, network, input, output);
 	}
+
+	dlclose(dll);
 }
 

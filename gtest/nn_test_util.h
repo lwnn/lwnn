@@ -12,21 +12,26 @@
 #include <cmath>
 #include <cstdlib>
 #include <stdio.h>
+#include <libgen.h>
+#include <dlfcn.h>
+#include <unistd.h>
+#include <stdlib.h>
 /* ============================ [ MACROS    ] ====================================================== */
 #define EQUAL_THRESHOLD (1.0/10000)
 
 #define RAW_P "gtest/models/"
 
-#define NNT_CASE_REF(name)						\
-	extern const network_t LWNN_##name##_q8;	\
-	extern const network_t LWNN_##name##_q16;	\
-	extern const network_t LWNN_##name##_float
+#ifdef _WIN32
+#define DLLFIX ".dll"
+#else
+#define DLLFIX ".so"
+#endif
 
 #define NNT_CASE_DESC(name, output)									\
 	{																\
-		&LWNN_##name##_q8,											\
-		&LWNN_##name##_q16,											\
-		&LWNN_##name##_float,										\
+		"build/" RAW_P #name "/" #name "_q8" DLLFIX ,				\
+		"build/" RAW_P #name "/" #name "_q16" DLLFIX ,				\
+		"build/" RAW_P #name "/" #name "_float" DLLFIX ,			\
 		RAW_P #name "/golden/" #name "_input_01.raw",				\
 		RAW_P #name "/golden/" #name "_output_" #output "_0.raw"	\
 	}
@@ -49,9 +54,9 @@ TEST(Runtime##runtime, name##T)							\
 }
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
-	const network_t* networkQ8;
-	const network_t* networkQ16;
-	const network_t* networkFloat;
+	const char* networkQ8;
+	const char* networkQ16;
+	const char* networkFloat;
 	const char* input;
 	const char* output;
 } nnt_case_t;
@@ -84,9 +89,10 @@ void nnt_siso_network_test(runtime_type_t runtime,
 		float max_diff = EQUAL_THRESHOLD,
 		float qmax_diff = 0.15);
 void NNTTestGeneral(runtime_type_t runtime,
-		const network_t* network,
+		const char* netpath,
 		const char* input,
 		const char* output,
 		float max_diff,
 		float qmax_diff);
+const network_t* nnt_load_network(const char* path, void** dll);
 #endif /* GTEST_NN_TEST_UTIL_H_ */
