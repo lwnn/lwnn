@@ -19,7 +19,8 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | DepthwiseConv2D | Y | Y | Y | Y | |
 | EltmentWise Max | Y | Y | Y | Y | |
 | ReLU | Y | Y | Y | Y | |
-| MaxPool | Y | Y | Y | Y | |
+| MaxPool1D | Y | Y | Y | Y | based on MaxPool2D |
+| MaxPool2D | Y | Y | Y | Y | |
 | Dense | Y | Y | Y | Y | |
 | Softmax | Y | Y | Y | Y | |
 | Reshape | Y | Y | Y | Y | |

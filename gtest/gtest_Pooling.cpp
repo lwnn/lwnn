@@ -14,6 +14,8 @@ NNT_CASE_DEF(MaxPool) =
 {
 	NNT_CASE_DESC(maxpool_1, MaxPool),
 	NNT_CASE_DESC(maxpool_2, MaxPool),
+	NNT_CASE_DESC(maxpool1d_1, Squeeze),
+	NNT_CASE_DESC(maxpool1d_2, Squeeze),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */

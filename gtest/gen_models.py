@@ -31,6 +31,13 @@ def maxpool(name, shape=[32,32,3], pool_size=(2, 2), strides=(2, 2)):
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def maxpool1d(name, shape=[32,32], pool_size=2, strides=2):
+    input = Input(shape=shape, name=name+'_input')
+    output = MaxPooling1D(pool_size=pool_size, strides=strides, name=name+'_output')(input)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 def dense(name, row=8, units=1024):
     input = Input(shape=[row], name=name+'_input')
     output = Dense(units, name=name+'_output')(input)
@@ -62,7 +69,6 @@ def conv2d_bn(name, shape=[16,16,3], filters=10, kernel_size=(3,3), strides=(1,1
     keras2lwnn(model, name, feeds)
 
 def conv1d(name, shape=[128,9], filters=32, kernel_size=9, strides=2, padding="same"):
-    shape = [128, 9]
     input = Input(shape=shape, name=name+'_input')
     output = Conv1D(filters, kernel_size=kernel_size, strides=strides, padding=padding, name=name+'_output')(input)
     model = Model(inputs=input, outputs=output)
@@ -151,4 +157,5 @@ if(__name__ == '__main__'):
     dwconv2d('dwconv2d_1')
     dwconv2d('dwconv2d_2',shape=[57,15,3],kernel_size=(2,2), strides=(1,1), padding="same")
     dwconv2d('dwconv2d_3',shape=[45,17,23], kernel_size=(2,3), strides=(3,2), padding="valid")
-
+    maxpool1d('maxpool1d_1')
+    maxpool1d('maxpool1d_2',shape=[34,29], pool_size=3, strides=3)
