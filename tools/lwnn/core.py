@@ -21,6 +21,13 @@ class LWNNModel():
             (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
             (self.opt_IsLayerReshape, self.opt_RemoveReshape, 'RemoveReshape'),
             ]
+        self.toNCHW = [
+            (self.nchw_IsPreviousHasInputAdjustLayer, self.nchw_ActionPreviousHasInputAdjustLayer),
+            (self.nchw_IsInputAdjustLayer, self.nchw_ActionInputAdjustLayer),
+            (self.nchw_IsPreviousHasOutputAdjustLayer, self.nchw_ActionPreviousHasOutputAdjustLayer),
+            (self.nchw_IsIdentityChannelAdjusted, self.nchw_ActionIdentityChannelAdjusted),
+            (self.nchw_IsOkay, self.nchw_ActionOkay)
+            ]
         self.is_model_channel_first_cached=None
         self.name = name
         if(type(onnx_model) == str):
@@ -226,7 +233,7 @@ class LWNNModel():
                 print('WARNINING: layer %s is ignored:\n%s\n'%(node.name, node))
         return lwnn_model
 
-    def is_input_channel_adjusted(self, layer):
+    def nchw_IsInputAdjustLayer(self, layer):
         r = False
         if((layer['op'] == 'Transpose')
             and ((list(layer['perm']) == [0, 3, 1, 2]) or 
@@ -251,36 +258,121 @@ class LWNNModel():
                     r = True
         return r
 
-    def is_any_of_inputs_input_channel_adjusted(self, layer):
+    def convert_layer_to_nchw(self, layer):
+        shape = layer['shape']
+        if('adjusted' not in layer):
+            if(len(shape) == 4):
+                layer['shape'] = [shape[i] for i in [0,3,1,2]]
+            if(len(shape) == 3):
+                layer['shape'] = [shape[i] for i in [0,2,1]]
+            layer['adjusted'] = True
+
+    def nchw_ActionInputAdjustLayer(self, layer, model):
+        inputs = self.get_layers(layer['inputs'], model)
+        if(len(inputs) == 0):
+            inputs = self.get_layers(layer['inputs'])
+            inp = inputs[0]
+        else:
+            inp = inputs[0]
+        if(inp['op'] == 'Pad'):
+            inp_inputs = self.get_layers(inp['inputs'], model)
+            ly = inp_inputs[0]
+            self.convert_layer_to_nchw(ly)
+        self.convert_layer_to_nchw(inp)
+        return []
+
+    def nchw_IsPreviousHasInputAdjustLayer(self, layer):
         r = False
         if(layer['op'] != 'Input'):
             inputs = self.get_layers(layer['inputs'])
             for inp in inputs: 
-                if(self.is_input_channel_adjusted(inp)):
+                if(self.nchw_IsInputAdjustLayer(inp)):
                     r = True
         return r
 
-    def is_output_channel_adjusted(self, layer):
+    def nchw_ActionPreviousHasInputAdjustLayer(self, layer, model):
+        new_inputs = []
+        inputs = self.get_layers(layer['inputs'])
+        for inp in inputs: 
+            if(self.nchw_IsInputAdjustLayer(inp)):
+                inp_inputs = self.get_layers(inp['inputs'])
+                for ly in inp_inputs:
+                    if(self.nchw_IsIdentityChannelAdjusted(ly)):
+                        new_inputs.append(self.get_layers(ly['inputs'])[0]['name'])
+                    else:
+                        new_inputs.append(ly['name'])
+            else:
+                new_inputs.append(inp['name'])
+        new_layer = dict(layer)
+        new_layer['inputs'] = new_inputs
+        return [new_layer]
+
+    def nchw_IsOutputAdjustLayer(self, layer):
+        r = False
+        if((layer['op'] == 'Transpose')
+            and ((list(layer['perm']) == [0, 2, 3, 1]) or 
+                  (list(layer['perm']) == [0, 2, 1]))):
+            r = True
+        return r
+
+    def nchw_IsPreviousHasOutputAdjustLayer(self, layer):
         r = False
         if(layer['op'] != 'Input'):
             inputs = self.get_layers(layer['inputs'])
-            if(len(inputs) == 1):
-                inp = inputs[0]
-                if((inp['op'] == 'Transpose')
-                    and ((list(inp['perm']) == [0, 2, 3, 1]) or 
-                          (list(inp['perm']) == [0, 2, 1]))):
+            for inp in inputs:
+                if(self.nchw_IsOutputAdjustLayer(inp)):
                     r = True
         return r
+
+    def nchw_ActionPreviousHasOutputAdjustLayer(self, layer, model):
+        new_inputs = []
+        inputs = self.get_layers(layer['inputs'], model)
+        for inp in inputs:
+            if(self.nchw_IsOutputAdjustLayer(inp)):
+                inp_inputs = self.get_layers(inp['inputs'])
+                for ly in inp_inputs:
+                    if(self.nchw_IsIdentityChannelAdjusted(ly)):
+                        new_inputs.append(self.get_layers(ly['inputs'])[0]['name'])
+                    else:
+                        new_inputs.append(ly['name'])
+                model.remove(inp)
+            else:
+                new_inputs.append(inp['name'])
+        new_layer = dict(layer)
+        new_layer['inputs'] = new_inputs
+        self.convert_layer_to_nchw(new_layer)
+        return [new_layer]
+
+    def nchw_IsIdentityChannelAdjusted(self, layer):
+        r = False
+        if(layer['op'] == 'Identity'):
+            consumers = self.get_consumers(layer)
+            for ly in consumers: 
+                if(self.nchw_IsInputAdjustLayer(ly)):
+                    r = True
+        return r
+
+    def nchw_ActionIdentityChannelAdjusted(self, layer, model):
+        return self.nchw_ActionInputAdjustLayer(layer, model)
 
     def is_model_channel_first(self):
         if(self.is_model_channel_first_cached != None):
             return self.is_model_channel_first_cached
         r = True
         for layer in self.lwnn_model:
-            if(self.is_input_channel_adjusted(layer)):
+            if(self.nchw_IsInputAdjustLayer(layer)):
                 r = False
         self.is_model_channel_first_cached = r
         return r
+
+    def nchw_IsOkay(self, layer):
+        return True
+
+    def nchw_ActionOkay(self, layer, model):
+        new_layer = dict(layer)
+        if(new_layer['op'] == 'Identity'):
+            self.convert_layer_to_nchw(new_layer)
+        return [new_layer]
 
     def convert_to_nchw(self):
         if(self.is_model_channel_first()):
@@ -291,57 +383,10 @@ class LWNNModel():
             # so firstly need to strip those input/ouput adjust,
             # convert the model to format NCHW
             for layer in self.lwnn_model:
-                if(self.is_any_of_inputs_input_channel_adjusted(layer)):
-                    # previous layer is an adjust layer
-                    new_inputs = []
-                    inputs = self.get_layers(layer['inputs'])
-                    for inp in inputs: 
-                        if(self.is_input_channel_adjusted(inp)):
-                            inp_inputs = self.get_layers(inp['inputs'])
-                            new_inputs.append(inp_inputs[0]['name'])
-                        else:
-                            new_inputs.append(inp['name'])
-                    new_layer = dict(layer)
-                    new_layer['inputs'] = new_inputs
-                    model.append(new_layer)
-                elif(self.is_input_channel_adjusted(layer)):
-                    inputs = self.get_layers(layer['inputs'], model)
-                    if(len(inputs) == 0):
-                        inputs = self.get_layers(layer['inputs'])
-                        inp = inputs[0]
-                    else:
-                        inp = inputs[0]
-                    if(inp['op'] == 'Pad'):
-                        inp_inputs = self.get_layers(inp['inputs'], model)
-                        ly = inp_inputs[0]
-                        shape = ly['shape']
-                        if(len(shape) == 4):
-                            ly['shape'] = [shape[i] for i in [0,3,1,2]]
-                        else:
-                            ly['shape'] = [shape[i] for i in [0,2,1]]
-                    shape = inp['shape']
-                    if(len(shape) == 4):
-                        inp['shape'] = [shape[i] for i in [0,3,1,2]]
-                    else:
-                        inp['shape'] = [shape[i] for i in [0,2,1]]
-                elif(self.is_output_channel_adjusted(layer)):
-                    inputs = self.get_layers(layer['inputs'], model)
-                    if(len(inputs) == 0):
-                        inputs = self.get_layers(layer['inputs'])
-                        inp = inputs[0]
-                    else:
-                        inp = inputs[0]
-                        model.remove(inp)
-                    new_layer = dict(layer)
-                    new_layer['inputs'] = inp['inputs']
-                    shape = new_layer['shape']
-                    if(len(shape) == 4):
-                        new_layer['shape'] = [shape[i] for i in [0, 3, 1, 2]]
-                    else:
-                        new_layer['shape'] = [shape[i] for i in [0, 2, 1]]
-                    model.append(new_layer)
-                else:
-                    model.append(dict(layer))
+                for cond, act in self.toNCHW:
+                    if(cond(layer)):
+                        model.extend(act(layer, model))
+                        break
         return model
 
     def get_consumers(self, layer):

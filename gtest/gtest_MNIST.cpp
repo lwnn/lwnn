@@ -16,7 +16,7 @@
 void MNISTTestMain(runtime_type_t runtime,
 		const network_t* network)
 {
-	int r;
+	int r = 0;
 	size_t x_test_sz;
 	size_t y_test_sz;
 	float* x_test = (float*)nnt_load(MNIST_RAW_P "input.raw",&x_test_sz);

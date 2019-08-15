@@ -15,6 +15,7 @@ class LWNNBaseC():
                 'MaxPool': self.gen_LayerMaxPool,
                 'Reshape': self.gen_LayerReshape,
                 'Dense': self.gen_LayerDense,
+                'Concat': self.gen_LayerConcat,
                 'Pad': self.gen_LayerPad,
                 'Softmax': self.gen_LayerSoftmax,
                 'Identity': self.gen_LayerOutput }
@@ -188,6 +189,13 @@ class LWNNBaseC():
     def gen_LayerReshape(self, layer):
         self.gen_no_blobs(layer)
         self.fpC.write('L_RESHAPE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerConcat(self, layer):
+        M = np.asarray([layer['axis']], np.int32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_CONCAT ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
     def gen_LayerDense(self, layer):
         raise NotImplementedError()

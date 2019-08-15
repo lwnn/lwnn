@@ -82,6 +82,16 @@ def dwconv2d(name, shape=[32,32,5], kernel_size=(3,3), strides=(1,1), padding="s
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def concat(name, shape=[16, 16, 3], kernel_size=(3,3), strides=(1,1), padding="same", axis=-1):
+    input = Input(shape=shape, name=name+'_input')
+    x1 = Conv2D(32, kernel_size=kernel_size, strides=strides, padding=padding)(input)
+    x2 = Conv2D(32, kernel_size=kernel_size, strides=strides, padding=padding)(input)
+    x3 = Conv2D(32, kernel_size=kernel_size, strides=strides, padding=padding)(input)
+    output = concatenate([x1, x2,x3], axis=axis, name=name+'_output')
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 def mnist():
     from keras.datasets import mnist
     from keras.utils import to_categorical
@@ -159,3 +169,4 @@ if(__name__ == '__main__'):
     dwconv2d('dwconv2d_3',shape=[45,17,23], kernel_size=(2,3), strides=(3,2), padding="valid")
     maxpool1d('maxpool1d_1')
     maxpool1d('maxpool1d_2',shape=[34,29], pool_size=3, strides=3)
+    concat('concat_1')

@@ -71,6 +71,11 @@ extern "C" {
 			inputs, NULL };								\
 	L_LAYER_MI(name, MAXIMUM)
 
+#define L_CONCAT(name, inputs)							\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, CONCAT)
+
 #define L_REF(name) &l_layer_##name
 
 #define L_OPS_REF(name)			\
