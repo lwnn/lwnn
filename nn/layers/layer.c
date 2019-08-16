@@ -131,7 +131,4 @@ size_t layer_get_size(const layer_t* layer)
 }
 
 /* ============================ [ UNSUPPORTED ] ==================================================== */
-UNSUPPORTED_LAYER_OPS(cpu_q8, CONCAT)
-UNSUPPORTED_LAYER_OPS(cpu_q16, CONCAT)
-UNSUPPORTED_LAYER_OPS(cpu_float, CONCAT)
 UNSUPPORTED_LAYER_OPS(cl, CONCAT)

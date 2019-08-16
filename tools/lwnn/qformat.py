@@ -34,6 +34,22 @@ class LWNNQFormatC(LWNNBaseC):
                 Q = 15
             else:
                 assert(0)
+        else:
+            linked = []
+            consumers = self.model.get_consumers(layer)
+            for c in consumers:
+                if(c['op'] == 'Concat'):
+                    for ly in self.model.get_layers(c['inputs']):
+                        if((ly not in linked) and (ly!=layer)):
+                            linked.append(ly)
+            if(len(linked)>0):
+                for ly in linked:
+                    q = self.output_encodings[ly['outputs'][0]]
+                    if(q < Q):
+                        Q = q
+                for ly in linked: # adjust all linked to the same Q
+                    self.output_encodings[ly['outputs'][0]] = Q
+                self.output_encodings[layer['outputs'][at]] = Q
         return Q
 
     def get_Q_blob(self, layer):

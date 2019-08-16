@@ -258,6 +258,15 @@ class LWNNModel():
                     r = True
         return r
 
+    def convert_axis_to_nchw(self, layer):
+        axis = layer['axis']
+        shape = layer['shape']
+        if(len(shape) == 4):
+            axis = [0,2,3,1][axis]
+        if(len(shape) == 3):
+            axis = [0,2,1][axis]
+        layer['axis'] = axis
+
     def convert_layer_to_nchw(self, layer):
         shape = layer['shape']
         if('adjusted' not in layer):
@@ -265,6 +274,8 @@ class LWNNModel():
                 layer['shape'] = [shape[i] for i in [0,3,1,2]]
             if(len(shape) == 3):
                 layer['shape'] = [shape[i] for i in [0,2,1]]
+            if(layer['op'] == 'Concat'):
+                self.convert_axis_to_nchw(layer)
             layer['adjusted'] = True
 
     def nchw_ActionInputAdjustLayer(self, layer, model):

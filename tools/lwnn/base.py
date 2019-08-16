@@ -190,8 +190,17 @@ class LWNNBaseC():
         self.gen_no_blobs(layer)
         self.fpC.write('L_RESHAPE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def get_axis(self, layer):
+        axis = layer['axis']
+        shape = layer['shape']
+        if(len(shape) == 4):
+            axis = [0,3,1,2][axis]
+        if(len(shape) == 3):
+            axis = [0,2,1][axis]
+        return axis
+
     def gen_LayerConcat(self, layer):
-        M = np.asarray([layer['axis']], np.int32)
+        M = np.asarray([self.get_axis(layer)], np.int32)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))

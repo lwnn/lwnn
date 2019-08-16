@@ -170,3 +170,5 @@ if(__name__ == '__main__'):
     maxpool1d('maxpool1d_1')
     maxpool1d('maxpool1d_2',shape=[34,29], pool_size=3, strides=3)
     concat('concat_1')
+    concat('concat_2', axis=1)
+    concat('concat_3', axis=2)
