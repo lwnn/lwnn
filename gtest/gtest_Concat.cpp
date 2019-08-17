@@ -15,6 +15,7 @@ NNT_CASE_DEF(Concat) =
 	NNT_CASE_DESC(concat_1, concat),
 	NNT_CASE_DESC(concat_2, concat),
 	NNT_CASE_DESC(concat_3, concat),
+	NNT_CASE_DESC(concat_4, concat),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */

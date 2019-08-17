@@ -83,7 +83,7 @@ int layer_cl_INPUT_execute(const nn_t* nn, const layer_t* layer)
 
 	if(0 == r)
 	{
-		r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H_C);
+		r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H_C, FALSE, NULL);
 	}
 
 	return r;

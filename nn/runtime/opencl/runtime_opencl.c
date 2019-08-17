@@ -706,13 +706,17 @@ int rte_cl_set_layer_args(
 	return r;
 }
 
-int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, rte_cl_global_work_type_t gwt)
+int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, rte_cl_global_work_type_t gwt, int run, NHWC_t* nhwc)
 {
 	int r = 0;
-	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 
-	r = cl_enqueue_kernel(nn, context->kernel, &context->nhwc, gwt, 0);
+	if(NULL == nhwc)
+	{
+		nhwc = &(context->nhwc);
+	}
+
+	r = cl_enqueue_kernel(nn, context->kernel, nhwc, gwt, run);
 
 	if(0 != r)
 	{

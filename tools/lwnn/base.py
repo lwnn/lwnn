@@ -38,7 +38,13 @@ class LWNNBaseC():
         p = self.model.path
         p = os.path.abspath('%s/../golden'%(p))
         os.makedirs(p, exist_ok=True)
-        outputs = self.model.run(self.feeds)
+        if(self.feeds != None):
+            feeds = {}
+            for k,v in self.feeds.items():
+                feeds[k] = v[0].reshape([1]+list(v[0].shape))
+        else:
+            feeds = None
+        outputs = self.model.run(feeds)
         goldens = [n.name for n in self.model.onnx_model.graph.input] + \
                 [n.name for n in self.model.onnx_model.graph.output]
         for n, v in outputs.items():
@@ -48,7 +54,6 @@ class LWNNBaseC():
                 elif(len(v.shape) == 3):
                     v = v.transpose(0, 2, 1)
             if(n in goldens):
-                v = v[0]    # just use the first batch as golden
                 v.tofile('%s/%s.raw'%(p, n))
 
     def quantize(self, blob, only_needQ=False):

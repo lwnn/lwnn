@@ -115,6 +115,7 @@ enum {
 	NN_E_CREATE_CL_PROGRAM_FAILED = -14,
 	NN_E_CREATE_CL_KERNEL_FAILED = -15,
 	NN_E_INPUTS_Q_MISMATCH = -16,
+	NN_E_CL_DEPTH_NOT_4_ALIGNED = -17,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;

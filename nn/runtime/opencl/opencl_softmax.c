@@ -38,7 +38,7 @@ int layer_cl_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 
 	if(0 == r)
 	{
-		r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H);
+		r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H, FALSE, NULL);
 	}
 
 	return r;

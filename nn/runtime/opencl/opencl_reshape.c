@@ -47,7 +47,7 @@ int layer_cl_RESHAPE_execute(const nn_t* nn, const layer_t* layer)
 					sizeof(int), &(input_context->nhwc.C));
 		if(0 == r)
 		{
-			r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H_C);
+			r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H_C, FALSE, NULL);
 		}
 	}
 	else

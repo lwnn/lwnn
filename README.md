@@ -26,7 +26,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | Reshape | Y | Y | Y | Y | |
 | Pad | Y | Y | Y | Y | |
 | BatchNorm | Y | Y | Y | Y | only support BatchNorm after Conv2D |
-| Concat | Y | Y | Y | N | |
+| Concat | Y | Y | Y | Y | |
 
 ## Development
 

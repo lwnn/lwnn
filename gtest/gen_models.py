@@ -172,3 +172,4 @@ if(__name__ == '__main__'):
     concat('concat_1')
     concat('concat_2', axis=1)
     concat('concat_3', axis=2)
+    concat('concat_4', axis=0)
