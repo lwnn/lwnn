@@ -13,8 +13,8 @@
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(Dense) =
 {
-	NNT_CASE_DESC(dense_1, BiasAdd),
-	NNT_CASE_DESC(dense_2, BiasAdd),
+	NNT_CASE_DESC(dense_1),
+	NNT_CASE_DESC(dense_2),
 };
 
 /* ============================ [ LOCALS    ] ====================================================== */
@@ -22,4 +22,6 @@ NNT_CASE_DEF(Dense) =
 NNT_TEST_DEF(CPU, Dense, Q8)
 NNT_TEST_DEF(CPU, Dense, Q16)
 NNT_TEST_DEF(CPU, Dense, Float)
+#ifndef DISABLE_RUNTIME_OPENCL
 NNT_TEST_DEF(OPENCL, Dense, Float)
+#endif

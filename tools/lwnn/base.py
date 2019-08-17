@@ -54,6 +54,11 @@ class LWNNBaseC():
                 elif(len(v.shape) == 3):
                     v = v.transpose(0, 2, 1)
             if(n in goldens):
+                # all gtest must be single input and single output
+                if('input' in n):
+                    n = 'input'
+                else:
+                    n = 'output'
                 v.tofile('%s/%s.raw'%(p, n))
 
     def quantize(self, blob, only_needQ=False):

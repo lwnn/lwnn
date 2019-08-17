@@ -12,13 +12,15 @@
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(Conv2D) =
 {
-	NNT_CASE_DESC(conv2d_1, BiasAdd),
-	NNT_CASE_DESC(conv2d_2, BiasAdd),
-	NNT_CASE_DESC(conv2d_3, BiasAdd)
+	NNT_CASE_DESC(conv2d_1),
+	NNT_CASE_DESC(conv2d_2),
+	NNT_CASE_DESC(conv2d_3)
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, Conv2D, Q8)
 NNT_TEST_DEF(CPU, Conv2D, Q16)
 NNT_TEST_DEF(CPU, Conv2D, Float)
+#ifndef DISABLE_RUNTIME_OPENCL
 NNT_TEST_DEF(OPENCL, Conv2D, Float)
+#endif

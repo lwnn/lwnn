@@ -23,17 +23,19 @@
 
 #ifdef _WIN32
 #define DLLFIX ".dll"
+#define LIBFIX ""
 #else
 #define DLLFIX ".so"
+#define LIBFIX "lib"
 #endif
 
-#define NNT_CASE_DESC(name, output)									\
+#define NNT_CASE_DESC(name)										\
 	{																\
-		"build/" RAW_P #name "/" #name "_q8" DLLFIX ,				\
-		"build/" RAW_P #name "/" #name "_q16" DLLFIX ,				\
-		"build/" RAW_P #name "/" #name "_float" DLLFIX ,			\
-		RAW_P #name "/golden/" #name "_input_01.raw",				\
-		RAW_P #name "/golden/" #name "_output_" #output "_0.raw"	\
+		"build/" RAW_P #name "/" LIBFIX #name "_q8" DLLFIX ,		\
+		"build/" RAW_P #name "/" LIBFIX #name "_q16" DLLFIX ,		\
+		"build/" RAW_P #name "/" LIBFIX #name "_float" DLLFIX ,		\
+		RAW_P #name "/golden/input.raw",							\
+		RAW_P #name "/golden/output.raw"							\
 	}
 
 #define NNT_CASE_DEF(name)	\

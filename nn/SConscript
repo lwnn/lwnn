@@ -14,13 +14,16 @@ objs += Glob('*.c')
 
 asenv.Append(CPPPATH=['%s/%s'%(cwd,d) for d in ['','layers','runtime']])
 
-if(IsPlatformWindows()):
-    asenv.AppendENVPath('PATH', os.getenv('PATH'))
-    cuda = os.getenv('CUDA_PATH')
-    asenv.Append(CPPPATH=['%s/include'%(cuda)])
-    objs += ['%s/lib/x64/OpenCL.lib'%(cuda)]
+if(os.getenv('DISABLE_OPENCL') != 'True'):
+    if(IsPlatformWindows()):
+        asenv.AppendENVPath('PATH', os.getenv('PATH'))
+        cuda = os.getenv('CUDA_PATH')
+        asenv.Append(CPPPATH=['%s/include'%(cuda)])
+        objs += ['%s/lib/x64/OpenCL.lib'%(cuda)]
+    else:
+        asenv.Append(LIBS=['OpenCL'])
 else:
-    asenv.Append(LIBS=['OpenCL'])
+    asenv.Append(CPPDEFINES=['DISABLE_RUNTIME_OPENCL'])
 
 objs += SConscript('third_party/SConscript')
 

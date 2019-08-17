@@ -6,7 +6,7 @@
 #include "nn_test_util.h"
 /* ============================ [ MACROS    ] ====================================================== */
 #define MNIST_RAW_P RAW_P "mnist/golden/"
-#define MNIST_PATH "build/" RAW_P "mnist/mnist_"
+#define MNIST_PATH "build/" RAW_P "mnist/" LIBFIX "mnist_"
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -140,21 +140,22 @@ void MNISTTest(runtime_type_t runtime, const char* netpath)
 
 TEST(RuntimeCPU, MNISTQ8)
 {
-	MNISTTest(RUNTIME_CPU, MNIST_PATH "q8.dll");
+	MNISTTest(RUNTIME_CPU, MNIST_PATH "q8" DLLFIX);
 }
 
 TEST(RuntimeCPU, MNISTQ16)
 {
-	MNISTTest(RUNTIME_CPU, MNIST_PATH "q16.dll");
+	MNISTTest(RUNTIME_CPU, MNIST_PATH "q16" DLLFIX);
 }
 
 
 TEST(RuntimeCPU, MNISTFloat)
 {
-	MNISTTest(RUNTIME_CPU, MNIST_PATH "float.dll");
+	MNISTTest(RUNTIME_CPU, MNIST_PATH "float" DLLFIX);
 }
-
+#ifndef DISABLE_RUNTIME_OPENCL
 TEST(RuntimeOPENCL, MNIST)
 {
-	MNISTTest(RUNTIME_OPENCL, MNIST_PATH "float.dll");
+	MNISTTest(RUNTIME_OPENCL, MNIST_PATH "float" DLLFIX);
 }
+#endif

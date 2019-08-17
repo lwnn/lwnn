@@ -12,14 +12,16 @@
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(MaxPool) =
 {
-	NNT_CASE_DESC(maxpool_1, MaxPool),
-	NNT_CASE_DESC(maxpool_2, MaxPool),
-	NNT_CASE_DESC(maxpool1d_1, Squeeze),
-	NNT_CASE_DESC(maxpool1d_2, Squeeze),
+	NNT_CASE_DESC(maxpool_1),
+	NNT_CASE_DESC(maxpool_2),
+	NNT_CASE_DESC(maxpool1d_1),
+	NNT_CASE_DESC(maxpool1d_2),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, MaxPool, Q8)
 NNT_TEST_DEF(CPU, MaxPool, Q16)
 NNT_TEST_DEF(CPU, MaxPool, Float)
+#ifndef DISABLE_RUNTIME_OPENCL
 NNT_TEST_DEF(OPENCL, MaxPool, Float)
+#endif

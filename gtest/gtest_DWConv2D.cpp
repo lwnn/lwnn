@@ -12,13 +12,15 @@
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(DWConv2D) =
 {
-	NNT_CASE_DESC(dwconv2d_1, BiasAdd),
-	NNT_CASE_DESC(dwconv2d_2, BiasAdd),
-	NNT_CASE_DESC(dwconv2d_3, BiasAdd)
+	NNT_CASE_DESC(dwconv2d_1),
+	NNT_CASE_DESC(dwconv2d_2),
+	NNT_CASE_DESC(dwconv2d_3)
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, DWConv2D, Q8)
 NNT_TEST_DEF(CPU, DWConv2D, Q16)
 NNT_TEST_DEF(CPU, DWConv2D, Float)
+#ifndef DISABLE_RUNTIME_OPENCL
 NNT_TEST_DEF(OPENCL, DWConv2D, Float)
+#endif

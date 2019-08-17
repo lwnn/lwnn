@@ -198,7 +198,7 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 		}
 	}
 #endif
-#ifndef DISABLE_RUNTIME_CPU
+#ifndef DISABLE_RUNTIME_OPENCL
 	if(RUNTIME_OPENCL == nn->runtime_type)
 	{
 		int r;

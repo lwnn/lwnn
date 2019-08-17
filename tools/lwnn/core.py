@@ -618,6 +618,11 @@ class LWNNModel():
                         num_layers = len(self.lwnn_model)
                         break
 
+    def toCstr(self, name):
+        for s in ['/',':', '-']:
+            name = name.replace(s, '_')
+        return name
+
     def check(self):
         for id,layer in enumerate(self.lwnn_model):
             if('inputs' in layer):
@@ -625,6 +630,11 @@ class LWNNModel():
                 inputs = self.get_layers(layer['inputs'],self.lwnn_model[:id])
                 if(len(inputs) != len(layer['inputs'])):
                     raise Exception('layer %s inputs is not before me:\n%s'%(layer['name'], self))
+        # everthing is fine, fix name
+        for layer in self.lwnn_model:
+            layer['name'] = self.toCstr(layer['name'])
+            if('inputs' in layer):
+                layer['inputs'] = [self.toCstr(inp) for inp in layer['inputs']]
 
     def __str__(self):
         cstr = 'LWNN Model %s:\n'%(self.name)

@@ -40,9 +40,10 @@ class LWNNQFormatC(LWNNBaseC):
             for c in consumers:
                 if(c['op'] == 'Concat'):
                     for ly in self.model.get_layers(c['inputs']):
-                        if((ly not in linked) and (ly!=layer)):
-                            linked.append(ly)
+                        if((ly['name'] not in linked) and (ly['name']!=layer['name'])):
+                            linked.append(ly['name'])
             if(len(linked)>0):
+                linked = self.model.get_layers(linked)
                 for ly in linked:
                     q = self.output_encodings[ly['outputs'][0]]
                     if(q < Q):
@@ -72,7 +73,12 @@ class LWNNQFormatC(LWNNBaseC):
         W,Wq = self.quantize(W)
         B,Bq = self.quantize(B)
 
-        M = np.asarray(list(layer['pads']) + list(layer['strides']) + [Wq, Bq, Oq], np.int32)
+        if('strides' not in layer):
+            strides = [1, 1]
+        else:
+            strides = list(layer['strides'])
+
+        M = np.asarray(list(layer['pads']) + strides + [Wq, Bq, Oq], np.int32)
         self.gen_layer_WBM(layer, W, B, M)
 
         if(layer['group'] == 1):

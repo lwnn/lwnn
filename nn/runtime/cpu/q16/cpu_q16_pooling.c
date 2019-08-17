@@ -41,7 +41,7 @@ static void maxpooling(const int16_t * Im_in,
 		{
 			for (i_x = 0; i_x < dim_im_out_x; i_x++)
 			{
-				int       max = -INT_MAX;
+				int       max = -INT32_MAX;
 				for (k_y = i_y * stride_y - padding_y; k_y < i_y * stride_y - padding_y + dim_kernel_y; k_y++)
 				{
 					for (k_x = i_x * stride_x - padding_x; k_x < i_x * stride_x - padding_x + dim_kernel_x; k_x++)

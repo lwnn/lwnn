@@ -12,14 +12,16 @@
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(Concat) =
 {
-	NNT_CASE_DESC(concat_1, concat),
-	NNT_CASE_DESC(concat_2, concat),
-	NNT_CASE_DESC(concat_3, concat),
-	NNT_CASE_DESC(concat_4, concat),
+	NNT_CASE_DESC(concat_1),
+	NNT_CASE_DESC(concat_2),
+	NNT_CASE_DESC(concat_3),
+	NNT_CASE_DESC(concat_4),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, Concat, Q8)
 NNT_TEST_DEF(CPU, Concat, Q16)
 NNT_TEST_DEF(CPU, Concat, Float)
+#ifndef DISABLE_RUNTIME_OPENCL
 NNT_TEST_DEF(OPENCL, Concat, Float)
+#endif

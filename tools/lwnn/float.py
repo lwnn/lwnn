@@ -16,7 +16,12 @@ class LWNNFloatC(LWNNBaseC):
         W = layer['weights']
         B = layer['bias']
 
-        M = np.asarray(list(layer['pads']) + list(layer['strides']), np.int32)
+        if('strides' not in layer):
+            strides = [1, 1]
+        else:
+            strides = list(layer['strides'])
+
+        M = np.asarray(list(layer['pads']) + strides, np.int32)
         self.gen_layer_WBM(layer, W, B, M)
 
         if(layer['group'] == 1):

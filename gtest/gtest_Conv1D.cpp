@@ -12,11 +12,13 @@
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(Conv1D) =
 {
-	NNT_CASE_DESC(conv1d_1, add),
+	NNT_CASE_DESC(conv1d_1),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, Conv1D, Q8)
 NNT_TEST_DEF(CPU, Conv1D, Q16)
 NNT_TEST_DEF(CPU, Conv1D, Float)
+#ifndef DISABLE_RUNTIME_OPENCL
 NNT_TEST_DEF(OPENCL, Conv1D, Float)
+#endif

@@ -12,7 +12,7 @@
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(Softmax) =
 {
-	NNT_CASE_DESC(softmax_1, Softmax),
+	NNT_CASE_DESC(softmax_1),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 
@@ -20,4 +20,6 @@ NNT_CASE_DEF(Softmax) =
 NNT_TEST_DEF(CPU, Softmax, Q8)
 //NNT_TEST_DEF(CPU, Softmax, Q16)
 NNT_TEST_DEF(CPU, Softmax, Float)
+#ifndef DISABLE_RUNTIME_OPENCL
 NNT_TEST_DEF(OPENCL, Softmax, Float)
+#endif

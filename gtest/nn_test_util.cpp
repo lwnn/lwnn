@@ -64,7 +64,11 @@ void* nnt_load(const char* inraw, size_t *sz)
 	void* in;
 
 	FILE* fp = fopen(inraw,"rb");
-	assert(fp);
+	if(NULL==fp)
+	{
+		printf("failed to load raw %s\n", inraw);
+		assert(0);
+	}
 	fseek(fp, 0, SEEK_END);
 	*sz = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
@@ -164,6 +168,7 @@ void nnt_siso_network_test(runtime_type_t runtime,
 	const nn_input_t* const * inputs = network->inputs;
 	const nn_output_t* const * outputs = network->outputs;
 	size_t sz_in;
+
 	float* IN = (float*)nnt_load(input, &sz_in);
 	ASSERT_EQ(sz_in, layer_get_size((inputs[0])->layer)*sizeof(float));
 
@@ -260,7 +265,11 @@ const network_t* nnt_load_network(const char* netpath, void** dll)
 		#else
 		bname[strlen(bname)-3] = 0;
 		#endif
+		#ifdef _WIN32
 		snprintf(symbol, sizeof(symbol), "LWNN_%s", bname);
+		#else
+		snprintf(symbol, sizeof(symbol), "LWNN_%s", &bname[3]);
+		#endif
 		network = (const network_t*)dlsym(*dll, symbol);
 		if(NULL == network)
 		{

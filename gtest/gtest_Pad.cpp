@@ -12,12 +12,14 @@
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(Pad) =
 {
-	NNT_CASE_DESC(pad_1, BiasAdd),
-	NNT_CASE_DESC(pad_2, BiasAdd),
+	NNT_CASE_DESC(pad_1),
+	NNT_CASE_DESC(pad_2),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 NNT_TEST_DEF(CPU, Pad, Q8)
 NNT_TEST_DEF(CPU, Pad, Q16)
 NNT_TEST_DEF(CPU, Pad, Float)
+#ifndef DISABLE_RUNTIME_OPENCL
 NNT_TEST_DEF(OPENCL, Pad, Float)
+#endif
