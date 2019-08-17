@@ -146,16 +146,40 @@ class LWNNBaseC():
             self.gen_layer_common(layer)
             self.GENL[layer['op']](layer)
 
+    def get_type(self):
+        t = 'float'
+        if(self.T == 'q8'):
+            t = 'int8_t'
+        elif(self.T == 'q16'):
+            t = 'int16_t'
+        return t
+
+    def get_size(self, layer):
+        sz = 1
+        for s in layer['shape']:
+            sz = sz*s
+        return sz
+
     def gen_models(self):
-        self.fpC.write('static const layer_t* const %s_%s_inputs[] =\n{\n'%(self.name, self.T))
         for layer in self.model.lwnn_model:
             if(layer['op'] == 'Input'):
-                self.fpC.write('\tL_REF(%s),\n'%(layer['name']))
+                self.fpC.write('static %s %s_input_buffer[%s];\n'%(self.get_type(), layer['name'], self.get_size(layer)))
+                self.fpC.write('static const nn_input_t %s_input=\n{\n\tL_REF(%s), %s_input_buffer\n};\n'
+                               %(layer['name'],layer['name'],layer['name']))
+        self.fpC.write('static const nn_input_t* const %s_%s_inputs[] =\n{\n'%(self.name, self.T))
+        for layer in self.model.lwnn_model:
+            if(layer['op'] == 'Input'):
+                self.fpC.write('\t&%s_input,\n'%(layer['name']))
         self.fpC.write('\tNULL\n};\n\n')
-        self.fpC.write('static const layer_t* const %s_%s_outputs[] =\n{\n'%(self.name, self.T))
         for layer in self.model.lwnn_model:
             if(layer['op'] == 'Identity'):
-                self.fpC.write('\tL_REF(%s),\n'%(layer['name']))
+                self.fpC.write('static %s %s_output_buffer[%s];\n'%(self.get_type(), layer['name'], self.get_size(layer)))
+                self.fpC.write('static const nn_output_t %s_output=\n{\n\tL_REF(%s), %s_output_buffer\n};\n'
+                               %(layer['name'],layer['name'],layer['name']))
+        self.fpC.write('static const nn_output_t* const %s_%s_outputs[] =\n{\n'%(self.name, self.T))
+        for layer in self.model.lwnn_model:
+            if(layer['op'] == 'Identity'):
+                self.fpC.write('\t&%s_output,\n'%(layer['name']))
         self.fpC.write('\tNULL\n};\n\n')
         self.fpC.write('static const layer_t* const %s_%s_layers[] =\n{\n'%(self.name, self.T))
         for layer in self.model.lwnn_model:

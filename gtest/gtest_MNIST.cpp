@@ -21,19 +21,16 @@ void MNISTTestMain(runtime_type_t runtime,
 	size_t y_test_sz;
 	float* x_test = (float*)nnt_load(MNIST_RAW_P "input.raw",&x_test_sz);
 	int8_t* y_test = (int8_t*)nnt_load(MNIST_RAW_P "output.raw",&y_test_sz);
-	int H = RTE_FETCH_INT32(network->inputs[0]->dims, 1);
-	int W = RTE_FETCH_INT32(network->inputs[0]->dims, 2);
-	int C = RTE_FETCH_INT32(network->inputs[0]->dims, 3);
+
+	const nn_input_t* const * inputs = network->inputs;
+	const nn_output_t* const * outputs = network->outputs;
+
+	int H = RTE_FETCH_INT32(inputs[0]->layer->dims, 1);
+	int W = RTE_FETCH_INT32(inputs[0]->layer->dims, 2);
+	int C = RTE_FETCH_INT32(inputs[0]->layer->dims, 3);
 	int B = x_test_sz/(H*W*C*sizeof(float));
 
 	ASSERT_EQ(B, y_test_sz);
-
-	nn_input_t x_input = { network->inputs[0], NULL };
-	nn_input_t* inputs[] = { &x_input, NULL };
-
-	int8_t y_out[10*sizeof(float)];
-	nn_output_t y_output = { network->outputs[0], y_out };
-	nn_output_t* outputs[] = { &y_output, NULL };
 
 	nn_t* nn = nn_create(network, runtime);
 	ASSERT_TRUE(nn != NULL);
@@ -44,24 +41,28 @@ void MNISTTestMain(runtime_type_t runtime,
 	for(int i=0; (i<B) && (r==0); i++)
 	{
 		float* in = x_test+H*W*C*i;
-		if(network->inputs[0]->dtype== L_DT_INT8)
+		size_t sz_in;
+		if(inputs[0]->layer->dtype== L_DT_INT8)
 		{
-			IN = nnt_quantize8(in, H*W*C, RTE_FETCH_INT8(network->inputs[0]->blobs[0]->blob, 0));
+			sz_in = H*W*C;
+			IN = nnt_quantize8(in, H*W*C, RTE_FETCH_INT8(inputs[0]->layer->blobs[0]->blob, 0));
 			ASSERT_TRUE(IN != NULL);
 		}
-		else if(network->inputs[0]->dtype== L_DT_INT16)
+		else if(inputs[0]->layer->dtype== L_DT_INT16)
 		{
-			IN = nnt_quantize16(in, H*W*C, RTE_FETCH_INT8(network->inputs[0]->blobs[0]->blob, 0));
+			sz_in = H*W*C*sizeof(int16_t);
+			IN = nnt_quantize16(in, H*W*C, RTE_FETCH_INT8(inputs[0]->layer->blobs[0]->blob, 0));
 			ASSERT_TRUE(IN != NULL);
 		}
 		else
 		{
+			sz_in = H*W*C*sizeof(float);
 			IN = in;
 		}
 
-		inputs[0]->data = IN;
+		memcpy(inputs[0]->data, IN, sz_in);
 
-		r = nn_predict(nn, inputs, outputs);
+		r = nn_predict(nn);
 		EXPECT_EQ(0, r);
 
 		if(0 == r)
@@ -69,13 +70,13 @@ void MNISTTestMain(runtime_type_t runtime,
 			int y=-1;
 			float prob = 0;
 			float* out = (float*)outputs[0]->data;
-			if(network->inputs[0]->dtype== L_DT_INT8)
+			if(inputs[0]->layer->dtype== L_DT_INT8)
 			{
-				out = nnt_dequantize8((int8_t*)out, 10, RTE_FETCH_INT8(network->outputs[0]->blobs[0]->blob, 0));
+				out = nnt_dequantize8((int8_t*)out, 10, RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 0));
 			}
-			else if(network->inputs[0]->dtype== L_DT_INT16)
+			else if(inputs[0]->layer->dtype== L_DT_INT16)
 			{
-				out = nnt_dequantize16((int16_t*)out, 10, RTE_FETCH_INT8(network->outputs[0]->blobs[0]->blob, 0));
+				out = nnt_dequantize16((int16_t*)out, 10, RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 0));
 			}
 
 			for(int j=0; j<10; j++)

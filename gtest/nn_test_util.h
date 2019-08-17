@@ -68,10 +68,6 @@ int nnt_run(const network_t* network,
 			runtime_type_t runtime,
 			nn_input_t** inputs,
 			nn_output_t** outputs);
-nn_input_t** nnt_allocate_inputs(std::vector<const layer_t*> layers);
-nn_output_t** nnt_allocate_outputs(std::vector<const layer_t*> layers);
-void nnt_free_inputs(nn_input_t** inputs);
-void nnt_free_outputs(nn_output_t** ouputs);
 /* 0 means close enough, else return numbers which are not equal */
 int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff);
 

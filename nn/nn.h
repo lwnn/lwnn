@@ -81,19 +81,15 @@ typedef enum {
 typedef struct {
 	const char* name;
 	const layer_t* const* layers;
-	const layer_t* const* inputs;
-	const layer_t* const* outputs;
+	const nn_input_t* const* inputs;
+	const nn_output_t* const* outputs;
 	network_type_t type;
 } network_t;
 
 typedef struct nn {
 	runtime_t runtime;
 	const network_t* network;
-
 	runtime_type_t runtime_type;
-
-	const nn_input_t* const* inputs;
-	const nn_output_t* const* outputs;
 } nn_t;
 
 enum {
@@ -123,8 +119,7 @@ extern int nn_log_level;
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 nn_t* nn_create(const network_t* network, runtime_type_t runtime_type);
-int nn_predict(nn_t* nn, const nn_input_t* const * inputs,
-		const nn_output_t* const * outputs);
+int nn_predict(nn_t* nn);
 
 void nn_set_log_level(int level);
 

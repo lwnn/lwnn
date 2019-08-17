@@ -51,11 +51,8 @@ void nn_set_log_level(int level)
 	nn_log_level = level;
 }
 
-int nn_predict(nn_t* nn, const nn_input_t* const * inputs,
-		const nn_output_t* const * outputs)
+int nn_predict(nn_t* nn)
 {
-	nn->inputs = inputs;
-	nn->outputs = outputs;
 	return rte_execute(nn);
 }
 
@@ -63,7 +60,7 @@ void* nn_get_input_data(const nn_t* nn, const layer_t* layer)
 {
 	void* data = NULL;
 
-	const nn_input_t* const* input = nn->inputs;
+	const nn_input_t* const* input = nn->network->inputs;
 
 	while(((*input) != NULL) && (NULL == data))
 	{
@@ -82,7 +79,7 @@ void* nn_get_output_data(const nn_t* nn, const layer_t* layer)
 {
 	void* data = NULL;
 
-	const nn_output_t* const* output = nn->outputs;
+	const nn_output_t* const* output = nn->network->outputs;
 
 	while(((*output) != NULL) && (NULL == data))
 	{

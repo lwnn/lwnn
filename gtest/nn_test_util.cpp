@@ -11,9 +11,7 @@
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int nnt_run(const network_t* network,
-			runtime_type_t runtime,
-			nn_input_t** inputs,
-			nn_output_t** outputs)
+			runtime_type_t runtime)
 {
 	int r = 0;
 	nn_t* nn = nn_create(network, runtime);
@@ -21,16 +19,7 @@ int nnt_run(const network_t* network,
 
 	if(nn != NULL)
 	{
-		for(nn_output_t** o=outputs; (*o) != NULL; o++)
-		{
-			if(NULL == (*o)->data)
-			{
-				(*o)->data = nn_allocate_output((*o)->layer);
-				assert(NULL != (*o)->data);
-			}
-		}
-
-		r = nn_predict(nn, inputs, outputs);
+		r = nn_predict(nn);
 		EXPECT_EQ(0, r);
 		nn_destory(nn);
 	}
@@ -83,71 +72,6 @@ void* nnt_load(const char* inraw, size_t *sz)
 	fread(in, 1, *sz, fp);
 	fclose(fp);
 	return in;
-}
-
-nn_input_t** nnt_allocate_inputs(std::vector<const layer_t*> layers)
-{
-	int sz = layers.size();
-	nn_input_t* inputs = new nn_input_t[sz];
-	nn_input_t** inputs_list = new nn_input_t*[sz+1];
-
-	assert(NULL != inputs);
-	assert(NULL != inputs_list);
-
-	for(int i=0; i<sz; i++)
-	{
-		inputs[i].layer = layers[i];
-		inputs[i].data = nn_allocate_input(layers[i]);
-		assert(NULL != inputs[i].data);
-		inputs_list[i] = &inputs[i];
-	}
-
-	inputs_list[sz] = NULL;
-
-	return inputs_list;
-}
-
-nn_output_t** nnt_allocate_outputs(std::vector<const layer_t*> layers)
-{
-	int sz = layers.size();
-	nn_output_t* outputs = new nn_output_t[sz];
-	nn_output_t** outputs_list = new nn_output_t*[sz+1];
-
-	assert(NULL != outputs);
-	assert(NULL != outputs_list);
-
-	for(int i=0; i<sz; i++)
-	{
-		outputs[i].layer = layers[i];
-		outputs[i].data = NULL;
-		outputs_list[i] = &outputs[i];
-	}
-
-	outputs_list[sz] = NULL;
-
-	return outputs_list;
-}
-
-void nnt_free_inputs(nn_input_t** inputs)
-{
-	for(nn_input_t** in=inputs; (*in) != NULL; in++)
-	{
-		nn_free_input((*in)->data);
-	}
-
-	delete inputs[0];
-	delete inputs;
-}
-
-void nnt_free_outputs(nn_output_t** ouputs)
-{
-	for(nn_output_t** o=ouputs; (*o) != NULL; o++)
-	{
-		nn_free_output((*o)->data);
-	}
-
-	delete ouputs[0];
-	delete ouputs;
 }
 
 int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff)
@@ -237,9 +161,8 @@ void nnt_siso_network_test(runtime_type_t runtime,
 		float max_diff,
 		float qmax_diff)
 {
-	nn_input_t** inputs = nnt_allocate_inputs({network->inputs[0]});
-	nn_output_t** outputs = nnt_allocate_outputs({network->outputs[0]});
-
+	const nn_input_t* const * inputs = network->inputs;
+	const nn_output_t* const * outputs = network->outputs;
 	size_t sz_in;
 	float* IN = (float*)nnt_load(input, &sz_in);
 	ASSERT_EQ(sz_in, layer_get_size((inputs[0])->layer)*sizeof(float));
@@ -263,7 +186,7 @@ void nnt_siso_network_test(runtime_type_t runtime,
 		memcpy(inputs[0]->data, IN, sz_in);
 	}
 
-	int r = nnt_run(network, runtime, inputs, outputs);
+	int r = nnt_run(network, runtime);
 
 	if(0 == r)
 	{
@@ -312,9 +235,6 @@ void nnt_siso_network_test(runtime_type_t runtime,
 	}
 
 	free(IN);
-
-	nnt_free_inputs(inputs);
-	nnt_free_outputs(outputs);
 }
 
 const network_t* nnt_load_network(const char* netpath, void** dll)
