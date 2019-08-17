@@ -85,13 +85,15 @@ class LWNNModel():
 
     def get_inputs(self, node):
         inputs = []
-        for inp in self.onnx_model.graph.input:
-            if(inp.name in node.input):
-                inputs.append(inp.name)
-        for node2 in self.onnx_model.graph.node:
-            for out in node2.output:
-                if(out in node.input):
-                    inputs.append(node2.name)
+        # order is important for some layers such as Concat
+        for iname in node.input:
+            for inp in self.onnx_model.graph.input:
+                if(inp.name == iname):
+                    inputs.append(inp.name)
+            for node2 in self.onnx_model.graph.node:
+                for out in node2.output:
+                    if(out == iname):
+                        inputs.append(node2.name)
         return inputs
 
     def eval_node_output_type(self, output):
@@ -134,7 +136,7 @@ class LWNNModel():
             feed = {}
             for inp in sess.get_inputs():
                 shape = list(inp.shape)
-                if(shape[0] == None):
+                if((shape[0] == None) or (shape[0] == 'N')):
                     shape[0] = 1
                 data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
                 feed[inp.name] = data
@@ -564,6 +566,8 @@ class LWNNModel():
     def opt_LayerConvWeightsReorder(self, layer):
         # Conv: [M x C/group x kH x kW] -> [M x kH x kW x C/group]
         # DwConv: [M x C/group x kH x kW] -> [C/group x kH x kW x M]
+        if('WeightsReordered' in layer):
+            return False
         W = layer['weights']
         if(len(W.shape)==4):
             W = W.transpose(0,2,3,1)
@@ -573,6 +577,7 @@ class LWNNModel():
             if(len(W.shape)==4):
                 W = W.transpose(3,1,2,0)
         layer['weights'] = W
+        layer['WeightsReordered'] = True
         return False
 
     def opt_IsLayerReshape(self, layer):

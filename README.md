@@ -39,6 +39,7 @@ source activate lwnn
 conda install scons tensorflow keras 
 conda install -c caffe2 caffe2
 pip install keras2onnx onnxruntime
+sudo apt install nvidia-opencl-dev
 ```
 
 ### build
