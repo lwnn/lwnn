@@ -5,22 +5,36 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn_test_util.h"
 /* ============================ [ MACROS    ] ====================================================== */
-#define MNIST_RAW_P RAW_P "mnist/golden/"
-#define MNIST_PATH "build/" RAW_P "mnist/" LIBFIX "mnist_"
+#define NNT_MNIST_NOT_FOUND_OKAY FALSE
+#define NNT_MNIST_TOP1 0.9
+
+#define NNT_UCI_INCEPTION_NOT_FOUND_OKAY TRUE
+#define NNT_UCI_INCEPTION_TOP1 0.9
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
+NNT_CASE_DEF(MNIST) =
+{
+	NNT_CASE_DESC(mnist),
+};
 
+NNT_CASE_DEF(UCI_INCEPTION) =
+{
+	NNT_CASE_DESC(uci_inception),
+};
 /* ============================ [ FUNCTIONS ] ====================================================== */
-void MNISTTestMain(runtime_type_t runtime,
-		const network_t* network)
+void ModelTestMain(runtime_type_t runtime,
+		const network_t* network,
+		const char* input,
+		const char* output,
+		float mintop1)
 {
 	int r = 0;
 	size_t x_test_sz;
 	size_t y_test_sz;
-	float* x_test = (float*)nnt_load(MNIST_RAW_P "input.raw",&x_test_sz);
-	int8_t* y_test = (int8_t*)nnt_load(MNIST_RAW_P "output.raw",&y_test_sz);
+	float* x_test = (float*)nnt_load(input, &x_test_sz);
+	int32_t* y_test = (int32_t*)nnt_load(output,&y_test_sz);
 
 	const nn_input_t* const * inputs = network->inputs;
 	const nn_output_t* const * outputs = network->outputs;
@@ -28,9 +42,15 @@ void MNISTTestMain(runtime_type_t runtime,
 	int H = RTE_FETCH_INT32(inputs[0]->layer->dims, 1);
 	int W = RTE_FETCH_INT32(inputs[0]->layer->dims, 2);
 	int C = RTE_FETCH_INT32(inputs[0]->layer->dims, 3);
+	if(C==0)
+	{
+		C=1;
+	}
 	int B = x_test_sz/(H*W*C*sizeof(float));
 
-	ASSERT_EQ(B, y_test_sz);
+	int classes = RTE_FETCH_INT32(outputs[0]->layer->dims, 1);
+
+	ASSERT_EQ(B, y_test_sz/sizeof(int32_t));
 
 	nn_t* nn = nn_create(network, runtime);
 	ASSERT_TRUE(nn != NULL);
@@ -72,14 +92,14 @@ void MNISTTestMain(runtime_type_t runtime,
 			float* out = (float*)outputs[0]->data;
 			if(inputs[0]->layer->dtype== L_DT_INT8)
 			{
-				out = nnt_dequantize8((int8_t*)out, 10, RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 0));
+				out = nnt_dequantize8((int8_t*)out, classes, RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 0));
 			}
 			else if(inputs[0]->layer->dtype== L_DT_INT16)
 			{
-				out = nnt_dequantize16((int16_t*)out, 10, RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 0));
+				out = nnt_dequantize16((int16_t*)out, classes, RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 0));
 			}
 
-			for(int j=0; j<10; j++)
+			for(int j=0; j<classes; j++)
 			{
 				if(out[j] > prob)
 				{
@@ -110,13 +130,13 @@ void MNISTTestMain(runtime_type_t runtime,
 
 		if((i>0) && ((i%1000) == 0))
 		{
-			printf("MNIST on LWNN TOP1 is %f on %d test images\n", (float)top1/i, i);
+			printf("LWNN TOP1 is %f on %d test images\n", (float)top1/i, i);
 		}
 	}
 
-	printf("MNIST on LWNN TOP1 is %f\n", (float)top1/B);
+	printf("LWNN TOP1 is %f\n", (float)top1/B);
 
-	EXPECT_GT(top1, B*0.9);
+	EXPECT_GT(top1, B*mintop1);
 	nn_destory(nn);
 
 	free(x_test);
@@ -124,38 +144,38 @@ void MNISTTestMain(runtime_type_t runtime,
 
 }
 
-void MNISTTest(runtime_type_t runtime, const char* netpath)
+void NNTModelTestGeneral(runtime_type_t runtime,
+		const char* netpath,
+		const char* input,
+		const char* output,
+		float mintop1,
+		float not_found_okay)
 {
 	const network_t* network;
 	void* dll;
 	network = nnt_load_network(netpath, &dll);
-	EXPECT_TRUE(network != NULL);
+	if(not_found_okay == FALSE)
+	{
+		EXPECT_TRUE(network != NULL);
+	}
 	if(network == NULL)
 	{
 		return;
 	}
-	MNISTTestMain(runtime, network);
+	ModelTestMain(runtime, network, input, output, mintop1);
 	dlclose(dll);
 }
 
-TEST(RuntimeCPU, MNISTQ8)
-{
-	MNISTTest(RUNTIME_CPU, MNIST_PATH "q8" DLLFIX);
-}
-
-TEST(RuntimeCPU, MNISTQ16)
-{
-	MNISTTest(RUNTIME_CPU, MNIST_PATH "q16" DLLFIX);
-}
-
-
-TEST(RuntimeCPU, MNISTFloat)
-{
-	MNISTTest(RUNTIME_CPU, MNIST_PATH "float" DLLFIX);
-}
+NNT_MODEL_TEST_DEF(CPU, MNIST, Q8)
+NNT_MODEL_TEST_DEF(CPU, MNIST, Q16)
+NNT_MODEL_TEST_DEF(CPU, MNIST, Float)
 #ifndef DISABLE_RUNTIME_OPENCL
-TEST(RuntimeOPENCL, MNIST)
-{
-	MNISTTest(RUNTIME_OPENCL, MNIST_PATH "float" DLLFIX);
-}
+NNT_MODEL_TEST_DEF(OPENCL, MNIST, Float)
+#endif
+
+NNT_MODEL_TEST_DEF(CPU, UCI_INCEPTION, Q8)
+NNT_MODEL_TEST_DEF(CPU, UCI_INCEPTION, Q16)
+NNT_MODEL_TEST_DEF(CPU, UCI_INCEPTION, Float)
+#ifndef DISABLE_RUNTIME_OPENCL
+NNT_MODEL_TEST_DEF(OPENCL, UCI_INCEPTION, Float)
 #endif

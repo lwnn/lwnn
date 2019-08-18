@@ -54,6 +54,20 @@ TEST(Runtime##runtime, name##T)							\
 				NNT_##name##_MAX_QDIFF);				\
 	}													\
 }
+
+#define NNT_MODEL_TEST_DEF(runtime, name, T)			\
+TEST(Runtime##runtime, name##T)							\
+{														\
+	for(int i=0; i<ARRAY_SIZE(name##_cases); i++)		\
+	{													\
+		NNTModelTestGeneral(RUNTIME_##runtime,			\
+				name##_cases[i].network##T,				\
+				name##_cases[i].input,					\
+				name##_cases[i].output,					\
+				NNT_##name##_TOP1,						\
+				NNT_##name##_NOT_FOUND_OKAY);			\
+	}													\
+}
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	const char* networkQ8;
@@ -92,5 +106,11 @@ void NNTTestGeneral(runtime_type_t runtime,
 		const char* output,
 		float max_diff,
 		float qmax_diff);
+void NNTModelTestGeneral(runtime_type_t runtime,
+		const char* netpath,
+		const char* input,
+		const char* output,
+		float mintop1,
+		float not_found_okay);
 const network_t* nnt_load_network(const char* path, void** dll);
 #endif /* GTEST_NN_TEST_UTIL_H_ */

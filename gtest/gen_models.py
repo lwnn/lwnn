@@ -134,10 +134,22 @@ def mnist():
         model.save('models/mnist.h5')
     x_test = x_test.reshape(x_test.shape[0],x_test.shape[1],x_test.shape[2],1)/255.0
     x_test = x_test.astype(np.float32)
-    y_test = y_test.astype(np.int8)
+    y_test = y_test.astype(np.int32)
     keras2lwnn(model, 'mnist', {model.inputs[0]:x_test[0:100]})
     x_test.tofile('models/mnist/golden/input.raw')
     y_test.tofile('models/mnist/golden/output.raw')
+
+def uci_inception():
+    if(os.path.exists('models/uci_inception/golden/output.raw')):
+        print('uci_inception already generated, skip')
+        return
+    if(os.path.exists('models/uci_inception/best_model.h5')):
+        model = load_model('models/uci_inception/best_model.h5')
+        x_test = np.fromfile('models/uci_inception/input.raw', dtype=np.float32).reshape(-1, 128, 9)
+        y_test = np.fromfile('models/uci_inception/output.raw', dtype=np.int32)
+        keras2lwnn(model, 'uci_inception', {model.inputs[0]:x_test[0:100]})
+        x_test.tofile('models/uci_inception/golden/input.raw')
+        y_test.tofile('models/uci_inception/golden/output.raw')
 
 # https://keras-cn.readthedocs.io/en/latest/other/application/
 def resnet50():
@@ -173,3 +185,4 @@ if(__name__ == '__main__'):
     concat('concat_2', axis=1)
     concat('concat_3', axis=2)
     concat('concat_4', axis=0)
+    uci_inception()

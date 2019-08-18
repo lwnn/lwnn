@@ -19,7 +19,8 @@ class LWNNModel():
             (self.opt_IsLayerMaxPool1D, self.opt_LayerMaxPool1D, None),
             (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
             (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
-            (self.opt_IsLayerReshape, self.opt_RemoveReshape, 'RemoveReshape'),
+            (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
+            (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             ]
         self.toNCHW = [
             (self.nchw_IsPreviousHasInputAdjustLayer, self.nchw_ActionPreviousHasInputAdjustLayer),
@@ -586,7 +587,7 @@ class LWNNModel():
             r = True
         return r
 
-    def opt_RemoveReshape(self, layer):
+    def opt_RemoveLayer(self, layer):
         consumers = self.get_consumers(layer)
         for ly in consumers:
             new_layer = dict(ly)
@@ -606,6 +607,12 @@ class LWNNModel():
     def opt_LayerUnusedAction(self, layer):
         self.lwnn_model.remove(layer)
         return True
+
+    def opt_IsTrainingOperators(self, layer):
+        r = False
+        if(layer['op'] in ['Dropout']):
+            r = True
+        return r
 
     def optimize(self, additions=[]):
         id = 0

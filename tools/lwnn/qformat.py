@@ -9,6 +9,7 @@ class LWNNQFormatC(LWNNBaseC):
         lwnn_model = self.model.clone()
         self.model.optimize(['RemoveReshape'])
         self.output_encodings = self.calculate_output_encoding(feeds)
+        self.fix_linked_to_the_same_Q()
         self.generate()
         self.model.set(lwnn_model)
 
@@ -34,14 +35,29 @@ class LWNNQFormatC(LWNNBaseC):
                 Q = 15
             else:
                 assert(0)
-        else:
+        return Q
+
+    def is_QLayer(self, layer):
+        r = False
+        if(layer['op'] in ['Conv', 'Dense']):
+            r = True
+        return r
+
+    def back_collect_tillQ(self, layer, linker, linked):
+        for ly in self.model.get_layers(linker['inputs']):
+            if(ly['name'] not in linked):
+                linked.append(ly['name'])
+                if(not self.is_QLayer(ly)):
+                    self.back_collect_tillQ(ly, ly, linked)
+
+    def fix_linked_to_the_same_Q(self):
+        for layer in self.model.lwnn_model:
+            Q = self.output_encodings[layer['outputs'][0]]
             linked = []
             consumers = self.model.get_consumers(layer)
             for c in consumers:
                 if(c['op'] == 'Concat'):
-                    for ly in self.model.get_layers(c['inputs']):
-                        if((ly['name'] not in linked) and (ly['name']!=layer['name'])):
-                            linked.append(ly['name'])
+                    self.back_collect_tillQ(layer, c, linked)
             if(len(linked)>0):
                 linked = self.model.get_layers(linked)
                 for ly in linked:
@@ -49,9 +65,10 @@ class LWNNQFormatC(LWNNBaseC):
                     if(q < Q):
                         Q = q
                 for ly in linked: # adjust all linked to the same Q
+                    q = self.output_encodings[ly['outputs'][0]]
+                    if(self.is_QLayer(ly) and (q != Q)):
+                        print('warning: linked %s, set Q from %s to %s, better do quantization awareness training to get the same Q'%(ly['name'], q, Q))
                     self.output_encodings[ly['outputs'][0]] = Q
-                self.output_encodings[layer['outputs'][at]] = Q
-        return Q
 
     def get_Q_blob(self, layer):
         return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer)]).astype(np.int8)
