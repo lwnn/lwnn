@@ -4,7 +4,11 @@ Import('asenv')
 cwd = GetCurrentDir()
 tgt = '%s/models/date.o'%(cwd)
 src = '%s/gen_models.py'%(cwd)
-cmd = 'cd %s && python3 gen_models.py && date > %s'%(cwd, tgt)
+if(IsPlatformWindows()):
+    py = 'python'
+else:
+    py = 'python3'
+cmd = 'cd %s && %s gen_models.py && date > %s'%(cwd, py, tgt)
 
 MKObject(src, tgt, cmd)
 

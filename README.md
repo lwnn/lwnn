@@ -36,9 +36,8 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 ```sh
 conda create -n lwnn python=3.6
 source activate lwnn
-conda install scons tensorflow keras 
-conda install -c caffe2 caffe2
-pip install keras2onnx onnxruntime
+conda install scons 
+pip install tensorflow keras keras2onnx onnxruntime
 sudo apt install nvidia-opencl-dev
 ```
 

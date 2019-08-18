@@ -36,6 +36,15 @@ typedef enum
 	RTE_GWT_CL_W_H,
 	RTE_GWT_W_H_C,
 } rte_cl_global_work_type_t;
+
+typedef struct rte_cl_image
+{
+	STAILQ_ENTRY(rte_cl_image) entry;
+	const layer_t* owner;
+	cl_mem img;
+	int H;
+	int W;
+} rte_cl_image_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 #define RTE_CL_NHWC_W(nhwc)		(((nhwc).W)*(((nhwc).C+3)>>2))
 #define RTE_CL_NHWC_H(nhwc)		(((nhwc).N)*((nhwc).H))
@@ -76,7 +85,7 @@ int rte_cl_set_layer_args(
 			uint32_t nhwc, size_t num, ...);
 int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, rte_cl_global_work_type_t gwt, int run, NHWC_t* nhwc);
 int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz);
-
+void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W);
 int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 		const char* program, const char* kernel, size_t ctx_sz);
 #ifdef __cplusplus

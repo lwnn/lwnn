@@ -22,26 +22,13 @@ int layer_cl_INPUT_init(const nn_t* nn, const layer_t* layer)
 
 	layer_cl_input_context_t* context;
 
-	r = rte_cl_create_layer_context(nn, layer,
+	r = rte_cl_create_layer_common(nn, layer,
 				OPENCL_PATH "input.cl", "input",
-				sizeof(layer_cl_input_context_t), 1);
-
+				sizeof(layer_cl_input_context_t));
 	if(0 == r)
 	{
 		context = (layer_cl_input_context_t*)layer->C->context;
-
-		RTE_CL_LOG_LAYER_SHAPE(layer);
-
-		context->out[0] = rte_cl_create_image2d(nn,
-					RTE_CL_NHWC_H(context->nhwc),
-					RTE_CL_NHWC_W(context->nhwc));
 		context->in = NULL;
-
-		if(NULL == context->out[0])
-		{
-			r = NN_E_NO_MEMORY;
-			rte_cl_destory_layer_context(nn, layer);
-		}
 	}
 
 	return r;

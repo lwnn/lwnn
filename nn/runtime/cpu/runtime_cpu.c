@@ -198,7 +198,22 @@ runtime_t rte_CPU_create(const nn_t* nn)
 
 void rte_CPU_destory(const nn_t* nn)
 {
+	rte_cpu_buffer_t* b;
+	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
+
 	rte_do_for_each_layer(nn, cpu_deinit_layer);
+
+	while(FALSE == STAILQ_EMPTY(&rt->buffers))
+	{
+		b = STAILQ_FIRST(&rt->buffers);
+		STAILQ_REMOVE_HEAD(&rt->buffers, entry);
+		if(b->data != NULL)
+		{
+			free(b->data);
+		}
+		free(b);
+	}
+
 	free(nn->runtime);
 }
 

@@ -18,6 +18,8 @@ typedef struct
 	cl_program oprg;
 	cl_kernel iknl;
 	cl_kernel oknl;
+
+	STAILQ_HEAD(rte_cl_image_head,rte_cl_image) images;
 } rte_cl_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 #define OP_DEF(op) L_OPS_DECLARE(cl_##op);
@@ -343,6 +345,50 @@ static int cl_enqueue_kernel(const nn_t* nn, cl_kernel kernel, NHWC_t* nhwc, rte
 
 	return r;
 }
+
+#ifndef DISABLE_NN_LOG
+static int cl_get_image_id(const nn_t* nn, rte_cl_image_t* image)
+{
+	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
+	int imageId = -1;
+	int id = -1;
+	rte_cl_image_t* i;
+
+	STAILQ_FOREACH(i, &(rt->images), entry)
+	{
+		id ++;
+		if(i == image)
+		{
+			imageId = id;
+			break;
+		}
+	}
+
+	return imageId;
+}
+#endif
+static int cl_adjust_layer_image(const nn_t* nn, const layer_t* layer)
+{
+	int r = 0;
+	int i;
+	rte_cl_image_t* image;
+	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
+
+	if(layer->op != L_OP_OUTPUT)
+	{
+		for(i=0; i<context->nout; i++)
+		{
+			image = (rte_cl_image_t*)context->out[i];
+			if(NULL != image)
+			{
+				context->out[i] = image->img;
+				NNLOG(NN_DEBUG, (" layer %s out[%d] using image%d\n", layer->name, i, cl_get_image_id(nn, image)));
+			}
+		}
+	}
+
+	return r;
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 runtime_t rte_OPENCL_create(const nn_t* nn)
 {
@@ -383,9 +429,21 @@ runtime_t rte_OPENCL_create(const nn_t* nn)
 
 void rte_OPENCL_destory(const nn_t* nn)
 {
+	rte_cl_image_t* i;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 
 	rte_do_for_each_layer(nn, cl_deinit_layer);
+
+	while(FALSE == STAILQ_EMPTY(&rt->images))
+	{
+		i = STAILQ_FIRST(&rt->images);
+		STAILQ_REMOVE_HEAD(&rt->images, entry);
+		if(i->img != NULL)
+		{
+			clReleaseMemObject(i->img);
+		}
+		free(i);
+	}
 
 	if(rt->iknl != NULL)
 	{
@@ -416,8 +474,42 @@ void rte_OPENCL_destory(const nn_t* nn)
 int rte_OPENCL_init(const nn_t* nn)
 {
 	int r;
+	rte_cl_image_t* i;
+	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
+#ifndef DISABLE_NN_LOG
+	size_t sum = 0;
+	size_t imageId = -1;
+#endif
+
+	STAILQ_INIT(&(rt->images));
 
 	r = rte_do_for_each_layer(nn, cl_init_layer);
+
+	if(0 == r)
+	{
+		NNLOG(NN_DEBUG, ("Memory Usage:\n"));
+		STAILQ_FOREACH(i, &(rt->images), entry)
+		{
+			i->img = rte_cl_create_image2d(nn, i->H, i->W);
+			if(i->img == NULL)
+			{
+				r = NN_E_NO_MEMORY;
+				break;
+			}
+
+			#ifndef DISABLE_NN_LOG
+			sum += i->H*i->W;
+			imageId ++;
+			#endif
+			NNLOG(NN_DEBUG, (" image%d: %dx%d=%d\n", imageId, i->H, i->W, i->H*i->W));
+		}
+		NNLOG(NN_DEBUG, (" summary: %d\n", sum));
+	}
+
+	if(0 == r)
+	{
+		r = rte_do_for_each_layer(nn, cl_adjust_layer_image);
+	}
 
 	return r;
 }
@@ -664,7 +756,6 @@ int rte_cl_create_layer_context(
 
 void rte_cl_destory_layer_context(const nn_t* nn, const layer_t* layer)
 {
-	size_t i;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 
 	if(NULL != context)
@@ -672,11 +763,11 @@ void rte_cl_destory_layer_context(const nn_t* nn, const layer_t* layer)
 		clReleaseKernel(context->kernel);
 		clReleaseProgram(context->program);
 
-		for(i=0; i<context->nout; i++)
-		{
-			if(NULL != context->out[i])
+		if(layer->op == L_OP_OUTPUT)
+		{	/* output only has one cl buffer object not managed by rt->images */
+			if(NULL != context->out[0])
 			{
-				clReleaseMemObject(context->out[i]);
+				clReleaseMemObject(context->out[0]);
 			}
 		}
 
@@ -744,6 +835,60 @@ int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz)
 	return r;
 }
 
+void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W)
+{
+	int r;
+	rte_cl_image_t* image = NULL;
+	rte_cl_image_t* i;
+	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
+
+	STAILQ_FOREACH(i, &(rt->images), entry)
+	{
+		if(NULL == i->owner)
+		{
+			image = i;
+			break;
+		}
+		else
+		{
+			r = rte_is_layer_consumed_from(nn, i->owner, layer);
+			if(FALSE == r)
+			{
+				image = i;
+				break;
+			}
+		}
+	}
+
+	if(NULL == image)
+	{
+		image = malloc(sizeof(rte_cl_image_t));
+		if(NULL != image)
+		{
+			image->owner = layer;
+			image->H = H;
+			image->W = W;
+			image->img = NULL;
+
+			STAILQ_INSERT_TAIL(&(rt->images), image, entry);
+		}
+	}
+	else
+	{
+		image->owner = layer;
+		if(H > image->H)
+		{
+			image->H = H;
+		}
+		if(W > image->W)
+		{
+			image->W = W;
+		}
+	}
+
+	return image;
+}
+
 int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 		const char* program, const char* kernel, size_t ctx_sz)
 {
@@ -760,7 +905,7 @@ int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 
 		RTE_CL_LOG_LAYER_SHAPE(layer);
 
-		context->out[0] = rte_cl_create_image2d(nn,
+		context->out[0] = (cl_mem)rte_cl_alloc_image2d(nn, layer,
 					RTE_CL_NHWC_H(context->nhwc),
 					RTE_CL_NHWC_W(context->nhwc));
 
