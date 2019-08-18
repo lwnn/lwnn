@@ -12,6 +12,9 @@ class LWNNModel():
                     'MatMul': self.to_LayerMatMul,
                     'Add': self.to_LayerAdd }
         self.OPTIMIER = [
+            (self.nchw_IsLayerNHWC, self.nchw_ActionLayerNHWC, None),
+            (self.nchw_IsInputAdjustLayer, self.nchw_ActionInputAdjustLayer, None),
+            (self.nchw_IsOutputAdjustLayer, self.opt_RemoveLayer, None),
             (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
             (self.opt_IsLayerBeforeReshape, self.opt_LayerBeforeReshape, None),
             (self.opt_IsLayerDense, self.opt_LayerDense, None),
@@ -20,14 +23,8 @@ class LWNNModel():
             (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
             (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
+            (self.opt_IsIdentityWithConsumers, self.opt_RemoveLayer, 'RemoveIdentityWithConsumers'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
-            ]
-        self.toNCHW = [
-            (self.nchw_IsPreviousHasInputAdjustLayer, self.nchw_ActionPreviousHasInputAdjustLayer),
-            (self.nchw_IsInputAdjustLayer, self.nchw_ActionInputAdjustLayer),
-            (self.nchw_IsPreviousHasOutputAdjustLayer, self.nchw_ActionPreviousHasOutputAdjustLayer),
-            (self.nchw_IsIdentityChannelAdjusted, self.nchw_ActionIdentityChannelAdjusted),
-            (self.nchw_IsOkay, self.nchw_ActionOkay)
             ]
         self.is_model_channel_first_cached=None
         self.name = name
@@ -38,9 +35,11 @@ class LWNNModel():
         self.onnx_model = onnx_model
         self.shapes = self.eval_shapes()
         self.lwnn_model = self.convert()
-        self.lwnn_model = self.convert_to_nchw()
-        #intentionally do it twice
-        self.lwnn_model = self.convert_to_nchw()
+        # optimization and convert to NCHW if origin model is NHWC
+        self.prepare()
+        self.omodel = self.clone()
+        self.optimize(['RemoveIdentityWithConsumers'])
+        self.omodel = self.clone()
         self.optimize()
         self.check()
         print(self)
@@ -253,12 +252,7 @@ class LWNNModel():
                         if(l['op'] == 'Input'):
                             r = True
             else:
-                if(list(layer['perm']) == [0, 2, 1]):
-                    inp = self.get_layers(layer['inputs'])[0]
-                    if(inp['op'] == 'Input'):
-                        r = True
-                else:
-                    r = True
+                r = True
         return r
 
     def convert_axis_to_nchw(self, layer):
@@ -281,45 +275,22 @@ class LWNNModel():
                 self.convert_axis_to_nchw(layer)
             layer['adjusted'] = True
 
-    def nchw_ActionInputAdjustLayer(self, layer, model):
-        inputs = self.get_layers(layer['inputs'], model)
-        if(len(inputs) == 0):
-            inputs = self.get_layers(layer['inputs'])
-            inp = inputs[0]
-        else:
-            inp = inputs[0]
-        if(inp['op'] == 'Pad'):
-            inp_inputs = self.get_layers(inp['inputs'], model)
-            ly = inp_inputs[0]
-            self.convert_layer_to_nchw(ly)
-        self.convert_layer_to_nchw(inp)
-        return []
-
-    def nchw_IsPreviousHasInputAdjustLayer(self, layer):
-        r = False
-        if(layer['op'] != 'Input'):
-            inputs = self.get_layers(layer['inputs'])
-            for inp in inputs: 
-                if(self.nchw_IsInputAdjustLayer(inp)):
-                    r = True
-        return r
-
-    def nchw_ActionPreviousHasInputAdjustLayer(self, layer, model):
-        new_inputs = []
+    def nchw_ActionInputAdjustLayer(self, layer):
         inputs = self.get_layers(layer['inputs'])
-        for inp in inputs: 
-            if(self.nchw_IsInputAdjustLayer(inp)):
+        for inp in inputs:
+            if(inp['op'] == 'Pad'):
                 inp_inputs = self.get_layers(inp['inputs'])
                 for ly in inp_inputs:
-                    if(self.nchw_IsIdentityChannelAdjusted(ly)):
-                        new_inputs.append(self.get_layers(ly['inputs'])[0]['name'])
-                    else:
-                        new_inputs.append(ly['name'])
-            else:
-                new_inputs.append(inp['name'])
-        new_layer = dict(layer)
-        new_layer['inputs'] = new_inputs
-        return [new_layer]
+                    self.convert_layer_to_nchw(ly)
+        return self.opt_RemoveLayer(layer);
+
+    def nchw_IsConsumerHasInputAdjustLayer(self, layer):
+        r = False
+        consumers = self.get_consumers(layer, self.omodel)
+        for ly in consumers:
+            if(self.nchw_IsInputAdjustLayer(ly)):
+                r = True
+        return r
 
     def nchw_IsOutputAdjustLayer(self, layer):
         r = False
@@ -331,43 +302,13 @@ class LWNNModel():
 
     def nchw_IsPreviousHasOutputAdjustLayer(self, layer):
         r = False
+        layer = self.get_layers([layer['name']], self.omodel)[0]
         if(layer['op'] != 'Input'):
-            inputs = self.get_layers(layer['inputs'])
+            inputs = self.get_layers(layer['inputs'], self.omodel)
             for inp in inputs:
                 if(self.nchw_IsOutputAdjustLayer(inp)):
                     r = True
         return r
-
-    def nchw_ActionPreviousHasOutputAdjustLayer(self, layer, model):
-        new_inputs = []
-        inputs = self.get_layers(layer['inputs'], model)
-        for inp in inputs:
-            if(self.nchw_IsOutputAdjustLayer(inp)):
-                inp_inputs = self.get_layers(inp['inputs'])
-                for ly in inp_inputs:
-                    if(self.nchw_IsIdentityChannelAdjusted(ly)):
-                        new_inputs.append(self.get_layers(ly['inputs'])[0]['name'])
-                    else:
-                        new_inputs.append(ly['name'])
-                model.remove(inp)
-            else:
-                new_inputs.append(inp['name'])
-        new_layer = dict(layer)
-        new_layer['inputs'] = new_inputs
-        self.convert_layer_to_nchw(new_layer)
-        return [new_layer]
-
-    def nchw_IsIdentityChannelAdjusted(self, layer):
-        r = False
-        if(layer['op'] == 'Identity'):
-            consumers = self.get_consumers(layer)
-            for ly in consumers: 
-                if(self.nchw_IsInputAdjustLayer(ly)):
-                    r = True
-        return r
-
-    def nchw_ActionIdentityChannelAdjusted(self, layer, model):
-        return self.nchw_ActionInputAdjustLayer(layer, model)
 
     def is_model_channel_first(self):
         if(self.is_model_channel_first_cached != None):
@@ -379,33 +320,30 @@ class LWNNModel():
         self.is_model_channel_first_cached = r
         return r
 
-    def nchw_IsOkay(self, layer):
-        return True
+    def nchw_IsLayerNHWC(self, layer):
+        r = False
+        if(layer['op'] not in ['Conv', 'MaxPool']):
+            CHIA = self.nchw_IsConsumerHasInputAdjustLayer(layer)
+            PHOA = self.nchw_IsPreviousHasOutputAdjustLayer(layer)
+            if( ((CHIA==True) and (PHOA==False)) or
+                ((CHIA==False) and (PHOA==True))):
+                r = True
+            elif(CHIA and PHOA and (len(layer['shape'])==4)):
+                 r = True
+            elif(CHIA and PHOA and (len(layer['shape'])==3)):
+                 raise NotImplementedError("layer %s: don't know whether it was NHWC or not,"
+                    " add the justfication here:\n%s"%(layer['name'], self))
+        return r
 
-    def nchw_ActionOkay(self, layer, model):
-        new_layer = dict(layer)
-        if(new_layer['op'] == 'Identity'):
-            self.convert_layer_to_nchw(new_layer)
-        return [new_layer]
+    def nchw_ActionLayerNHWC(self, layer):
+        self.convert_layer_to_nchw(layer)
+        return False
 
-    def convert_to_nchw(self):
-        if(self.is_model_channel_first()):
-            model = self.lwnn_model
-        else:
-            model = []
-            # for ONNX models exported from keras, it was maybe channel last
-            # so firstly need to strip those input/ouput adjust,
-            # convert the model to format NCHW
-            for layer in self.lwnn_model:
-                for cond, act in self.toNCHW:
-                    if(cond(layer)):
-                        model.extend(act(layer, model))
-                        break
-        return model
-
-    def get_consumers(self, layer):
+    def get_consumers(self, layer, model=None):
         consumers = []
-        for ly in self.lwnn_model:
+        if(model == None):
+            model = self.lwnn_model
+        for ly in model:
             if('inputs' not in ly): continue
             if(layer['name'] in ly['inputs']):
                 consumers.append(ly)
@@ -459,6 +397,8 @@ class LWNNModel():
             for i in range(c_w.shape[0]):
                 c_w[i] *= bn_gamma[i] / np.sqrt(bn_variance[i] + epsilon)
                 c_b[i] = (bn_gamma[i] * (c_b[i] - bn_mean[i]) / np.sqrt(bn_variance[i] + epsilon)) + bn_beta[i]
+        else:
+            raise Exception("don't know how to fuse for %s shape %s"%(layer.name, c_w.shape))
         layer['weights'] = c_w
         layer['bias'] = c_b
         bn_consumers = self.get_consumers(bn)
@@ -499,6 +439,14 @@ class LWNNModel():
                         self.lwnn_model.remove(inp)
             self.lwnn_model.remove(ly)
         return True
+
+    def opt_IsIdentityWithConsumers(self, layer):
+        r = False
+        consumers = self.get_consumers(layer, self.omodel)
+        if((layer['op'] == 'Identity') and
+               (len(consumers) > 0)):
+            r = True
+        return r
 
     def opt_IsLayerDense(self, layer):
         r = False
@@ -590,8 +538,15 @@ class LWNNModel():
     def opt_RemoveLayer(self, layer):
         consumers = self.get_consumers(layer)
         for ly in consumers:
+            new_inputs = []
+            inputs = self.get_layers(ly['inputs'])
+            for inp in inputs:
+                if(inp == layer):
+                    new_inputs.append(self.get_layers(inp['inputs'])[0]['name'])
+                else:
+                    new_inputs.append(inp['name'])
             new_layer = dict(ly)
-            new_layer['inputs'] = layer['inputs']
+            new_layer['inputs'] = new_inputs
             self.insert_after(layer, new_layer)
         for ly in [layer] + consumers:
             self.lwnn_model.remove(ly)
@@ -615,7 +570,7 @@ class LWNNModel():
         return r
 
     def optimize(self, additions=[]):
-        id = 0
+        id = -1
         num_layers = len(self.lwnn_model)
         while(id < (num_layers-1)):
             id += 1
@@ -626,7 +581,7 @@ class LWNNModel():
                     or (oname in additions))):
                     r = optact(layer)
                     if(True == r): # if there is remove action, restart optimization
-                        id = 0
+                        id = -1
                         num_layers = len(self.lwnn_model)
                         break
 
@@ -642,15 +597,20 @@ class LWNNModel():
                 inputs = self.get_layers(layer['inputs'],self.lwnn_model[:id])
                 if(len(inputs) != len(layer['inputs'])):
                     raise Exception('layer %s inputs is not before me:\n%s'%(layer['name'], self))
+
+    def prepare(self):
         # everthing is fine, fix name
         for layer in self.lwnn_model:
             layer['name'] = self.toCstr(layer['name'])
             if('inputs' in layer):
                 layer['inputs'] = [self.toCstr(inp) for inp in layer['inputs']]
+        self.is_model_channel_first()
 
-    def __str__(self):
+    def __str__(self, model=None):
+        if(model == None):
+            model = self.lwnn_model
         cstr = 'LWNN Model %s:\n'%(self.name)
-        for layer in self.lwnn_model:
+        for layer in model:
             cstr += ' {'
             for k,v in layer.items():
                 if(k in ['weights','bias']):
