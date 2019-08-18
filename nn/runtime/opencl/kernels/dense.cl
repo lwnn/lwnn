@@ -26,7 +26,7 @@ __kernel void dense(
 	float4 weight;
 
 	for(n=0; n<N; n++) {
-		out0 = read_imagef(bias, sampler, (int2)(0, c));
+		out0 = read_imagef(bias, sampler, (int2)(c, 0));
 		for(in_c=0; in_c<ch_im_in; in_c+=4)
 		{
 			value = read_imagef(in, sampler, (int2)((in_c/4), n));

@@ -41,7 +41,7 @@ __kernel void dwconv2d(
 	float4 weight;
 
 	for(n=0; n<N; n++) {
-		out0 = read_imagef(bias, sampler, (int2)(0, c));
+		out0 = read_imagef(bias, sampler, (int2)(c, 0));
 		for (knlY = 0; knlY < dim_kernel_y; knlY++) {
 			for (knlX = 0; knlX < dim_kernel_x; knlX++) {
 				in_row = stride_y * y + knlY - padding_y;
