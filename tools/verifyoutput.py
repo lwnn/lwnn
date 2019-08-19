@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import math
 
 def compare(a, b, name=''):
-    aL = a.tolist()
-    bL = b.tolist()
+    aL = a.reshape(-1).tolist()
+    bL = b.reshape(-1).tolist()
     assert(len(aL) == len(bL))
     Z = list(zip(aL,bL))
     Z.sort(key=lambda x: x[0])

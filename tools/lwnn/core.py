@@ -243,9 +243,6 @@ class LWNNModel():
             else:
                 print('WARNINING: layer %s is ignored:\n%s\n'%(node.name, node))
         for out in self.onnx_model.graph.output:
-            shape = [int(dim.dim_value) for dim in out.type.tensor_type.shape.dim]
-            if(shape[0] == 0):
-                shape[0] = 1
             inp = None
             for ly in lwnn_model:
                 if(out.name in ly['outputs']):
@@ -255,7 +252,7 @@ class LWNNModel():
                      'op': 'Output',
                      'inputs': [inp['name']],
                      'outputs' : [out.name],
-                     'shape': shape }
+                     'shape': inp['shape'] }
             lwnn_model.append(layer)
         return lwnn_model
 

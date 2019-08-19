@@ -303,7 +303,7 @@ void NNTTestGeneral(runtime_type_t runtime,
 	{
 		return;
 	}
-
+	printf("  Test %s\n", network->name);
 	if(network->layers[0]->dtype== L_DT_INT8)
 	{
 		nnt_siso_network_test(runtime, network, input, output, max_diff, qmax_diff);
