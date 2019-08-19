@@ -12,7 +12,7 @@ os.environ['LWNN_GTEST'] = '1'
 
 def conv2d(name, shape=[32,32,5], filters=24, kernel_size=(3,3), strides=(1,1), padding="same"):
     input = Input(shape=shape, name=name+'_input')
-    weights = [np.random.uniform(low=-0.1,high=0.1,size=tuple(list(kernel_size)+[shape[-1],filters])).astype(np.float32), 
+    weights = [np.random.uniform(low=-0.1,high=0.1,size=tuple(list(kernel_size)+[shape[-1],filters])).astype(np.float32),
                np.random.uniform(low=-0.1,high=0.1,size=tuple([filters])).astype(np.float32)]
     output = Conv2D(filters, kernel_size=kernel_size, strides=strides, padding=padding,
                     weights = weights, name=name+'_output')(input)
@@ -77,9 +77,9 @@ def conv2d_bn(name, shape=[16,16,3], filters=10, kernel_size=(3,3), strides=(1,1
 
 def conv1d(name, shape=[128,9], filters=32, kernel_size=9, strides=2, padding="same"):
     input = Input(shape=shape, name=name+'_input')
-    weights = [np.random.uniform(low=-0.1,high=0.1,size=tuple([kernel_size,shape[-1],filters])).astype(np.float32), 
+    weights = [np.random.uniform(low=-0.1,high=0.1,size=tuple([kernel_size,shape[-1],filters])).astype(np.float32),
                np.random.uniform(low=-0.1,high=0.1,size=tuple([filters])).astype(np.float32)]
-    output = Conv1D(filters, kernel_size=kernel_size, strides=strides, padding=padding, name=name+'_output')(input)
+    output = Conv1D(filters, kernel_size=kernel_size, strides=strides, padding=padding, weights=weights, name=name+'_output')(input)
     model = Model(inputs=input, outputs=output)
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)

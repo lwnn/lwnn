@@ -23,7 +23,7 @@ class LWNNModel():
             (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
             (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
-            (self.opt_IsIdentityWithConsumers, self.opt_RemoveLayer, 'RemoveIdentityWithConsumers'),
+            (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             ]
         self.is_model_channel_first_cached=None
@@ -38,7 +38,7 @@ class LWNNModel():
         # optimization and convert to NCHW if origin model is NHWC
         self.prepare()
         self.omodel = self.clone()
-        self.optimize(['RemoveIdentityWithConsumers'])
+        self.optimize(['RemoveIdentity'])
         self.omodel = self.clone()
         self.optimize()
         self.check()
@@ -136,10 +136,19 @@ class LWNNModel():
             feed = {}
             for inp in sess.get_inputs():
                 shape = list(inp.shape)
-                if((shape[0] == None) or (shape[0] == 'N')):
+                if((str(shape[0]) == 'None') or (shape[0] == 'N')):
                     shape[0] = 1
                 data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
                 feed[inp.name] = data
+        else:
+            feedo = feed
+            feed = {}
+            for inp in sess.get_inputs():
+                for name, data in feedo.items():
+                    m = min(len(inp.name), len(name))
+                    if((inp.name[:m] == name[:m]) or
+                       (inp.name[:m-2] == name[:m-2])):
+                        feed[inp.name] = data
         for n, v in feed.items():
             outputs[n] = v
         rs = sess.run(None, feed)
@@ -233,11 +242,28 @@ class LWNNModel():
                 lwnn_model.append(layer)
             else:
                 print('WARNINING: layer %s is ignored:\n%s\n'%(node.name, node))
+        for out in self.onnx_model.graph.output:
+            shape = [int(dim.dim_value) for dim in out.type.tensor_type.shape.dim]
+            if(shape[0] == 0):
+                shape[0] = 1
+            inp = None
+            for ly in lwnn_model:
+                if(out.name in ly['outputs']):
+                    inp = ly
+                    break
+            layer = {'name': out.name,
+                     'op': 'Output',
+                     'inputs': [inp['name']],
+                     'outputs' : [out.name],
+                     'shape': shape }
+            lwnn_model.append(layer)
         return lwnn_model
 
     def nchw_IsInputAdjustLayer(self, layer):
         r = False
-        if((layer['op'] == 'Transpose')
+        if(self.is_model_channel_first_cached==True):
+            pass
+        elif((layer['op'] == 'Transpose')
             and ((list(layer['perm']) == [0, 3, 1, 2]) or 
                   (list(layer['perm']) == [0, 2, 1]))):
             if(self.is_model_channel_first_cached == None):
@@ -294,7 +320,9 @@ class LWNNModel():
 
     def nchw_IsOutputAdjustLayer(self, layer):
         r = False
-        if((layer['op'] == 'Transpose')
+        if(self.is_model_channel_first_cached==True):
+            pass
+        elif((layer['op'] == 'Transpose')
             and ((list(layer['perm']) == [0, 2, 3, 1]) or 
                   (list(layer['perm']) == [0, 2, 1]))):
             r = True
@@ -322,7 +350,9 @@ class LWNNModel():
 
     def nchw_IsLayerNHWC(self, layer):
         r = False
-        if(layer['op'] not in ['Conv', 'MaxPool']):
+        if(self.is_model_channel_first_cached==True):
+            pass
+        elif(layer['op'] not in ['Conv', 'MaxPool']):
             CHIA = self.nchw_IsConsumerHasInputAdjustLayer(layer)
             PHOA = self.nchw_IsPreviousHasOutputAdjustLayer(layer)
             if( ((CHIA==True) and (PHOA==False)) or
@@ -440,11 +470,9 @@ class LWNNModel():
             self.lwnn_model.remove(ly)
         return True
 
-    def opt_IsIdentityWithConsumers(self, layer):
+    def opt_IsLayerIdentity(self, layer):
         r = False
-        consumers = self.get_consumers(layer, self.omodel)
-        if((layer['op'] == 'Identity') and
-               (len(consumers) > 0)):
+        if(layer['op'] == 'Identity'):
             r = True
         return r
 
@@ -555,7 +583,7 @@ class LWNNModel():
     def opt_IsLayerUnused(self, layer):
         r = False
         consumers = self.get_consumers(layer)
-        if((len(consumers) == 0) and (layer['op'] != 'Identity')):
+        if((len(consumers) == 0) and (layer['op'] != 'Output')):
             r = True
         return r
 

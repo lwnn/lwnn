@@ -85,7 +85,9 @@ int rte_cl_set_layer_args(
 			uint32_t nhwc, size_t num, ...);
 int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, rte_cl_global_work_type_t gwt, int run, NHWC_t* nhwc);
 int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz);
+#ifdef ENABLE_CL_IMAGE_REUSE
 void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W);
+#endif
 int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 		const char* program, const char* kernel, size_t ctx_sz);
 #ifdef __cplusplus

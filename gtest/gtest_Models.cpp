@@ -60,6 +60,10 @@ void ModelTestMain(runtime_type_t runtime,
 	size_t top1 = 0;
 	for(int i=0; (i<B) && (r==0); i++)
 	{
+		if(g_CaseNumber != -1)
+		{
+			i = g_CaseNumber;
+		}
 		float* in = x_test+H*W*C*i;
 		size_t sz_in;
 		if(inputs[0]->layer->dtype== L_DT_INT8)
@@ -110,8 +114,6 @@ void ModelTestMain(runtime_type_t runtime,
 
 			EXPECT_GE(y, 0);
 
-			//printf("image %d predict as %d%s%d with prob=%.2f\n", i, y, (y==y_test[i])?"==":"!=", y_test[i], prob);
-
 			if(y == y_test[i])
 			{
 				top1 ++;
@@ -120,6 +122,12 @@ void ModelTestMain(runtime_type_t runtime,
 			if(out != outputs[0]->data)
 			{
 				free(out);
+			}
+
+			if(g_CaseNumber != -1)
+			{
+				printf("image %d predict as %d%s%d with prob=%.2f\n", i, y, (y==y_test[i])?"==":"!=", y_test[i], prob);
+				break;
 			}
 		}
 
@@ -134,9 +142,11 @@ void ModelTestMain(runtime_type_t runtime,
 		}
 	}
 
-	printf("LWNN TOP1 is %f\n", (float)top1/B);
-
-	EXPECT_GT(top1, B*mintop1);
+	if(-1 == g_CaseNumber)
+	{
+		printf("LWNN TOP1 is %f\n", (float)top1/B);
+		EXPECT_GT(top1, B*mintop1);
+	}
 	nn_destory(nn);
 
 	free(x_test);

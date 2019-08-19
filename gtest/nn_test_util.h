@@ -46,17 +46,25 @@ TEST(Runtime##runtime, name##T)							\
 {														\
 	for(int i=0; i<ARRAY_SIZE(name##_cases); i++)		\
 	{													\
+		if(g_CaseNumber != -1)							\
+		{												\
+			i = g_CaseNumber;							\
+		}												\
 		NNTTestGeneral(RUNTIME_##runtime,				\
 				name##_cases[i].network##T,				\
 				name##_cases[i].input,					\
 				name##_cases[i].output,					\
 				NNT_##name##_MAX_DIFF,					\
 				NNT_##name##_MAX_QDIFF);				\
+		if(g_CaseNumber != -1)							\
+		{												\
+			break;										\
+		}												\
 	}													\
 }
 
 #define NNT_MODEL_TEST_DEF(runtime, name, T)			\
-TEST(Runtime##runtime, name##T)							\
+TEST(Runtime##runtime, Model##name##T)					\
 {														\
 	for(int i=0; i<ARRAY_SIZE(name##_cases); i++)		\
 	{													\
@@ -77,6 +85,7 @@ typedef struct {
 	const char* output;
 } nnt_case_t;
 /* ============================ [ DECLARES  ] ====================================================== */
+extern int g_CaseNumber; /* default -1 */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
