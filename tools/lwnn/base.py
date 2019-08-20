@@ -230,7 +230,7 @@ class LWNNBaseC():
         if(len(shape) == 4):
             axis = [0,3,1,2][axis]
         if(len(shape) == 3):
-            axis = [0,2,1][axis]
+            axis = [0,3,1][axis]
         return axis
 
     def gen_LayerConcat(self, layer):
