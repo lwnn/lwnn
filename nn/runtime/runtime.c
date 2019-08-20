@@ -143,11 +143,18 @@ int rte_is_layer_consumed_from(const nn_t* nn, const layer_t* layer, const layer
 #ifndef DISABLE_RUNTIME_OPENCL
 #include "opencl/runtime_opencl.h"
 #endif
-static void rte_ddo_save_raw(const char* lname, int i, void* data, size_t sz)
+static void rte_ddo_save_raw(const char* nname, const char* lname, int i, void* data, size_t sz, int Q)
 {
 	char name[128];
 	FILE* fp;
-	snprintf(name, sizeof(name), "tmp/%s-%d.raw", lname, i);
+	if(INT32_MAX != Q)
+	{
+		snprintf(name, sizeof(name), "tmp/%s-%s-%d-Q%d.raw", nname, lname, i, Q);
+	}
+	else
+	{
+		snprintf(name, sizeof(name), "tmp/%s-%s-%d.raw", nname, lname, i);
+	}
 	#ifdef _WIN32
 	mkdir("tmp");
 	#else
@@ -191,10 +198,17 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 #ifndef DISABLE_RUNTIME_CPU
 	if(RUNTIME_CPU == nn->runtime_type)
 	{
-		layer_cpu_context_t* context = (layer_cpu_context_t*)layer->C->context;
+		layer_cpu_q_context_t* context = (layer_cpu_q_context_t*)layer->C->context;
 		for(i=0; i<context->nout; i++)
 		{
-			rte_ddo_save_raw(layer->name, i, context->out[i], sz);
+			if(L_DT_FLOAT == nn->network->layers[0]->dtype)
+			{
+				rte_ddo_save_raw(nn->network->name, layer->name, i, context->out[i], sz, INT32_MAX);
+			}
+			else
+			{
+				rte_ddo_save_raw(nn->network->name, layer->name, i, context->out[i], sz, context->Q);
+			}
 		}
 	}
 #endif
@@ -212,7 +226,7 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 				r = rte_cl_image2d_copy_out(nn, context->out[i], (float*)data, &(context->nhwc));
 				if(0 == r)
 				{
-					rte_ddo_save_raw(layer->name, i, data, sz);
+					rte_ddo_save_raw(nn->network->name, layer->name, i, data, sz, INT32_MAX);
 				}
 				else
 				{

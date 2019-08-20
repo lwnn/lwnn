@@ -8,7 +8,8 @@ import math
 def compare(a, b, name=''):
     aL = a.reshape(-1).tolist()
     bL = b.reshape(-1).tolist()
-    assert(len(aL) == len(bL))
+    if(len(aL) != len(bL)):
+        raise Exception('a len=%s != b len=%s'%(len(aL), len(bL)))
     Z = list(zip(aL,bL))
     Z.sort(key=lambda x: x[0])
     aL1,bL1=zip(*Z)
