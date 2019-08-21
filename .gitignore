@@ -15,5 +15,6 @@ gtest/models
 tmp
 download
 lwnn_gtest
+*.so
 
 

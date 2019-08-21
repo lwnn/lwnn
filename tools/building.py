@@ -41,7 +41,7 @@ class Win32Spawn:
             pass
 
         try:
-            proc = subprocess.Popen(cmdline, env=_e, shell=False)
+            proc = subprocess.Popen(cmdline, env=_e, shell=True)
         except Exception as e:
             print('Error in calling:\n%s'%(cmdline))
             print('Exception: %s: %s'%(e, os.strerror(e.errno)))
@@ -128,7 +128,7 @@ def PrepareEnv():
 
     AppendPythonPath(['%s/tools'%(LWNN_ROOT)])
 
-    asenv=Environment(TOOLS=['as','gcc','g++','gnulink'])
+    asenv=Environment(TOOLS=['as','ar','gcc','g++','gnulink'])
     os.environ['LWNN_ROOT'] = LWNN_ROOT
     asenv['LWNN_ROOT'] = LWNN_ROOT
     asenv['PACKAGES'] = []
@@ -167,11 +167,11 @@ def PrepareBuilding(env):
             action='store_true',
             default=False,
             help='print verbose information during build')
-    AddOption('--gtest',
-            dest='gtest',
+    AddOption('--android',
+            dest='android',
             action='store_true',
             default=False,
-            help='build LWNN gtest')
+            help='build android target')
     if(not GetOption('verbose')):
     # override the default verbose command string
         env.Replace(
@@ -185,6 +185,27 @@ def PrepareBuilding(env):
           SHCXXCOMSTR = 'SHCXX $SOURCE',
           SHLINKCOMSTR = 'SHLINK $TARGET'
         )
+    if(GetOption('android')):
+        SelectCompilerAndroid(env)
+
+def SelectCompilerAndroid(env):
+    HOME = os.getenv('HOME')
+    NDK = os.path.join(HOME, 'AppData/Local/Android/Sdk/ndk-bundle')
+    if(not os.path.exists(NDK)):
+        NDK = os.getenv('ANDROID_NDK')
+    if(not os.path.exists(NDK)):
+        print('==> Please set environment ANDROID_NDK\n\tset ANDROID_NDK=/path/to/android-ndk')
+        exit()
+    if(IsPlatformWindows()):
+        host = 'windows'
+    else:
+        host = 'linux'
+    env['ANDROID_NDK'] = NDK
+    GCC = NDK + '/toolchains/llvm/prebuilt/%s-x86_64'%(host)
+    env['CC']   = GCC + '/bin/aarch64-linux-android28-clang'
+    env['AS']   = GCC + '/bin/aarch64-linux-android28-clang'
+    env['CXX']  = GCC + '/bin/aarch64-linux-android28-clang++'
+    env['LINK'] = GCC + '/bin/aarch64-linux-android28-clang++'
 
 def MKDir(p):
     ap = os.path.abspath(p)
@@ -322,8 +343,28 @@ def Package(url, ** parameters):
             MKFile(flag)
     return pkg
 
+def SrcRemove(src, remove):
+    if not src:
+        return
+
+    for item in src:
+        if type(item) == type('str'):
+            if(os.path.basename(item) in remove):
+                src.remove(str(item))
+        else:
+            if(type(item) == list):
+                for itt in item:
+                    if(os.path.basename(itt.rstr()) in remove):
+                        item.remove(itt)
+                continue
+            if(os.path.basename(item.rstr()) in remove):
+                src.remove(item)
+
 def scons(script):
-    bdir = 'build/%s'%(os.path.dirname(script))
+    base = 'build'
+    if(GetOption('android')):
+        base += '/android'
+    bdir = '%s/%s'%(base,os.path.dirname(script))
     return SConscript(script, variant_dir=bdir, duplicate=0)
 
 def Building(target, objs, env=None):

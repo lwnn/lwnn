@@ -12,9 +12,57 @@ cmd = 'cd %s && %s gen_models.py && date > %s'%(cwd, py, tgt)
 
 MKObject(src, tgt, cmd)
 
-asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++', 'dl', 'm'])
-
 objs = Glob('*.cpp')
+
+if(not GetOption('android')):
+    asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++', 'dl', 'm'])
+else:
+    asenv.Append(LIBS=['stdc++', 'dl', 'm'])
+    NDK = asenv['ANDROID_NDK']
+    gtest = NDK+'/sources/third_party/googletest'
+    asenv.Append(CPPPATH=['%s/include'%(gtest), gtest])
+    gobjs = Glob('%s/src/*.cc'%(gtest))
+    SrcRemove(gobjs, ['gtest-all.cc','gtest_main.cc'])
+    objs += asenv.Library('gtest', gobjs)
+    if('push' in COMMAND_LINE_TARGETS):
+        if(IsPlatformWindows()):
+            dllfix = '.dll'
+            host = 'windows'
+        else:
+            dllfix = '.so'
+            host = 'linux'
+        for so in Glob('../build/android/gtest/models/*/*%s'%(dllfix)):
+            src = str(so)
+            tgt = '/data/local/tmp/lwnn/build/gtest/%s'%(src.replace('.dll','.so'))
+            b = os.path.basename(tgt)
+            if(b[:3] != 'lib'):
+                tgt = tgt.replace(b, 'lib%s'%(b))
+            cmd = 'adb push %s %s'%(src, tgt)
+            cmd = cmd.replace(os.sep, '/')
+            RunCommand(cmd)
+        for raw in Glob('models/*/golden/*.raw'):
+            src = str(raw)
+            tgt = src.split('gtest')[1]
+            tgt = '/data/local/tmp/lwnn/gtest/%s'%(tgt)
+            cmd = 'adb push %s %s'%(src, tgt)
+            cmd = cmd.replace(os.sep, '/')
+            RunCommand(cmd)
+        for cl in Glob('../nn/runtime/opencl/kernels/*.cl'):
+            src = str(cl)
+            tgt = '/data/local/tmp/lwnn/nn/runtime/opencl/kernels/%s'%(os.path.basename(src))
+            cmd = 'adb push %s %s'%(src, tgt)
+            cmd = cmd.replace(os.sep, '/')
+            RunCommand(cmd)
+        for exe in Glob('../lwnn_gtest*'):
+            src = str(exe)
+            tgt = '/data/local/tmp/lwnn/%s'%(os.path.basename(src))
+            cmd = 'adb push %s %s'%(src, tgt)
+            cmd = cmd.replace(os.sep, '/')
+            RunCommand(cmd)
+        cmd = 'adb push %s/toolchains/llvm/prebuilt/%s-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so /data/local/tmp/lwnn'%(NDK, host)
+        RunCommand(cmd)
+        exit()
+
 objsM = Glob('models/*/*.c')
 for obj in objsM:
     asenv.SharedLibrary(obj)

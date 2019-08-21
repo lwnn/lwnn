@@ -19,12 +19,19 @@ if(os.getenv('DISABLE_OPENCL') != 'True'):
         asenv.AppendENVPath('PATH', os.getenv('PATH'))
         cuda = os.getenv('CUDA_PATH')
         asenv.Append(CPPPATH=['%s/include'%(cuda)])
-        objs += ['%s/lib/x64/OpenCL.lib'%(cuda)]
-    else:
-        asenv.Append(LIBS=['OpenCL'])
 else:
     asenv.Append(CPPDEFINES=['DISABLE_RUNTIME_OPENCL'])
 
+objs = asenv.Library('lwnn', objs)
+if(os.getenv('DISABLE_OPENCL') != 'True'):
+    if(GetOption('android')):
+        # adb pull /vendor/lib64/[libOpenCL.so,libCB.so,libgsl.so]
+        # adb pull /system/lib64/[libcutils.so,libz.so]
+       objs+= Glob('*.so')
+    elif(IsPlatformWindows()):
+        objs+=['%s/lib/x64/OpenCL.lib'%(cuda)]
+    else:
+        asenv.Append(LIBS=['OpenCL'])
 objs += SConscript('third_party/SConscript')
 
 Return('objs')

@@ -9,4 +9,6 @@ asenv.Append(CPPPATH=['%s/CMSIS/NN/Include'%(cmsis),
                       '%s/CMSIS/Core/Include'%(cmsis)])
 asenv.Append(CPPDEFINES=['__ARM_ARCH_8M_BASE__'])
 
+objs = asenv.Library('cmsisnn', objs)
+
 Return('objs')
