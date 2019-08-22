@@ -117,6 +117,15 @@ def concat(name, shape=[16, 16, 3], kernel_size=(3,3), strides=(1,1), padding="s
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def add(name, shape=[16, 16, 3], kernel_size=(3,3), strides=(1,1), padding="same"):
+    input = Input(shape=shape, name=name+'_input')
+    x1 = Conv2D(32, kernel_size=kernel_size, strides=strides, padding=padding)(input)
+    x2 = Conv2D(32, kernel_size=kernel_size, strides=strides, padding=padding)(input)
+    output = Add(name=name+'_output')([x1,x2])
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 def mnist():
     from keras.datasets import mnist
     from keras.utils import to_categorical
@@ -215,3 +224,4 @@ if(__name__ == '__main__'):
     avgpool('avgpool_2', shape=[37,240,5], pool_size=(2, 3), strides=(3, 1))
     avgpool1d('avgpool1d_1')
     avgpool1d('avgpool1d_2',shape=[341,129], pool_size=4, strides=5)
+    add('add_1')

@@ -24,6 +24,9 @@ static int layer_cl_eltwise_init(const nn_t* nn, const layer_t* layer)
 		case L_OP_MAXIMUM:
 			kernel = "maximum";
 			break;
+		case L_OP_ADD:
+			kernel = "add";
+			break;
 		default:
 			assert(0);
 			break;
@@ -79,6 +82,21 @@ int layer_cl_MAXIMUM_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cl_MAXIMUM_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cl_eltwise_deinit(nn, layer);
+}
+
+int layer_cl_ADD_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cl_eltwise_init(nn, layer);
+}
+
+int layer_cl_ADD_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cl_eltwise_execute(nn, layer);
+}
+
+void layer_cl_ADD_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cl_eltwise_deinit(nn, layer);
 }

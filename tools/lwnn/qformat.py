@@ -202,6 +202,13 @@ class LWNNQFormatC(LWNNBaseC):
 
         self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def gen_LayerAdd(self, layer):
+        blobs= [self.get_Q_blob(layer)]
+        self.gen_blobs(layer, blobs)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_ADD ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
     def gen_LayerOutput(self, layer):
         blobs= [self.get_Q_blob(layer)]
         self.gen_blobs(layer, blobs)

@@ -217,8 +217,11 @@ class LWNNModel():
 
     def to_LayerAdd(self, node):
         layer = self.to_LayerCommon(node)
-        B = self.get_initializer(node.input[1])
-        layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
+        try:
+            B = self.get_initializer(node.input[1])
+            layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
+        except:
+            pass
         return layer
 
     def convert(self):

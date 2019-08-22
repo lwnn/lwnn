@@ -72,6 +72,11 @@ extern "C" {
 			inputs, NULL };								\
 	L_LAYER_MI(name, MAXIMUM)
 
+#define L_ADD(name, inputs)							\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, ADD)
+
 #define L_CONCAT(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\
 			inputs, NULL };								\

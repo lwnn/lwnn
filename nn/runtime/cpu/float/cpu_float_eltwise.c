@@ -29,6 +29,15 @@ static void layer_cpu_float_max(float* A, float* B, float* O, size_t sz)
 		}
 	}
 }
+
+static void layer_cpu_float_add(float* A, float* B, float* O, size_t sz)
+{
+	size_t i;
+	for(i=0; i<sz; i++)
+	{
+		O[i] = A[i] + B[i];
+	}
+}
 static int layer_cpu_float_eltwise_init(const nn_t* nn, const layer_t* layer)
 {
 	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_eltwise_context_t), sizeof(float));
@@ -61,6 +70,9 @@ static int layer_cpu_float_eltwise_execute(const nn_t* nn, const layer_t* layer)
 		case L_OP_MAXIMUM:
 			layer_cpu_float_max(A, B, O, sz);
 			break;
+		case L_OP_ADD:
+			layer_cpu_float_add(A, B, O, sz);
+			break;
 		default:
 			r = NN_E_INVALID_LAYER;
 			break;
@@ -85,6 +97,21 @@ int layer_cpu_float_MAXIMUM_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cpu_float_MAXIMUM_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_float_eltwise_deinit(nn, layer);
+}
+
+int layer_cpu_float_ADD_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_eltwise_init(nn, layer);
+}
+
+int layer_cpu_float_ADD_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_eltwise_execute(nn, layer);
+}
+
+void layer_cpu_float_ADD_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_float_eltwise_deinit(nn, layer);
 }

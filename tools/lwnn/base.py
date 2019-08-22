@@ -19,6 +19,7 @@ class LWNNBaseC():
                 'Concat': self.gen_LayerConcat,
                 'Pad': self.gen_LayerPad,
                 'Softmax': self.gen_LayerSoftmax,
+                'Add': self.gen_LayerAdd,
                 'Output': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -262,5 +263,7 @@ class LWNNBaseC():
         self.gen_no_blobs(layer)
         self.fpC.write('L_SOFTMAX ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def gen_LayerAdd(self, layer):
+        raise NotImplementedError()
     def gen_LayerOutput(self, layer):
         raise NotImplementedError()
