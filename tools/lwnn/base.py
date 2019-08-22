@@ -13,6 +13,7 @@ class LWNNBaseC():
                 'Conv': self.gen_LayerConv,
                 'Relu': self.gen_LayerRelu,
                 'MaxPool': self.gen_LayerMaxPool,
+                'AveragePool': self.gen_LayerAveragePool,
                 'Reshape': self.gen_LayerReshape,
                 'Dense': self.gen_LayerDense,
                 'Concat': self.gen_LayerConcat,
@@ -219,6 +220,15 @@ class LWNNBaseC():
         M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides']), np.int32)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_MAXPOOL ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerAveragePool(self, layer):
+        if('pads' not in layer):
+            pads = [0,0]
+        else:
+            pads = list(layer['pads'])
+        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides']), np.int32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_AVGPOOL ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerReshape(self, layer):
         self.gen_no_blobs(layer)

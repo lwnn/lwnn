@@ -19,7 +19,7 @@ class LWNNModel():
             (self.opt_IsLayerBeforeReshape, self.opt_LayerBeforeReshape, None),
             (self.opt_IsLayerDense, self.opt_LayerDense, None),
             (self.opt_IsLayerConv1D, self.opt_LayerConv1D, None),
-            (self.opt_IsLayerMaxPool1D, self.opt_LayerMaxPool1D, None),
+            (self.opt_IsLayerPooling1D, self.opt_LayerPooling1D, None),
             (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
             (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
@@ -514,14 +514,14 @@ class LWNNModel():
         layer['kernel_shape'] = list(kernel_shape)+ [1]
         return False
 
-    def opt_IsLayerMaxPool1D(self, layer):
+    def opt_IsLayerPooling1D(self, layer):
         r = False
-        if((layer['op'] == 'MaxPool') and 
+        if((layer['op'] in ['MaxPool', 'AveragePool']) and 
             (len(layer['kernel_shape']) == 1)):
             r = True
         return r
 
-    def opt_LayerMaxPool1D(self, layer):
+    def opt_LayerPooling1D(self, layer):
         strides = layer['strides']
         layer['strides'] = list(strides)+ [1]
         if('pads' in layer):

@@ -34,9 +34,23 @@ def maxpool(name, shape=[32,32,3], pool_size=(2, 2), strides=(2, 2)):
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def avgpool(name, shape=[13,17,3], pool_size=(2, 2), strides=(2, 2)):
+    input = Input(shape=shape, name=name+'_input')
+    output = AveragePooling2D(pool_size=pool_size, strides=strides, name=name+'_output')(input)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 def maxpool1d(name, shape=[32,32], pool_size=2, strides=2):
     input = Input(shape=shape, name=name+'_input')
     output = MaxPooling1D(pool_size=pool_size, strides=strides, name=name+'_output')(input)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
+def avgpool1d(name, shape=[27,93], pool_size=2, strides=2):
+    input = Input(shape=shape, name=name+'_input')
+    output = AveragePooling1D(pool_size=pool_size, strides=strides, name=name+'_output')(input)
     model = Model(inputs=input, outputs=output)
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
@@ -197,3 +211,7 @@ if(__name__ == '__main__'):
     concat('concat_3', axis=2)
     concat('concat_4', axis=0)
     uci_inception()
+    avgpool('avgpool_1')
+    avgpool('avgpool_2', shape=[37,240,5], pool_size=(2, 3), strides=(3, 1))
+    avgpool1d('avgpool1d_1')
+    avgpool1d('avgpool1d_2',shape=[341,129], pool_size=4, strides=5)

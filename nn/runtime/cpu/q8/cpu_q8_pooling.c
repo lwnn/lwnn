@@ -34,6 +34,7 @@ static void maxpooling(const int8_t * Im_in,
 {
 	int16_t   i_ch_in, i_x, i_y;
 	int16_t   k_x, k_y;
+	int max;
 
 	for (i_ch_in = 0; i_ch_in < ch_im_in; i_ch_in++)
 	{
@@ -41,7 +42,7 @@ static void maxpooling(const int8_t * Im_in,
 		{
 			for (i_x = 0; i_x < dim_im_out_x; i_x++)
 			{
-				int       max = -129;
+				max = -129;
 				for (k_y = i_y * stride_y - padding_y; k_y < i_y * stride_y - padding_y + dim_kernel_y; k_y++)
 				{
 					for (k_x = i_x * stride_x - padding_x; k_x < i_x * stride_x - padding_x + dim_kernel_x; k_x++)
@@ -56,6 +57,47 @@ static void maxpooling(const int8_t * Im_in,
 					}
 				}
 				Im_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = max;
+			}
+		}
+	}
+}
+static void avgpooling(const int8_t * Im_in,
+		const int dim_im_in_x,
+		const int dim_im_in_y,
+		const int ch_im_in,
+		const int ch_im_out,
+		const int dim_kernel_x,
+		const int dim_kernel_y,
+		const int padding_x,
+		const int padding_y,
+		const int stride_x,
+		const int stride_y,
+		int8_t * Im_out,
+		const int dim_im_out_x,
+		const int dim_im_out_y)
+{
+	int16_t   i_ch_in, i_x, i_y;
+	int16_t   k_x, k_y;
+	int sum;
+
+	for (i_ch_in = 0; i_ch_in < ch_im_in; i_ch_in++)
+	{
+		for (i_y = 0; i_y < dim_im_out_y; i_y++)
+		{
+			for (i_x = 0; i_x < dim_im_out_x; i_x++)
+			{
+				sum = 0;
+				for (k_y = i_y * stride_y - padding_y; k_y < i_y * stride_y - padding_y + dim_kernel_y; k_y++)
+				{
+					for (k_x = i_x * stride_x - padding_x; k_x < i_x * stride_x - padding_x + dim_kernel_x; k_x++)
+					{
+						if ((k_y >= 0) && (k_x >= 0) && (k_y < dim_im_in_y) && (k_x < dim_im_in_x))
+						{
+							sum += Im_in[i_ch_in + ch_im_in * (k_x + k_y * dim_im_in_x)];
+						}
+					}
+				}
+				Im_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = sum/(dim_kernel_y*dim_kernel_x);
 			}
 		}
 	}
@@ -98,6 +140,39 @@ static int pooling(const int8_t * Im_in,
 			else
 			{
 				maxpooling(Im_in,
+					dim_im_in_x,
+					dim_im_in_y,
+					ch_im_in,
+					ch_im_out,
+					dim_kernel_x,
+					dim_kernel_y,
+					padding_x,
+					padding_y,
+					stride_x,
+					stride_y,
+					Im_out,
+					dim_im_out_x,
+					dim_im_out_y);
+			}
+			break;
+		case L_OP_AVGPOOL:
+			if((dim_im_in_x==dim_im_in_y) &&
+				(dim_kernel_x==dim_kernel_y) &&
+				(stride_x==stride_x))
+			{
+				arm_avepool_q7_HWC((q7_t*)Im_in,
+					dim_im_in_x,
+					ch_im_in,
+					dim_kernel_x,
+					padding_x,
+					stride_x,
+					dim_im_out_x,
+					NULL,
+					Im_out);
+			}
+			else
+			{
+				avgpooling(Im_in,
 					dim_im_in_x,
 					dim_im_in_y,
 					ch_im_in,
@@ -204,6 +279,21 @@ int layer_cpu_q8_MAXPOOL_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cpu_q8_MAXPOOL_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_q8_pool_deinit(nn, layer);
+}
+
+int layer_cpu_q8_AVGPOOL_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_pool_init(nn, layer);
+}
+
+int layer_cpu_q8_AVGPOOL_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_pool_execute(nn, layer);
+}
+
+void layer_cpu_q8_AVGPOOL_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_q8_pool_deinit(nn, layer);
 }

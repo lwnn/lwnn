@@ -175,7 +175,7 @@ def PrepareBuilding(env):
     if(not GetOption('verbose')):
     # override the default verbose command string
         env.Replace(
-          ARCOMSTR = 'AR $SOURCE',
+          ARCOMSTR = 'AR $TARGET',
           ASCOMSTR = 'AS $SOURCE',
           ASPPCOMSTR = 'AS $SOURCE',
           CCCOMSTR = 'CC $SOURCE',

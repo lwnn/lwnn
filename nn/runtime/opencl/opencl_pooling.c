@@ -24,6 +24,9 @@ static int layer_cl_pooling_init(const nn_t* nn, const layer_t* layer)
 		case L_OP_MAXPOOL:
 			kernel = "maxpool";
 			break;
+		case L_OP_AVGPOOL:
+			kernel = "avgpool";
+			break;
 		default:
 			assert(0);
 			break;
@@ -93,6 +96,21 @@ int layer_cl_MAXPOOL_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cl_MAXPOOL_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cl_pooling_deinit(nn, layer);
+}
+
+int layer_cl_AVGPOOL_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cl_pooling_init(nn, layer);
+}
+
+int layer_cl_AVGPOOL_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cl_pooling_execute(nn, layer);
+}
+
+void layer_cl_AVGPOOL_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cl_pooling_deinit(nn, layer);
 }
