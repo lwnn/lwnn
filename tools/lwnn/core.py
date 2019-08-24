@@ -352,7 +352,7 @@ class LWNNModel():
         r = False
         if(self.is_model_channel_first_cached==True):
             pass
-        elif(layer['op'] not in ['Conv', 'MaxPool']):
+        elif(layer['op'] not in ['Conv', 'MaxPool', 'AveragePool']):
             CHIA = self.nchw_IsConsumerHasInputAdjustLayer(layer)
             PHOA = self.nchw_IsPreviousHasOutputAdjustLayer(layer)
             if( ((CHIA==True) and (PHOA==False)) or

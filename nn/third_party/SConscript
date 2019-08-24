@@ -4,6 +4,7 @@ Import('asenv')
 objs = []
 cmsis = Package('https://github.com/ARM-software/CMSIS_5.git', version='develop')
 objs += Glob('CMSIS_5/CMSIS/NN/Source/*/*.c')
+objs += Glob('CMSIS_5/CMSIS/DSP/Source/BasicMathFunctions/*.c')
 asenv.Append(CPPPATH=['%s/CMSIS/NN/Include'%(cmsis),
                       '%s/CMSIS/DSP/Include'%(cmsis),
                       '%s/CMSIS/Core/Include'%(cmsis)])

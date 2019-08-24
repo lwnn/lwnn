@@ -6,6 +6,9 @@
 #include "nn.h"
 #ifndef DISABLE_RUNTIME_CPU_Q16
 #include "../runtime_cpu.h"
+
+#include "arm_math.h"
+#include "arm_nnfunctions.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
@@ -29,6 +32,23 @@ static void layer_cpu_q16_max(int16_t* A, int16_t* B, int16_t* O, size_t sz)
 		}
 	}
 }
+
+static void layer_cpu_q16_add(int16_t* A, int16_t* B, int16_t* O, size_t sz, const int8_t out_shift)
+{
+	size_t i;
+	if(0 == out_shift)
+	{
+		arm_add_q15(A, B, O, sz);
+	}
+	else
+	{
+		for(i=0; i<sz; i++)
+		{
+			O[i] = (q15_t) __SSAT((((int32_t)A[i] + B[i]) >> out_shift), 16);
+		}
+	}
+}
+
 static int layer_cpu_q16_eltwise_init(const nn_t* nn, const layer_t* layer)
 {
 	int r =0;
@@ -75,6 +95,10 @@ static int layer_cpu_q16_eltwise_execute(const nn_t* nn, const layer_t* layer)
 		case L_OP_MAXIMUM:
 			layer_cpu_q16_max(A, B, O, sz);
 			break;
+		case L_OP_ADD:
+			assert(inputA_context->Q == inputB_context->Q);
+			layer_cpu_q16_add(A, B, O, sz, context->Q-inputA_context->Q);
+			break;
 		default:
 			r = NN_E_INVALID_LAYER;
 			break;
@@ -99,6 +123,21 @@ int layer_cpu_q16_MAXIMUM_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cpu_q16_MAXIMUM_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_q16_eltwise_deinit(nn, layer);
+}
+
+int layer_cpu_q16_ADD_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q16_eltwise_init(nn, layer);
+}
+
+int layer_cpu_q16_ADD_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q16_eltwise_execute(nn, layer);
+}
+
+void layer_cpu_q16_ADD_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_q16_eltwise_deinit(nn, layer);
 }

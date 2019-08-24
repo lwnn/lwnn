@@ -56,7 +56,7 @@ class LWNNQFormatC(LWNNBaseC):
             linked = []
             consumers = self.model.get_consumers(layer)
             for c in consumers:
-                if(c['op'] == 'Concat'):
+                if(c['op'] in ['Concat', 'Add']):
                     self.back_collect_tillQ(layer, c, linked)
             if(len(linked)>0):
                 linked = self.model.get_layers(linked)
