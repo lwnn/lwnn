@@ -16,9 +16,4 @@ NNT_CASE_DEF(ReLU) =
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-NNT_TEST_DEF(CPU, ReLU, Q8)
-NNT_TEST_DEF(CPU, ReLU, Q16)
-NNT_TEST_DEF(CPU, ReLU, Float)
-#ifndef DISABLE_RUNTIME_OPENCL
-NNT_TEST_DEF(OPENCL, ReLU, Float)
-#endif
+NNT_TEST_ALL(ReLU)

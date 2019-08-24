@@ -74,6 +74,7 @@ typedef struct
 
 typedef enum {
 	NETWORK_TYPE_Q8,
+	NETWORK_TYPE_S8,
 	NETWORK_TYPE_Q16,
 	NETWORK_TYPE_FLOAT,
 } network_type_t;

@@ -18,9 +18,4 @@ NNT_CASE_DEF(DWConv2D) =
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-NNT_TEST_DEF(CPU, DWConv2D, Q8)
-NNT_TEST_DEF(CPU, DWConv2D, Q16)
-NNT_TEST_DEF(CPU, DWConv2D, Float)
-#ifndef DISABLE_RUNTIME_OPENCL
-NNT_TEST_DEF(OPENCL, DWConv2D, Float)
-#endif
+NNT_TEST_ALL(DWConv2D)

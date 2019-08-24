@@ -82,6 +82,7 @@ class LWNNModel():
     def gen_quantized_c(self, feeds):
         LWNNQFormatC(self, 'q8', feeds)
         LWNNQFormatC(self, 'q16', feeds)
+        LWNNQFormatC(self, 's8', feeds)
 
     def get_inputs(self, node):
         inputs = []

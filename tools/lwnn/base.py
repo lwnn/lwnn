@@ -70,7 +70,7 @@ class LWNNBaseC():
             int_bits = 0
         else:
             int_bits = int(np.ceil(np.log2(max(abs(min_value), abs(max_value)))))
-        if(self.T == 'q8'):
+        if(self.T in ['q8', 's8']):
             dec_bits = 7 - int_bits
             dtype = np.int8
         elif(self.T == 'q16'):

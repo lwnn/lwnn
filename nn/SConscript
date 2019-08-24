@@ -19,8 +19,10 @@ if(os.getenv('DISABLE_OPENCL') != 'True'):
         asenv.AppendENVPath('PATH', os.getenv('PATH'))
         cuda = os.getenv('CUDA_PATH')
         asenv.Append(CPPPATH=['%s/include'%(cuda)])
-else:
-    asenv.Append(CPPDEFINES=['DISABLE_RUNTIME_OPENCL'])
+
+for rt in ['OPENCL', 'CPU_S8', 'CPU_Q8', 'CPU_Q16', 'CPU_FLOAT']:
+    if(os.getenv('DISABLE_%s'%(rt)) == 'True'):
+        asenv.Append(CPPDEFINES=['DISABLE_RUNTIME_%s'%(rt)])
 
 objs = asenv.Library('lwnn', objs)
 if(os.getenv('DISABLE_OPENCL') != 'True'):

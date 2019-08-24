@@ -16,9 +16,4 @@ NNT_CASE_DEF(Add) =
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-NNT_TEST_DEF(CPU, Add, Q8)
-NNT_TEST_DEF(CPU, Add, Q16)
-NNT_TEST_DEF(CPU, Add, Float)
-#ifndef DISABLE_RUNTIME_OPENCL
-NNT_TEST_DEF(OPENCL, Add, Float)
-#endif
+NNT_TEST_ALL(Add)

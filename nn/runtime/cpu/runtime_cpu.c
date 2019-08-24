@@ -93,6 +93,11 @@ static int cpu_get_runtime_type(const nn_t* nn)
 		case NETWORK_TYPE_Q8:
 			rt->type = RTE_CPU_TYPE_Q8;
 			break;
+		#ifndef DISABLE_RUNTIME_CPU_S8
+		case NETWORK_TYPE_S8:
+			rt->type = RTE_CPU_TYPE_Q8;
+			break;
+		#endif
 		#endif
 		#ifndef DISABLE_RUNTIME_CPU_Q16
 		case NETWORK_TYPE_Q16:

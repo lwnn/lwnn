@@ -16,9 +16,4 @@ NNT_CASE_DEF(Conv1D) =
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-NNT_TEST_DEF(CPU, Conv1D, Q8)
-NNT_TEST_DEF(CPU, Conv1D, Q16)
-NNT_TEST_DEF(CPU, Conv1D, Float)
-#ifndef DISABLE_RUNTIME_OPENCL
-NNT_TEST_DEF(OPENCL, Conv1D, Float)
-#endif
+NNT_TEST_ALL(Conv1D)

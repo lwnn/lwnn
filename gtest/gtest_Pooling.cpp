@@ -29,15 +29,5 @@ NNT_CASE_DEF(AvgPool) =
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-NNT_TEST_DEF(CPU, MaxPool, Q8)
-NNT_TEST_DEF(CPU, MaxPool, Q16)
-NNT_TEST_DEF(CPU, MaxPool, Float)
-#ifndef DISABLE_RUNTIME_OPENCL
-NNT_TEST_DEF(OPENCL, MaxPool, Float)
-#endif
-NNT_TEST_DEF(CPU, AvgPool, Q8)
-NNT_TEST_DEF(CPU, AvgPool, Q16)
-NNT_TEST_DEF(CPU, AvgPool, Float)
-#ifndef DISABLE_RUNTIME_OPENCL
-NNT_TEST_DEF(OPENCL, AvgPool, Float)
-#endif
+NNT_TEST_ALL(MaxPool)
+NNT_TEST_ALL(AvgPool)

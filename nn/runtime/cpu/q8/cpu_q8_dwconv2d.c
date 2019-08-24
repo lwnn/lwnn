@@ -93,7 +93,40 @@ int layer_cpu_q8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 
 	for(batch=0; (batch<input_context->nhwc.N) && (0 == r); batch++)
 	{
-		r = arm_depthwise_separable_conv_HWC_q7_nonsquare(
+#ifndef DISABLE_RUNTIME_CPU_S8
+		if(0xfadbeef == ints[6])
+		{
+			r = arm_depthwise_conv_s8_opt(IN+batch_sizeIn*batch,
+					input_context->nhwc.W,
+					input_context->nhwc.H,
+					input_context->nhwc.C,
+					weights,
+					context->nhwc.C,
+					knlX, knlY,
+					padX, padY,
+					strideX, strideY,
+					(const int32_t*)bias,
+					O+batch_sizeO*batch,
+					(const int32_t*)layer->blobs[4]->blob,
+					(const int32_t*)layer->blobs[3]->blob,
+					context->nhwc.W,
+					context->nhwc.H,
+					0,
+					0,
+					INT32_MIN,
+					INT32_MAX,
+					0,0,
+#if defined (ARM_MATH_DSP)
+					context->bufferA->data
+#else
+					NULL
+#endif
+					);
+		}
+		else
+#endif
+		{
+			r = arm_depthwise_separable_conv_HWC_q7_nonsquare(
 				IN+batch_sizeIn*batch,
 				input_context->nhwc.W,
 				input_context->nhwc.H,
@@ -116,6 +149,7 @@ int layer_cpu_q8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 #endif
 				NULL
 				);
+		}
 	}
 	return r;
 }

@@ -29,12 +29,7 @@ class LWNNQFormatC(LWNNBaseC):
            ((layer['op'] == 'Identity') and 
             (len(inputs) == 1) and 
             (inputs[0]['op'] == 'Softmax'))):
-            if(self.T == 'q8'):
-                Q = 7
-            elif(self.T == 'q16'):
-                Q = 15
-            else:
-                assert(0)
+            Q = eval(self.T[1:])-1
         return Q
 
     def is_QLayer(self, layer):
@@ -76,13 +71,70 @@ class LWNNQFormatC(LWNNBaseC):
     def gen_LayerInput(self, layer):
         blobs= [self.get_Q_blob(layer)]
         self.gen_blobs(layer, blobs)
-        if(self.T == 'q8'):
+        if(self.T in ['q8', 's8']):
             T = 'INT8'
         elif(self.T == 'q16'):
             T = 'INT16'
         self.fpC.write('L_INPUT ({0}, L_DT_{1});\n\n'.format(layer['name'],T))
 
-    def gen_LayerConv(self, layer):
+    def gen_LayerConvS(self, layer):
+        # https://www.tensorflow.org/lite/performance/quantization_spec
+        # real_value = (int8_value - zero_point) x scale
+        # Conv2D:
+        #   input : int8, per-tensor
+        #   weights : int8, per-axis(0), zero_point=0
+        #   bias: int32, per-axis(0), (scale, zero_point)=(input_scale*weight_scale[...], 0)
+        #   output: int8, per-tensor
+        # DwConv2D:
+        #   input : int8, per-tensor
+        #   weights : int8, per-axis(3), zero_point=0
+        #   bias: int32, per-axis(3), (scale, zero_point)=(input_scale*weight_scale[...], 0)
+        #   output: int8, per-tensor
+
+        if(layer['group'] == 1):
+            op = 'CONV2D'
+        elif(layer['group'] == layer['shape'][1]):
+            op = 'DWCONV2D'
+        else:
+            raise Exception('convolution with group !=1 or !=C is not supported')
+        W = layer['weights']
+        B = layer['bias']
+
+        inp = self.model.get_layers(layer['inputs'])[0]
+
+        Iq = self.get_encoding(inp)
+
+        Oq = self.get_encoding(layer)
+        B,Bq = self.quantize(B)
+        B = B.astype(np.int32)
+        filters = layer['shape'][1]
+        OMult = np.ones(filters, dtype=np.int32)
+        OShift = np.zeros(filters, dtype=np.int32)
+        for i in range(filters):
+            if(op == 'CONV2D'):
+                W[i], Wq = self.quantize(W[i])
+            else:
+                W[:,:,:,i], Wq = self.quantize(W[:,:,:,i])
+            B[i] = B[i]*(2**(Wq+Iq-Bq))
+            OShift[i] = Wq+Iq-Oq
+
+        W = W.astype(np.int8)
+
+        if('strides' not in layer):
+            strides = [1, 1]
+        else:
+            strides = list(layer['strides'])
+
+        M = np.asarray(list(layer['pads']) + strides + [0xfadbeef, Bq, Oq], np.int32)
+        n = layer['name']
+        blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), ('%s_M'%(n), M)]
+        blobs.append(('%s_output_mult'%(n), OMult))
+        blobs.append(('%s_output_shift'%(n), OShift))
+        self.gen_blobs(layer, blobs)
+
+        self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
+
+    def gen_LayerConvQ(self, layer):
         W = layer['weights']
         B = layer['bias']
 
@@ -106,8 +158,14 @@ class LWNNQFormatC(LWNNBaseC):
             raise Exception('convolution with group !=1 or !=C is not supported')
         self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
 
+    def gen_LayerConv(self, layer):
+        if(self.T == 's8'):
+            self.gen_LayerConvS(layer)
+        else:
+            self.gen_LayerConvQ(layer)
+
     def convert_to_x4_weights(self, weights):
-        if(self.T == 'q8'):
+        if(self.T in ['q8', 's8']):
             return self.convert_to_x4_q7_weights(weights)
         else:
             return self.convert_to_x4_q15_weights(weights)

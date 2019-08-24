@@ -19,9 +19,4 @@ NNT_CASE_DEF(Concat) =
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-NNT_TEST_DEF(CPU, Concat, Q8)
-NNT_TEST_DEF(CPU, Concat, Q16)
-NNT_TEST_DEF(CPU, Concat, Float)
-#ifndef DISABLE_RUNTIME_OPENCL
-NNT_TEST_DEF(OPENCL, Concat, Float)
-#endif
+NNT_TEST_ALL(Concat)

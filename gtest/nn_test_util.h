@@ -29,9 +29,10 @@
 #define LIBFIX "lib"
 #endif
 
-#define NNT_CASE_DESC(name)										\
+#define NNT_CASE_DESC(name)											\
 	{																\
 		"build/" RAW_P #name "/" LIBFIX #name "_q8" DLLFIX ,		\
+		"build/" RAW_P #name "/" LIBFIX #name "_s8" DLLFIX ,		\
 		"build/" RAW_P #name "/" LIBFIX #name "_q16" DLLFIX ,		\
 		"build/" RAW_P #name "/" LIBFIX #name "_float" DLLFIX ,		\
 		RAW_P #name "/golden/input.raw",							\
@@ -76,9 +77,87 @@ TEST(Runtime##runtime, Model##name##T)					\
 				NNT_##name##_NOT_FOUND_OKAY);			\
 	}													\
 }
+
+#ifndef DISABLE_RUNTIME_CPU_S8
+#define NNT_TEST_CPU_S8(name)	NNT_TEST_DEF(CPU, name, S8)
+#else
+#define NNT_TEST_CPU_S8(name)
+#endif
+
+#ifndef DISABLE_RUNTIME_CPU_Q8
+#define NNT_TEST_CPU_Q8(name)	NNT_TEST_DEF(CPU, name, Q8)
+#else
+#define NNT_TEST_CPU_Q8(name)
+#endif
+
+#ifndef DISABLE_RUNTIME_CPU_Q16
+#define NNT_TEST_CPU_Q16(name)	NNT_TEST_DEF(CPU, name, Q16)
+#else
+#define NNT_TEST_CPU_Q16(name)
+#endif
+
+#ifndef DISABLE_RUNTIME_CPU_FLOAT
+#define NNT_TEST_CPU_FLOAT(name)	NNT_TEST_DEF(CPU, name, Float)
+#else
+#define NNT_TEST_CPU_FLOAT(name)
+#endif
+
+#ifndef DISABLE_RUNTIME_OPENCL
+#define NNT_TEST_OPENCL(name)	NNT_TEST_DEF(OPENCL, name, Float)
+#else
+#define NNT_TEST_OPENCL(name)
+#endif
+
+
+#define NNT_TEST_ALL(name)				\
+	NNT_TEST_CPU_S8(name)				\
+	NNT_TEST_CPU_Q8(name)				\
+	NNT_TEST_CPU_Q16(name)				\
+	NNT_TEST_CPU_FLOAT(name)			\
+	NNT_TEST_OPENCL(name)				\
+
+
+#ifndef DISABLE_RUNTIME_CPU_S8
+#define NNT_MODEL_TEST_CPU_S8(name)	NNT_MODEL_TEST_DEF(CPU, name, S8)
+#else
+#define NNT_MODEL_TEST_CPU_S8(name)
+#endif
+
+#ifndef DISABLE_RUNTIME_CPU_Q8
+#define NNT_MODEL_TEST_CPU_Q8(name)	NNT_MODEL_TEST_DEF(CPU, name, Q8)
+#else
+#define NNT_MODEL_TEST_CPU_Q8(name)
+#endif
+
+#ifndef DISABLE_RUNTIME_CPU_Q16
+#define NNT_MODEL_TEST_CPU_Q16(name)	NNT_MODEL_TEST_DEF(CPU, name, Q16)
+#else
+#define NNT_MODEL_TEST_CPU_Q16(name)
+#endif
+
+#ifndef DISABLE_RUNTIME_CPU_FLOAT
+#define NNT_MODEL_TEST_CPU_FLOAT(name)	NNT_MODEL_TEST_DEF(CPU, name, Float)
+#else
+#define NNT_MODEL_TEST_CPU_FLOAT(name)
+#endif
+
+#ifndef DISABLE_RUNTIME_OPENCL
+#define NNT_MODEL_TEST_OPENCL(name)	NNT_MODEL_TEST_DEF(OPENCL, name, Float)
+#else
+#define NNT_MODEL_TEST_OPENCL(name)
+#endif
+
+
+#define NNT_MODEL_TEST_ALL(name)			\
+	NNT_MODEL_TEST_CPU_S8(name)				\
+	NNT_MODEL_TEST_CPU_Q8(name)				\
+	NNT_MODEL_TEST_CPU_Q16(name)			\
+	NNT_MODEL_TEST_CPU_FLOAT(name)			\
+	NNT_MODEL_TEST_OPENCL(name)				\
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	const char* networkQ8;
+	const char* networkS8;
 	const char* networkQ16;
 	const char* networkFloat;
 	const char* input;
