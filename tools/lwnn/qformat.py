@@ -26,7 +26,7 @@ class LWNNQFormatC(LWNNBaseC):
         if('inputs' in layer):
             inputs = self.model.get_layers(layer['inputs'])
         if((layer['op'] == 'Softmax') or
-           ((layer['op'] == 'Identity') and 
+           ((layer['op'] == 'Output') and 
             (len(inputs) == 1) and 
             (inputs[0]['op'] == 'Softmax'))):
             Q = eval(self.T[1:])-1
@@ -39,6 +39,8 @@ class LWNNQFormatC(LWNNBaseC):
         return r
 
     def back_collect_tillQ(self, layer, linker, linked):
+        if(linker['name'] not in linked):
+            linked.append(linker['name'])
         for ly in self.model.get_layers(linker['inputs']):
             if(ly['name'] not in linked):
                 linked.append(ly['name'])
@@ -53,6 +55,7 @@ class LWNNQFormatC(LWNNBaseC):
             for c in consumers:
                 if(c['op'] in ['Concat', 'Add']):
                     self.back_collect_tillQ(layer, c, linked)
+
             if(len(linked)>0):
                 linked = self.model.get_layers(linked)
                 for ly in linked:
@@ -61,7 +64,7 @@ class LWNNQFormatC(LWNNBaseC):
                         Q = q
                 for ly in linked: # adjust all linked to the same Q
                     q = self.output_encodings[ly['outputs'][0]]
-                    if(self.is_QLayer(ly) and (q != Q)):
+                    if(q != Q):
                         print('warning: linked %s, set Q from %s to %s, better do quantization awareness training to get the same Q'%(ly['name'], q, Q))
                     self.output_encodings[ly['outputs'][0]] = Q
 

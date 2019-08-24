@@ -57,6 +57,14 @@ if(__name__ == '__main__'):
     golden = np.fromfile(args.golden, dtype=np.float32)
 
     if(inp.shape != golden.shape):
+        if(args.type == 'float'):
+            golden = np.fromfile(args.golden, dtype=np.float32)
+        elif(args.type == 'q8'):
+            golden = np.fromfile(args.golden, dtype=np.int8)*math.pow(2, -args.Q)
+        elif(args.type == 'q16'):
+            golden = np.fromfile(args.golden, dtype=np.int16)*math.pow(2, -args.Q)
+
+    if(inp.shape != golden.shape):
         print('shape mismatch: input=%s golden=%s\n'
               'please give type or maybe incorrect input!'%(
                   inp.shape, golden.shape))
