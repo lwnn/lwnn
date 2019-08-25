@@ -107,7 +107,7 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 	return equal;
 }
 
-int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q, int8_t Z)
+int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q, int8_t Z, float scale)
 {
 	int8_t* out = (int8_t*)malloc(sz);
 	float v;
@@ -115,7 +115,7 @@ int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q, int8_t Z)
 
 	for(size_t i=0; i<sz; i++)
 	{
-		v = std::round(in[i]*(std::pow(2,Q)))-Z;
+		v = std::round(in[i]*scale*(std::pow(2,Q)))-Z;
 		if(v > 0x7F)
 		{
 			out[i] = 0x7F;
@@ -134,14 +134,14 @@ int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q, int8_t Z)
 	return out;
 }
 
-float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q, int8_t Z)
+float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q, int8_t Z, float scale)
 {
 	float* out = (float*)malloc(sz*sizeof(float));
 	assert(out);
 
 	for(size_t i=0; i<sz; i++)
 	{
-		out[i] = (in[i]+Z)/(std::pow(2,Q));
+		out[i] = scale*(in[i]+Z)/(std::pow(2,Q));
 	}
 
 	return out;
@@ -191,20 +191,18 @@ void nnt_siso_network_test(runtime_type_t runtime,
 	int16_t* in16 = NULL;
 	if(network->type== NETWORK_TYPE_Q8)
 	{
-		int8_t* blob = (int8_t*)network->layers[0]->blobs[0]->blob;
-		in8 = nnt_quantize8(IN, sz_in/sizeof(float), blob[0]);
+		in8 = nnt_quantize8(IN, sz_in/sizeof(float), LAYER_Q(inputs[0]->layer));
 		memcpy(inputs[0]->data, in8, sz_in/sizeof(float));
 	}
 	else if(network->type== NETWORK_TYPE_S8)
 	{
-		int8_t* blob = (int8_t*)network->layers[0]->blobs[0]->blob;
-		in8 = nnt_quantize8(IN, sz_in/sizeof(float), blob[0], blob[1]);
+		in8 = nnt_quantize8(IN, sz_in/sizeof(float), LAYER_Q(inputs[0]->layer),
+					LAYER_Z(inputs[0]->layer), (float)LAYER_S(inputs[0]->layer)/NN_SCALER);
 		memcpy(inputs[0]->data, in8, sz_in/sizeof(float));
 	}
 	else if(network->type== NETWORK_TYPE_Q16)
 	{
-		int8_t* blob = (int8_t*)network->layers[0]->blobs[0]->blob;
-		in16 = nnt_quantize16(IN, sz_in/sizeof(float), blob[0]);
+		in16 = nnt_quantize16(IN, sz_in/sizeof(float), LAYER_Q(inputs[0]->layer));
 		memcpy(inputs[0]->data, in16, sz_in*sizeof(int16_t)/sizeof(float));
 	}
 	else
@@ -222,16 +220,16 @@ void nnt_siso_network_test(runtime_type_t runtime,
 
 		if(in8 != NULL)
 		{
-			int8_t* blob = (int8_t*)outputs[0]->layer->blobs[0]->blob;
-
 			float* out;
 			if(network->type== NETWORK_TYPE_Q8)
 			{
-				out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0]);
+				out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), LAYER_Q(outputs[0]->layer));
 			}
 			else
 			{
-				out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0], blob[1]);
+				int32_t* blob = (int32_t*)outputs[0]->layer->blobs[0]->blob;
+				out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer),
+						LAYER_Q(outputs[0]->layer), LAYER_Z(outputs[0]->layer), (float)LAYER_S(outputs[0]->layer)/NN_SCALER);
 			}
 			r = nnt_is_equal(OUT, out,
 					layer_get_size(outputs[0]->layer), max_diff);
@@ -241,8 +239,7 @@ void nnt_siso_network_test(runtime_type_t runtime,
 		}
 		else if(in16 != NULL)
 		{
-			int8_t* blob = (int8_t*)outputs[0]->layer->blobs[0]->blob;
-			float* out = nnt_dequantize16((int16_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0]);
+			float* out = nnt_dequantize16((int16_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), LAYER_Q(outputs[0]->layer));
 			r = nnt_is_equal(OUT, out,
 					layer_get_size(outputs[0]->layer), max_diff);
 			free(out);

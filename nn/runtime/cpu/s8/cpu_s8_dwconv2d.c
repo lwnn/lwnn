@@ -24,21 +24,19 @@ typedef struct {
 int layer_cpu_s8_DWCONV2D_init(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
+#if defined (ARM_MATH_DSP)
 	int* ints;
 	layer_cpu_s8_dwconv2d_context_t* context;
+#endif
 
 	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_s8_dwconv2d_context_t), sizeof(int8_t));
 
+#if defined (ARM_MATH_DSP)
 	if(0 == r)
 	{
 		context = (layer_cpu_s8_dwconv2d_context_t*)layer->C->context;
 
-		ints = (int*)layer->blobs[2]->blob;
-		context->Q = (int8_t)ints[8];
-		context->Z = (int8_t)ints[6];
-
-#if defined (ARM_MATH_DSP)
-		ints = (int*)layer->blobs[0]->dims;	/* W in format FHWC */
+		ints = (int*)layer->blobs[1]->dims;	/* W in format FHWC */
 
 		context->bufferA = rte_cpu_create_buffer(nn, layer, 2*ints[1]*ints[2]*ints[3]*sizeof(q15_t));
 
@@ -50,8 +48,8 @@ int layer_cpu_s8_DWCONV2D_init(const nn_t* nn, const layer_t* layer)
 		{
 			rte_cpu_release_buffer(context->bufferA);
 		}
-#endif
 	}
+#endif
 
 	return r;
 }
@@ -86,7 +84,7 @@ int layer_cpu_s8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d], Z=%d, Q %d -> %d\n",
 			layer->name,
 			knlY, knlX, padY, padX, strideY, strideX,
-			context->Z, input_context->Q, context->Q));
+			LAYER_Z(layer), LAYER_Q(input), LAYER_Q(layer)));
 
 	for(batch=0; (batch<input_context->nhwc.N) && (0 == r); batch++)
 	{
@@ -105,8 +103,8 @@ int layer_cpu_s8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 					(const int32_t*)layer->blobs[3]->blob,
 					context->nhwc.W,
 					context->nhwc.H,
-					-context->Z,
-					input_context->Z,
+					-LAYER_Z(layer),
+					LAYER_Z(input),
 					INT8_MIN,
 					INT8_MAX,
 					0,0,

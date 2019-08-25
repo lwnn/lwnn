@@ -59,6 +59,12 @@ extern "C" {
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 #endif
+
+#define NN_SCALER (1<<16)
+
+#define LAYER_Q(layer) RTE_FETCH_INT32((layer)->blobs[0]->blob, 0)
+#define LAYER_Z(layer) RTE_FETCH_INT32((layer)->blobs[0]->blob, 1)
+#define LAYER_S(layer) RTE_FETCH_INT32((layer)->blobs[0]->blob, 2)
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
 {

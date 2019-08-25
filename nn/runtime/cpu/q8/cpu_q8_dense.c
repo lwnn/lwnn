@@ -28,13 +28,10 @@ int layer_cpu_q8_DENSE_init(const nn_t* nn, const layer_t* layer)
 
 	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q8_dense_context_t), sizeof(int8_t));
 
+#if defined (ARM_MATH_DSP)
 	if(0 == r)
 	{
 		context = (layer_cpu_q8_dense_context_t*)layer->C->context;
-
-		context->Q = RTE_FETCH_INT8(layer->blobs[2]->blob, 2);
-
-#if defined (ARM_MATH_DSP)
 		context->bufferA = rte_cpu_create_buffer(nn, layer, RTE_FETCH_INT32(layer->blobs[0]->dims, 0)*sizeof(q15_t));
 
 		if(NULL == context->bufferA)
@@ -45,8 +42,8 @@ int layer_cpu_q8_DENSE_init(const nn_t* nn, const layer_t* layer)
 		{
 			rte_cpu_release_buffer(context->bufferA);
 		}
-#endif
 	}
+#endif
 
 	return r;
 }
@@ -59,25 +56,25 @@ int layer_cpu_q8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_q8_context_t* input_context = (layer_cpu_q8_context_t*)input->C->context;
 	int8_t *IN = (int8_t*)input_context->out[0];
 	int8_t *O = (int8_t*)context->out[0];
-	int8_t *weights = (int8_t*)layer->blobs[0]->blob;
-	int8_t *bias = (int8_t*)layer->blobs[1]->blob;
+	int8_t *weights = (int8_t*)layer->blobs[1]->blob;
+	int8_t *bias = (int8_t*)layer->blobs[2]->blob;
 	int8_t wQ, bQ;
 
-	uint16_t dim_vec = (uint16_t)RTE_FETCH_INT32(layer->blobs[0]->dims, 0);
-	uint16_t num_of_rows = (uint16_t)RTE_FETCH_INT32(layer->blobs[0]->dims, 1);
+	uint16_t dim_vec = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 0);
+	uint16_t num_of_rows = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 1);
 
 	size_t batch;
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
 
 
-	wQ = RTE_FETCH_INT8(layer->blobs[2]->blob, 0);
-	bQ = RTE_FETCH_INT8(layer->blobs[2]->blob, 1);
+	wQ = RTE_FETCH_INT8(layer->blobs[3]->blob, 0);
+	bQ = RTE_FETCH_INT8(layer->blobs[3]->blob, 1);
 
 	NNLOG(NN_DEBUG, ("execute %s: [%d %d] %dx%d+%d -> %d\n",
 			layer->name,
 			dim_vec, num_of_rows,
-			input_context->Q, wQ, bQ, context->Q));
+			LAYER_Q(input), wQ, bQ, LAYER_Q(layer)));
 
 	for(batch=0; (batch<input_context->nhwc.N) && (0 == r); batch++)
 	{
@@ -85,8 +82,8 @@ int layer_cpu_q8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 				weights,
 				dim_vec,
 				num_of_rows,
-				wQ+input_context->Q-bQ,
-				wQ+input_context->Q-context->Q,
+				wQ+LAYER_Q(input)-bQ,
+				wQ+LAYER_Q(input)-LAYER_Q(layer),
 				bias,
 				O+batch_sizeO*batch,
 #if defined (ARM_MATH_DSP)

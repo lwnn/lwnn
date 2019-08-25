@@ -17,24 +17,8 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_q8_OUTPUT_init(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-	int8_t* int8s;
-	layer_cpu_q8_output_context_t* context;
-
-	r = rte_cpu_create_layer_context(nn, layer,
+	return rte_cpu_create_layer_context(nn, layer,
 				sizeof(layer_cpu_q8_output_context_t), 0);
-
-	if(0 == r)
-	{
-		context = (layer_cpu_q8_output_context_t*)layer->C->context;
-
-		RTE_CPU_LOG_LAYER_SHAPE(layer);
-
-		int8s = (int8_t*)layer->blobs[0]->blob;
-		context->Q = int8s[0];
-	}
-
-	return r;
 }
 
 int layer_cpu_q8_OUTPUT_execute(const nn_t* nn, const layer_t* layer)

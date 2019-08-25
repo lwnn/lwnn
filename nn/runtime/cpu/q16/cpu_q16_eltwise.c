@@ -51,21 +51,7 @@ static void layer_cpu_q16_add(int16_t* A, int16_t* B, int16_t* O, size_t sz, con
 
 static int layer_cpu_q16_eltwise_init(const nn_t* nn, const layer_t* layer)
 {
-	int r =0;
-	int8_t* int8s;
-	layer_cpu_q16_eltwise_context_t* context;
-
-	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q16_eltwise_context_t), sizeof(int16_t));
-
-	if(0 == r)
-	{
-		context = (layer_cpu_q16_eltwise_context_t*)layer->C->context;
-
-		int8s = (int8_t*)layer->blobs[0]->blob;
-		context->Q = int8s[0];
-	}
-
-	return r;
+	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q16_eltwise_context_t), sizeof(int16_t));
 }
 
 static int layer_cpu_q16_eltwise_execute(const nn_t* nn, const layer_t* layer)
@@ -96,8 +82,8 @@ static int layer_cpu_q16_eltwise_execute(const nn_t* nn, const layer_t* layer)
 			layer_cpu_q16_max(A, B, O, sz);
 			break;
 		case L_OP_ADD:
-			assert(inputA_context->Q == inputB_context->Q);
-			layer_cpu_q16_add(A, B, O, sz, context->Q-inputA_context->Q);
+			assert(LAYER_Q(inputA) == LAYER_Q(inputB));
+			layer_cpu_q16_add(A, B, O, sz, LAYER_Q(layer)-LAYER_Q(inputA));
 			break;
 		default:
 			r = NN_E_INVALID_LAYER;

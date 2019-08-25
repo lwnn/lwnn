@@ -207,7 +207,7 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 			}
 			else
 			{
-				rte_ddo_save_raw(nn->network->name, layer->name, i, context->out[i], sz, context->Q);
+				rte_ddo_save_raw(nn->network->name, layer->name, i, context->out[i], sz, LAYER_Q(layer));
 			}
 		}
 	}

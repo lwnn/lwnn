@@ -8,10 +8,6 @@ class LWNNFloatC(LWNNBaseC):
         super().__init__(model, 'float')
         self.generate()
 
-    def gen_LayerInput(self, layer):
-        self.gen_no_blobs(layer)
-        self.fpC.write('L_INPUT ({0}, L_DT_FLOAT);\n\n'.format(layer['name']))
-
     def gen_LayerConv(self, layer):
         W = layer['weights']
         B = layer['bias']
@@ -41,13 +37,3 @@ class LWNNFloatC(LWNNBaseC):
         self.gen_layer_WBM(layer, W, B)
 
         self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
-
-    def gen_LayerAdd(self, layer):
-        self.gen_no_blobs(layer)
-        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
-                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
-        self.fpC.write('L_ADD ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
-
-    def gen_LayerOutput(self, layer):
-        self.gen_no_blobs(layer)
-        self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))

@@ -189,20 +189,19 @@ static int convolve(const int8_t * Im_in,  /* input image */
 int layer_cpu_q8_CONV2D_init(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
-	int* ints;
+#if defined (ARM_MATH_DSP)
 	layer_cpu_q8_conv2d_context_t* context;
+	int* ints;
+#endif
 
 	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q8_conv2d_context_t), sizeof(int8_t));
 
+#if defined (ARM_MATH_DSP)
 	if(0 == r)
 	{
 		context = (layer_cpu_q8_conv2d_context_t*)layer->C->context;
 
-		ints = (int*)layer->blobs[2]->blob;
-		context->Q = (int8_t)ints[8];
-
-#if defined (ARM_MATH_DSP)
-		ints = (int*)layer->blobs[0]->dims;	/* W in format FHWC */
+		ints = (int*)layer->blobs[1]->dims;	/* W in format FHWC */
 
 		context->bufferA = rte_cpu_create_buffer(nn, layer, 2*ints[1]*ints[2]*ints[3]*sizeof(q15_t));
 
@@ -214,8 +213,8 @@ int layer_cpu_q8_CONV2D_init(const nn_t* nn, const layer_t* layer)
 		{
 			rte_cpu_release_buffer(context->bufferA);
 		}
-#endif
 	}
+#endif
 
 	return r;
 }
@@ -228,8 +227,8 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_q8_context_t* input_context = (layer_cpu_q8_context_t*)input->C->context;
 	int8_t *IN = (int8_t*)input_context->out[0];
 	int8_t *O = (int8_t*)context->out[0];
-	int8_t *weights = (int8_t*)layer->blobs[0]->blob;
-	int8_t *bias = (int8_t*)layer->blobs[1]->blob;
+	int8_t *weights = (int8_t*)layer->blobs[1]->blob;
+	int8_t *bias = (int8_t*)layer->blobs[2]->blob;
 	int knlX, knlY, padX, padY, strideX, strideY;
 	int8_t wQ, bQ;
 	int* ints;
@@ -238,11 +237,11 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
 
-	ints = (int*)layer->blobs[0]->dims;
+	ints = (int*)layer->blobs[1]->dims;
 	knlY = ints[1];
 	knlX = ints[2];
 
-	ints = (int*)layer->blobs[2]->blob;
+	ints = (int*)layer->blobs[3]->blob;
 	padY = ints[0];
 	padX = ints[1];
 	strideY = ints[4];
@@ -254,7 +253,7 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d], %dx%d+%d -> %d\n",
 			layer->name,
 			knlY, knlX, padY, padX, strideY, strideX,
-			input_context->Q, wQ, bQ, context->Q));
+			LAYER_Q(input), wQ, bQ, LAYER_Q(layer)));
 
 	for(batch=0; (batch<input_context->nhwc.N) && (0 == r); batch++)
 	{
@@ -268,8 +267,8 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			padX, padY,
 			strideX, strideY,
 			bias,
-			wQ+input_context->Q-bQ,
-			wQ+input_context->Q-context->Q,
+			wQ+LAYER_Q(input)-bQ,
+			wQ+LAYER_Q(input)-LAYER_Q(layer),
 			O+batch_sizeO*batch,
 			context->nhwc.W,
 			context->nhwc.H,

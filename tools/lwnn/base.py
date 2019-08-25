@@ -124,6 +124,8 @@ class LWNNBaseC():
         self.fpH.write('};\n')
 
     def gen_blobs(self, layer, blobs):
+        if(self.T in ['q8', 's8', 'q16']):
+            blobs = [self.get_Q_blob(layer)] + blobs
         for blob in blobs:
             self.gen_blob(*blob)
         self.fpH.write('static const layer_blob_t* l_blobs_%s[] =\n{\n'%(layer['name'])) 
@@ -210,7 +212,15 @@ class LWNNBaseC():
                             ','.join(['%s'%(s) for s in shape])))
 
     def gen_LayerInput(self, layer):
-        raise NotImplementedError()
+        self.gen_no_blobs(layer)
+        if(self.T in ['q8', 's8']):
+            T = 'INT8'
+        elif(self.T == 'q16'):
+            T = 'INT16'
+        else:
+            T = 'FLOAT'
+        self.fpC.write('L_INPUT ({0}, L_DT_{1});\n\n'.format(layer['name'], T))
+
     def gen_LayerConv(self, layer):
         raise NotImplementedError()
     def gen_LayerRelu(self, layer):
@@ -268,6 +278,12 @@ class LWNNBaseC():
         self.fpC.write('L_SOFTMAX ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerAdd(self, layer):
-        raise NotImplementedError()
+        self.gen_no_blobs(layer)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_ADD ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
     def gen_LayerOutput(self, layer):
-        raise NotImplementedError()
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+

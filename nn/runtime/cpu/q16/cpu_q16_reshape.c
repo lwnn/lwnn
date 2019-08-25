@@ -17,29 +17,7 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_q16_RESHAPE_init(const nn_t* nn, const layer_t* layer)
 {
-	int r =0;
-	layer_cpu_q16_reshape_context_t* context;
-
-	const layer_t* input;
-	layer_cpu_q16_context_t* input_context;
-
-	r = rte_cpu_create_layer_context(nn, layer, sizeof(layer_cpu_q16_reshape_context_t), 1);
-
-	if(0 == r)
-	{
-		context = (layer_cpu_q16_reshape_context_t*)layer->C->context;
-
-		input = layer->inputs[0];
-		input_context = (layer_cpu_q16_context_t*)input->C->context;
-
-		if(NULL != input_context->out[0])
-		{
-			/* reuse its input layer's output buffer */
-			rte_cpu_take_buffer(input_context->out[0], layer);
-		}
-	}
-
-	return r;
+	return rte_cpu_create_layer_context(nn, layer, sizeof(layer_cpu_q16_reshape_context_t), 1);
 }
 
 int layer_cpu_q16_RESHAPE_execute(const nn_t* nn, const layer_t* layer)

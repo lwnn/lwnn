@@ -20,8 +20,6 @@ typedef struct {
 static int layer_cpu_q8_activation_init(const nn_t* nn, const layer_t* layer)
 {
 	int r =0;
-	layer_cpu_q8_actvation_context_t* context;
-
 	const layer_t* input;
 	layer_cpu_q8_context_t* input_context;
 
@@ -29,11 +27,8 @@ static int layer_cpu_q8_activation_init(const nn_t* nn, const layer_t* layer)
 
 	if(0 == r)
 	{
-		context = (layer_cpu_q8_actvation_context_t*)layer->C->context;
-
 		input = layer->inputs[0];
 		input_context = (layer_cpu_q8_context_t*)input->C->context;
-		context->Q = input_context->Q;
 
 		if(NULL != input_context->out[0])
 		{

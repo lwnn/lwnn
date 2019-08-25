@@ -71,22 +71,15 @@ class LWNNQFormatC(LWNNBaseC):
             self.output_encodings[ly['outputs'][0]] = Q
 
     def get_Q_blob(self, layer):
-        return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer)]).astype(np.int8)
+        return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer)]).astype(np.int32)
 
-    def gen_LayerInput(self, layer):
-        blobs= [self.get_Q_blob(layer)]
-        self.gen_blobs(layer, blobs)
-        if(self.T in ['q8', 's8']):
-            T = 'INT8'
-        elif(self.T == 'q16'):
-            T = 'INT16'
-        self.fpC.write('L_INPUT ({0}, L_DT_{1});\n\n'.format(layer['name'],T))
+    def gen_no_blobs(self, layer):
+        self.gen_blobs(layer, [])
 
     def gen_LayerConv(self, layer):
         W = layer['weights']
         B = layer['bias']
 
-        Oq = self.get_encoding(layer)
         W,Wq = self.quantize(W)
         B,Bq = self.quantize(B)
 
@@ -95,7 +88,7 @@ class LWNNQFormatC(LWNNBaseC):
         else:
             strides = list(layer['strides'])
 
-        M = np.asarray(list(layer['pads']) + strides + [Wq, Bq, Oq], np.int32)
+        M = np.asarray(list(layer['pads']) + strides + [Wq, Bq], np.int32)
         self.gen_layer_WBM(layer, W, B, M)
 
         if(layer['group'] == 1):
@@ -190,48 +183,37 @@ class LWNNQFormatC(LWNNBaseC):
         W = layer['weights']
         B = layer['bias']
 
-        Oq = self.get_encoding(layer)
         Wt = W.transpose(1,0)
         Wt,Wq = self.quantize(Wt)
         Wt = self.convert_to_x4_weights(Wt.reshape(Wt.shape[0],Wt.shape[1],1,1))
         B,Bq = self.quantize(B)
 
-        M = np.asarray(list([Wq, Bq, Oq]), np.int8)
+        M = np.asarray(list([Wq, Bq]), np.int8)
 
         self.gen_layer_WBM(layer, Wt.reshape(W.shape), B, M)
 
         self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
-    def gen_LayerAdd(self, layer):
-        blobs= [self.get_Q_blob(layer)]
-        self.gen_blobs(layer, blobs)
-        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
-                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
-        self.fpC.write('L_ADD ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
-
-    def gen_LayerOutput(self, layer):
-        blobs= [self.get_Q_blob(layer)]
-        self.gen_blobs(layer, blobs)
-        self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
-
 class LWNNQSFormatC(LWNNQFormatC):
     def __init__(self, model, feeds):
         super().__init__(model, 's8', feeds)
 
-    def quanzize_QZ(self, v):
+    def quanzize_QSZ(self, v):
         min_value = np.min(v)
         max_value = np.max(v)
         if((min_value==0.0) and (max_value==0.0)):
             int_bits = 0
+            scale = 1
         else:
             middle = (min_value+max_value)/2
             min_value = min_value - middle
             max_value = max_value - middle
-            int_bits = int(np.ceil(np.log2(max(abs(min_value), abs(max_value)))))
+            scale = 1/max_value
+            int_bits = 0
         vq = 7 - int_bits
         cmax = 0x7F
         cmin = -0x80
-        VQ = np.round(v * 2 ** vq).astype(np.int32)
+        VQ = np.round(v * scale * 2 ** vq).astype(np.int32)
         minq = np.min(VQ)
         maxq = np.max(VQ)
         if((minq >= cmin) and (maxq <=cmax)):
@@ -239,16 +221,18 @@ class LWNNQSFormatC(LWNNQFormatC):
         else:
             Z = int((maxq+minq)/2)
         VQ = (VQ-Z).astype(np.int8)
-        return VQ, vq, Z
+        return VQ, scale, vq, Z
 
     def calculate_output_encoding(self, feeds):
         self.output_encodings = {}
-        self.output_offset = {}
+        self.output_offsets = {}
+        self.output_scales = {}
         self.outputs = self.model.run(feeds)
         for n,v in self.outputs.items():
-            _,Q,Z = self.quanzize_QZ(v)
-            self.output_offset[n] = Z
+            _,scale,Q,Z = self.quanzize_QSZ(v)
+            self.output_offsets[n] = Z
             self.output_encodings[n] = Q
+            self.output_scales[n] = scale
 
     def set_linked_to_the_same_Q(self, linked, Q):
         Z = self.get_offset(linked[0])
@@ -266,23 +250,37 @@ class LWNNQSFormatC(LWNNQFormatC):
         for ly in linked:
             bigV.extend(self.outputs[ly['outputs'][0]].reshape(-1).tolist())
         bigV = np.asarray(bigV)
-        _,Q,Z = self.quanzize_QZ(bigV)
+        _,scale,Q,Z = self.quanzize_QSZ(bigV)
         for ly in linked: # adjust all linked to the same Q
             q = self.output_encodings[ly['outputs'][0]]
             if(q != Q):
                 print('warning: linked %s, set Q from %s to %s, better do quantization awareness training to get the same Q'%(ly['name'], q, Q))
             self.output_encodings[ly['outputs'][0]] = Q
-            z = self.output_offset[ly['outputs'][0]]
+            z = self.output_offsets[ly['outputs'][0]]
             if(z != Z):
                 print('warning: linked %s, set Z from %s to %s'%(ly['name'], z, Z))
-            self.output_offset[ly['outputs'][0]] = Z
+            self.output_offsets[ly['outputs'][0]] = Z
+            self.output_scales[ly['outputs'][0]] = scale
 
     def get_Q_blob(self, layer):
-        return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer), self.get_offset(layer)]).astype(np.int8)
+        return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer), self.get_offset(layer), self.get_scaleQ(layer)]).astype(np.int32)
 
     def get_offset(self, layer, at=0):
-        offset = self.output_offset[layer['outputs'][at]]
+        offset = self.output_offsets[layer['outputs'][at]]
         return offset
+
+    def get_scale(self, layer, at=0):
+        scale = self.output_scales[layer['outputs'][at]]
+        return scale
+
+    def scaleQ(self,scale):
+        scale = int(scale*(1<<16))
+        return scale
+
+    def get_scaleQ(self, layer, at=0):
+        # according to arm_nn_sat_doubling_high_mult
+        scale = self.output_scales[layer['outputs'][at]]
+        return self.scaleQ(scale)
 
     def gen_LayerConv(self, layer):
         # https://www.tensorflow.org/lite/performance/quantization_spec
@@ -310,8 +308,10 @@ class LWNNQSFormatC(LWNNQFormatC):
         inp = self.model.get_layers(layer['inputs'])[0]
 
         Iq = self.get_encoding(inp)
-
         Oq = self.get_encoding(layer)
+        Is = self.get_scale(inp)
+        Os = self.get_scale(layer)
+
         B,Bq = self.quantize(B)
         B = B.astype(np.int32)
         filters = layer['shape'][1]
@@ -324,6 +324,7 @@ class LWNNQSFormatC(LWNNQFormatC):
                 W[:,:,:,i], Wq = self.quantize(W[:,:,:,i])
             B[i] = B[i]*(2**(Wq+Iq-Bq))
             OShift[i] = Wq+Iq-Oq
+            OMult[i] = self.scaleQ(Is/Os)
 
         W = W.astype(np.int8)
 
@@ -332,11 +333,11 @@ class LWNNQSFormatC(LWNNQFormatC):
         else:
             strides = list(layer['strides'])
 
-        M = np.asarray(list(layer['pads']) + strides + [self.get_offset(layer), Bq, Oq], np.int32)
+        M = np.asarray(list(layer['pads']) + strides + [self.get_offset(layer), Bq, Oq, self.get_scaleQ(layer)], np.int32)
         n = layer['name']
         blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), ('%s_M'%(n), M)]
         blobs.append(('%s_output_mult'%(n), OMult))
-        blobs.append(('%s_output_shift'%(n), OShift))
+        blobs.append(('%s_output_shift'%(n), -OShift))
         self.gen_blobs(layer, blobs)
 
         self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
@@ -347,10 +348,10 @@ class LWNNQSFormatC(LWNNQFormatC):
 
         Oq = self.get_encoding(layer)
         Wt = W.transpose(1,0)
-        Wt,Wq,Wz = self.quanzize_QZ(Wt)
+        Wt,scale,Wq,Wz = self.quanzize_QSZ(Wt)
         B,Bq = self.quantize(B)
 
-        M = np.asarray(list([Wq, Bq, Oq, Wz, self.get_offset(layer)]), np.int8)
+        M = np.asarray(list([Wq, Bq, Wz, self.scaleQ(scale)]), np.int32)
 
         self.gen_layer_WBM(layer, Wt.reshape(W.shape), B, M)
 

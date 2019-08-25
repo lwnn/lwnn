@@ -20,14 +20,13 @@ int layer_cpu_q16_CONCAT_init(const nn_t* nn, const layer_t* layer)
 	int r = 0;
 	layer_cpu_q16_concat_context_t* context;
 	const layer_t** input = layer->inputs;
-	layer_cpu_q16_context_t* input_context = (layer_cpu_q16_context_t*)(*input)->C->context;
-	int8_t Q = input_context->Q;
+	int8_t Q = LAYER_Q(*input);
 
 	input++;
 	while(((*input) != NULL) && (0 == r))
 	{	/* concat all input layers */
-		input_context = (layer_cpu_q16_context_t*)(*input)->C->context;
-		if(Q != input_context->Q)
+
+		if(Q != LAYER_Q(*input))
 		{
 			r = NN_E_INPUTS_Q_MISMATCH;
 		}
@@ -37,12 +36,6 @@ int layer_cpu_q16_CONCAT_init(const nn_t* nn, const layer_t* layer)
 	if(0 == r)
 	{
 		r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q16_concat_context_t), sizeof(int16_t));
-
-		if(0 == r)
-		{
-			context = (layer_cpu_q16_concat_context_t*)layer->C->context;
-			context->Q = Q;
-		}
 	}
 
 	return r;
@@ -51,7 +44,7 @@ int layer_cpu_q16_CONCAT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cpu_q16_concat_context_t* context = (layer_cpu_q16_concat_context_t*)layer->C->context;
-	int axis = RTE_FETCH_INT32(layer->blobs[0]->blob, 0);
+	int axis = RTE_FETCH_INT32(layer->blobs[1]->blob, 0);
 	const layer_t** input = layer->inputs;
 	layer_cpu_q16_context_t* input_context;
 

@@ -60,23 +60,7 @@ static void padding_HWC_q7(const q7_t *Im_in,
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_q8_PAD_init(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-	layer_cpu_q8_pad_context_t* context;
-	const layer_t* input;
-	layer_cpu_q8_context_t* input_context;
-
-	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q8_pad_context_t), sizeof(int8_t));
-
-	if(0 == r)
-	{
-		context = (layer_cpu_q8_pad_context_t*)layer->C->context;
-
-		input = layer->inputs[0];
-		input_context = (layer_cpu_q8_context_t*)input->C->context;
-		context->Q = input_context->Q;
-	}
-
-	return r;
+	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q8_pad_context_t), sizeof(int8_t));
 }
 
 int layer_cpu_q8_PAD_execute(const nn_t* nn, const layer_t* layer)
