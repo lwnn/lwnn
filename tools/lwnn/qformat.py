@@ -8,18 +8,17 @@ class LWNNQFormatC(LWNNBaseC):
         super().__init__(model, T, feeds)
         lwnn_model = self.model.clone()
         self.model.optimize(['RemoveReshape'])
-        self.output_encodings = self.calculate_output_encoding(feeds)
+        self.calculate_output_encoding(feeds)
         self.fix_linked_to_the_same_Q()
         self.generate()
         self.model.set(lwnn_model)
 
     def calculate_output_encoding(self, feeds):
-        encodings = {}
-        outputs = self.model.run(feeds)
-        for n,v in outputs.items():
+        self.output_encodings = {}
+        self.outputs = self.model.run(feeds)
+        for n,v in self.outputs.items():
             _,vq = self.quantize(v, True)
-            encodings[n] = vq
-        return encodings
+            self.output_encodings[n] = vq
 
     def get_encoding(self, layer, at=0):
         Q = self.output_encodings[layer['outputs'][at]]
@@ -58,15 +57,18 @@ class LWNNQFormatC(LWNNBaseC):
 
             if(len(linked)>0):
                 linked = self.model.get_layers(linked)
-                for ly in linked:
-                    q = self.output_encodings[ly['outputs'][0]]
-                    if(q < Q):
-                        Q = q
-                for ly in linked: # adjust all linked to the same Q
-                    q = self.output_encodings[ly['outputs'][0]]
-                    if(q != Q):
-                        print('warning: linked %s, set Q from %s to %s, better do quantization awareness training to get the same Q'%(ly['name'], q, Q))
-                    self.output_encodings[ly['outputs'][0]] = Q
+                self.set_linked_to_the_same_Q(linked, Q)
+
+    def set_linked_to_the_same_Q(self, linked, Q):
+        for ly in linked:
+            q = self.output_encodings[ly['outputs'][0]]
+            if(q < Q):
+                Q = q
+        for ly in linked: # adjust all linked to the same Q
+            q = self.output_encodings[ly['outputs'][0]]
+            if(q != Q):
+                print('warning: linked %s, set Q from %s to %s, better do quantization awareness training to get the same Q'%(ly['name'], q, Q))
+            self.output_encodings[ly['outputs'][0]] = Q
 
     def get_Q_blob(self, layer):
         return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer)]).astype(np.int8)
@@ -80,64 +82,7 @@ class LWNNQFormatC(LWNNBaseC):
             T = 'INT16'
         self.fpC.write('L_INPUT ({0}, L_DT_{1});\n\n'.format(layer['name'],T))
 
-    def gen_LayerConvS(self, layer):
-        # https://www.tensorflow.org/lite/performance/quantization_spec
-        # real_value = (int8_value - zero_point) x scale
-        # Conv2D:
-        #   input : int8, per-tensor
-        #   weights : int8, per-axis(0), zero_point=0
-        #   bias: int32, per-axis(0), (scale, zero_point)=(input_scale*weight_scale[...], 0)
-        #   output: int8, per-tensor
-        # DwConv2D:
-        #   input : int8, per-tensor
-        #   weights : int8, per-axis(3), zero_point=0
-        #   bias: int32, per-axis(3), (scale, zero_point)=(input_scale*weight_scale[...], 0)
-        #   output: int8, per-tensor
-
-        if(layer['group'] == 1):
-            op = 'CONV2D'
-        elif(layer['group'] == layer['shape'][1]):
-            op = 'DWCONV2D'
-        else:
-            raise Exception('convolution with group !=1 or !=C is not supported')
-        W = layer['weights']
-        B = layer['bias']
-
-        inp = self.model.get_layers(layer['inputs'])[0]
-
-        Iq = self.get_encoding(inp)
-
-        Oq = self.get_encoding(layer)
-        B,Bq = self.quantize(B)
-        B = B.astype(np.int32)
-        filters = layer['shape'][1]
-        OMult = np.ones(filters, dtype=np.int32)
-        OShift = np.zeros(filters, dtype=np.int32)
-        for i in range(filters):
-            if(op == 'CONV2D'):
-                W[i], Wq = self.quantize(W[i])
-            else:
-                W[:,:,:,i], Wq = self.quantize(W[:,:,:,i])
-            B[i] = B[i]*(2**(Wq+Iq-Bq))
-            OShift[i] = Wq+Iq-Oq
-
-        W = W.astype(np.int8)
-
-        if('strides' not in layer):
-            strides = [1, 1]
-        else:
-            strides = list(layer['strides'])
-
-        M = np.asarray(list(layer['pads']) + strides + [0xfadbeef, Bq, Oq], np.int32)
-        n = layer['name']
-        blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), ('%s_M'%(n), M)]
-        blobs.append(('%s_output_mult'%(n), OMult))
-        blobs.append(('%s_output_shift'%(n), OShift))
-        self.gen_blobs(layer, blobs)
-
-        self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
-
-    def gen_LayerConvQ(self, layer):
+    def gen_LayerConv(self, layer):
         W = layer['weights']
         B = layer['bias']
 
@@ -160,12 +105,6 @@ class LWNNQFormatC(LWNNBaseC):
         else:
             raise Exception('convolution with group !=1 or !=C is not supported')
         self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
-
-    def gen_LayerConv(self, layer):
-        if(self.T == 's8'):
-            self.gen_LayerConvS(layer)
-        else:
-            self.gen_LayerConvQ(layer)
 
     def convert_to_x4_weights(self, weights):
         if(self.T in ['q8', 's8']):
@@ -275,3 +214,144 @@ class LWNNQFormatC(LWNNBaseC):
         self.gen_blobs(layer, blobs)
         self.fpC.write('L_OUTPUT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+class LWNNQSFormatC(LWNNQFormatC):
+    def __init__(self, model, feeds):
+        super().__init__(model, 's8', feeds)
+
+    def quanzize_QZ(self, v):
+        min_value = np.min(v)
+        max_value = np.max(v)
+        if((min_value==0.0) and (max_value==0.0)):
+            int_bits = 0
+        else:
+            middle = (min_value+max_value)/2
+            min_value = min_value - middle
+            max_value = max_value - middle
+            int_bits = int(np.ceil(np.log2(max(abs(min_value), abs(max_value)))))
+        vq = 7 - int_bits
+        cmax = 0x7F
+        cmin = -0x80
+        VQ = np.round(v * 2 ** vq).astype(np.int32)
+        minq = np.min(VQ)
+        maxq = np.max(VQ)
+        if((minq >= cmin) and (maxq <=cmax)):
+            Z = 0
+        else:
+            Z = int((maxq+minq)/2)
+        VQ = (VQ-Z).astype(np.int8)
+        return VQ, vq, Z
+
+    def calculate_output_encoding(self, feeds):
+        self.output_encodings = {}
+        self.output_offset = {}
+        self.outputs = self.model.run(feeds)
+        for n,v in self.outputs.items():
+            _,Q,Z = self.quanzize_QZ(v)
+            self.output_offset[n] = Z
+            self.output_encodings[n] = Q
+
+    def set_linked_to_the_same_Q(self, linked, Q):
+        Z = self.get_offset(linked[0])
+        sameQZ = True
+        for ly in linked:
+            if(Q != self.get_encoding(ly)):
+                sameQZ = False
+                break
+            if(Z != self.get_offset(ly)):
+                sameQZ = False
+                break
+        if(sameQZ):
+            return
+        bigV =[]
+        for ly in linked:
+            bigV.extend(self.outputs[ly['outputs'][0]].reshape(-1).tolist())
+        bigV = np.asarray(bigV)
+        _,Q,Z = self.quanzize_QZ(bigV)
+        for ly in linked: # adjust all linked to the same Q
+            q = self.output_encodings[ly['outputs'][0]]
+            if(q != Q):
+                print('warning: linked %s, set Q from %s to %s, better do quantization awareness training to get the same Q'%(ly['name'], q, Q))
+            self.output_encodings[ly['outputs'][0]] = Q
+            z = self.output_offset[ly['outputs'][0]]
+            if(z != Z):
+                print('warning: linked %s, set Z from %s to %s'%(ly['name'], z, Z))
+            self.output_offset[ly['outputs'][0]] = Z
+
+    def get_Q_blob(self, layer):
+        return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer), self.get_offset(layer)]).astype(np.int8)
+
+    def get_offset(self, layer, at=0):
+        offset = self.output_offset[layer['outputs'][at]]
+        return offset
+
+    def gen_LayerConv(self, layer):
+        # https://www.tensorflow.org/lite/performance/quantization_spec
+        # real_value = (int8_value - zero_point) x scale
+        # Conv2D:
+        #   input : int8, per-tensor
+        #   weights : int8, per-axis(0), zero_point=0
+        #   bias: int32, per-axis(0), (scale, zero_point)=(input_scale*weight_scale[...], 0)
+        #   output: int8, per-tensor
+        # DwConv2D:
+        #   input : int8, per-tensor
+        #   weights : int8, per-axis(3), zero_point=0
+        #   bias: int32, per-axis(3), (scale, zero_point)=(input_scale*weight_scale[...], 0)
+        #   output: int8, per-tensor
+
+        if(layer['group'] == 1):
+            op = 'CONV2D'
+        elif(layer['group'] == layer['shape'][1]):
+            op = 'DWCONV2D'
+        else:
+            raise Exception('convolution with group !=1 or !=C is not supported')
+        W = layer['weights']
+        B = layer['bias']
+
+        inp = self.model.get_layers(layer['inputs'])[0]
+
+        Iq = self.get_encoding(inp)
+
+        Oq = self.get_encoding(layer)
+        B,Bq = self.quantize(B)
+        B = B.astype(np.int32)
+        filters = layer['shape'][1]
+        OMult = np.ones(filters, dtype=np.int32)
+        OShift = np.zeros(filters, dtype=np.int32)
+        for i in range(filters):
+            if(op == 'CONV2D'):
+                W[i], Wq = self.quantize(W[i])
+            else:
+                W[:,:,:,i], Wq = self.quantize(W[:,:,:,i])
+            B[i] = B[i]*(2**(Wq+Iq-Bq))
+            OShift[i] = Wq+Iq-Oq
+
+        W = W.astype(np.int8)
+
+        if('strides' not in layer):
+            strides = [1, 1]
+        else:
+            strides = list(layer['strides'])
+
+        M = np.asarray(list(layer['pads']) + strides + [self.get_offset(layer), Bq, Oq], np.int32)
+        n = layer['name']
+        blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), ('%s_M'%(n), M)]
+        blobs.append(('%s_output_mult'%(n), OMult))
+        blobs.append(('%s_output_shift'%(n), OShift))
+        self.gen_blobs(layer, blobs)
+
+        self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
+
+    def gen_LayerDense(self, layer):
+        W = layer['weights']
+        B = layer['bias']
+
+        Oq = self.get_encoding(layer)
+        Wt = W.transpose(1,0)
+        Wt,Wq,Wz = self.quanzize_QZ(Wt)
+        B,Bq = self.quantize(B)
+
+        M = np.asarray(list([Wq, Bq, Oq, Wz, self.get_offset(layer)]), np.int8)
+
+        self.gen_layer_WBM(layer, Wt.reshape(W.shape), B, M)
+
+        self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))

@@ -66,13 +66,20 @@ void ModelTestMain(runtime_type_t runtime,
 		}
 		float* in = x_test+H*W*C*i;
 		size_t sz_in;
-		if(inputs[0]->layer->dtype== L_DT_INT8)
+		if(network->type== NETWORK_TYPE_Q8)
 		{
 			sz_in = H*W*C;
 			IN = nnt_quantize8(in, H*W*C, RTE_FETCH_INT8(inputs[0]->layer->blobs[0]->blob, 0));
 			ASSERT_TRUE(IN != NULL);
 		}
-		else if(inputs[0]->layer->dtype== L_DT_INT16)
+		else if(network->type== NETWORK_TYPE_S8)
+		{
+			sz_in = H*W*C;
+			IN = nnt_quantize8(in, H*W*C, RTE_FETCH_INT8(inputs[0]->layer->blobs[0]->blob, 0),
+					RTE_FETCH_INT8(inputs[0]->layer->blobs[0]->blob, 1));
+			ASSERT_TRUE(IN != NULL);
+		}
+		else if(network->type== NETWORK_TYPE_Q16)
 		{
 			sz_in = H*W*C*sizeof(int16_t);
 			IN = nnt_quantize16(in, H*W*C, RTE_FETCH_INT8(inputs[0]->layer->blobs[0]->blob, 0));
@@ -94,11 +101,16 @@ void ModelTestMain(runtime_type_t runtime,
 			int y=-1;
 			float prob = 0;
 			float* out = (float*)outputs[0]->data;
-			if(inputs[0]->layer->dtype== L_DT_INT8)
+			if(network->type== NETWORK_TYPE_Q8)
 			{
 				out = nnt_dequantize8((int8_t*)out, classes, RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 0));
 			}
-			else if(inputs[0]->layer->dtype== L_DT_INT16)
+			else if(network->type== NETWORK_TYPE_S8)
+			{
+				out = nnt_dequantize8((int8_t*)out, classes, RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 0),
+						RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 1));
+			}
+			else if(network->type== NETWORK_TYPE_Q16)
 			{
 				out = nnt_dequantize16((int16_t*)out, classes, RTE_FETCH_INT8(outputs[0]->layer->blobs[0]->blob, 0));
 			}

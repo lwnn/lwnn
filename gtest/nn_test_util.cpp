@@ -107,27 +107,41 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 	return equal;
 }
 
-int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q)
+int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q, int8_t Z)
 {
 	int8_t* out = (int8_t*)malloc(sz);
+	float v;
 	assert(out);
 
 	for(size_t i=0; i<sz; i++)
 	{
-		out[i] = std::round(in[i]*(std::pow(2,Q)));
+		v = std::round(in[i]*(std::pow(2,Q)))-Z;
+		if(v > 0x7F)
+		{
+			out[i] = 0x7F;
+		}
+		else if(v < -0x80)
+		{
+			out[i] = -0x80;
+		}
+		else
+		{
+			out[i] = v;
+		}
+
 	}
 
 	return out;
 }
 
-float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q)
+float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q, int8_t Z)
 {
 	float* out = (float*)malloc(sz*sizeof(float));
 	assert(out);
 
 	for(size_t i=0; i<sz; i++)
 	{
-		out[i] = in[i]/(std::pow(2,Q));
+		out[i] = (in[i]+Z)/(std::pow(2,Q));
 	}
 
 	return out;
@@ -175,13 +189,19 @@ void nnt_siso_network_test(runtime_type_t runtime,
 
 	int8_t* in8 = NULL;
 	int16_t* in16 = NULL;
-	if(network->layers[0]->dtype== L_DT_INT8)
+	if(network->type== NETWORK_TYPE_Q8)
 	{
 		int8_t* blob = (int8_t*)network->layers[0]->blobs[0]->blob;
 		in8 = nnt_quantize8(IN, sz_in/sizeof(float), blob[0]);
 		memcpy(inputs[0]->data, in8, sz_in/sizeof(float));
 	}
-	else if(network->layers[0]->dtype== L_DT_INT16)
+	else if(network->type== NETWORK_TYPE_S8)
+	{
+		int8_t* blob = (int8_t*)network->layers[0]->blobs[0]->blob;
+		in8 = nnt_quantize8(IN, sz_in/sizeof(float), blob[0], blob[1]);
+		memcpy(inputs[0]->data, in8, sz_in/sizeof(float));
+	}
+	else if(network->type== NETWORK_TYPE_Q16)
 	{
 		int8_t* blob = (int8_t*)network->layers[0]->blobs[0]->blob;
 		in16 = nnt_quantize16(IN, sz_in/sizeof(float), blob[0]);
@@ -203,7 +223,16 @@ void nnt_siso_network_test(runtime_type_t runtime,
 		if(in8 != NULL)
 		{
 			int8_t* blob = (int8_t*)outputs[0]->layer->blobs[0]->blob;
-			float* out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0]);
+
+			float* out;
+			if(network->type== NETWORK_TYPE_Q8)
+			{
+				out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0]);
+			}
+			else
+			{
+				out = nnt_dequantize8((int8_t*)outputs[0]->data, layer_get_size(outputs[0]->layer), blob[0], blob[1]);
+			}
 			r = nnt_is_equal(OUT, out,
 					layer_get_size(outputs[0]->layer), max_diff);
 			free(out);
