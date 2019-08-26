@@ -115,7 +115,7 @@ int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q, int8_t Z, float scale)
 
 	for(size_t i=0; i<sz; i++)
 	{
-		v = std::round(in[i]*scale*(std::pow(2,Q)))-Z;
+		v = std::round(in[i]/scale*(std::pow(2,Q)))-Z;
 		if(v > 0x7F)
 		{
 			out[i] = 0x7F;

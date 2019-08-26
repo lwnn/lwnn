@@ -9,7 +9,7 @@ def onnx2lwnn(model, name, feeds=None):
     feeds: mainly used to do quantization
     '''
     model = LWNNModel(model, name)
-    model.gen_float_c()
+    model.gen_float_c(feeds)
     if(feeds != None):
         model.gen_quantized_c(feeds)
 

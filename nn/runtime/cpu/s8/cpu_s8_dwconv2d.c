@@ -62,8 +62,8 @@ int layer_cpu_s8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_s8_context_t* input_context = (layer_cpu_s8_context_t*)input->C->context;
 	int8_t *IN = (int8_t*)input_context->out[0];
 	int8_t *O = (int8_t*)context->out[0];
-	int8_t *weights = (int8_t*)layer->blobs[0]->blob;
-	int8_t *bias = (int8_t*)layer->blobs[1]->blob;
+	int8_t *weights = (int8_t*)layer->blobs[1]->blob;
+	int32_t *bias = (int32_t*)layer->blobs[2]->blob;
 	int knlX, knlY, padX, padY, strideX, strideY;
 	int* ints;
 
@@ -71,11 +71,11 @@ int layer_cpu_s8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
 
-	ints = (int*)layer->blobs[0]->dims;
+	ints = (int*)layer->blobs[1]->dims;
 	knlY = ints[1];
 	knlX = ints[2];
 
-	ints = (int*)layer->blobs[2]->blob;
+	ints = (int*)layer->blobs[3]->blob;
 	padY = ints[0];
 	padX = ints[1];
 	strideY = ints[4];
@@ -97,10 +97,10 @@ int layer_cpu_s8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 					knlX, knlY,
 					padX, padY,
 					strideX, strideY,
-					(const int32_t*)bias,
+					bias,
 					O+batch_sizeO*batch,
+					(const int32_t*)layer->blobs[5]->blob,
 					(const int32_t*)layer->blobs[4]->blob,
-					(const int32_t*)layer->blobs[3]->blob,
 					context->nhwc.W,
 					context->nhwc.H,
 					-LAYER_Z(layer),

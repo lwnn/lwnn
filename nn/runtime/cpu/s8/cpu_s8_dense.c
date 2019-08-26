@@ -72,7 +72,7 @@ int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 
 	wQ = RTE_FETCH_INT8(layer->blobs[3]->blob, 0);
 	bQ = RTE_FETCH_INT8(layer->blobs[3]->blob, 1);
-	filter_offset = RTE_FETCH_INT8(layer->blobs[3]->blob, 3);
+	filter_offset = RTE_FETCH_INT8(layer->blobs[3]->blob, 2);
 
 	NNLOG(NN_DEBUG, ("execute %s: [%d %d] %dx%d+%d -> %d\n",
 			layer->name,
@@ -89,7 +89,7 @@ int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 				LAYER_Z(input),
 				filter_offset,
 				1,
-				wQ+LAYER_Q(input)-bQ,
+				//wQ+LAYER_Q(input)-bQ,
 				wQ+LAYER_Q(input)-LAYER_Q(layer),
 				-LAYER_Z(layer),
 				bias,

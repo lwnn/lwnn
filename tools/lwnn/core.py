@@ -76,8 +76,8 @@ class LWNNModel():
     def close(self, fp):
         fp.close()
 
-    def gen_float_c(self):
-        LWNNFloatC(self)
+    def gen_float_c(self, feeds=None):
+        LWNNFloatC(self, feeds)
 
     def gen_quantized_c(self, feeds):
         LWNNQFormatC(self, 'q8', feeds)

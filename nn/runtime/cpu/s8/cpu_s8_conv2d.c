@@ -63,7 +63,7 @@ int layer_cpu_s8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	int8_t *IN = (int8_t*)input_context->out[0];
 	int8_t *O = (int8_t*)context->out[0];
 	int8_t *weights = (int8_t*)layer->blobs[1]->blob;
-	int8_t *bias = (int8_t*)layer->blobs[2]->blob;
+	int32_t *bias = (int32_t*)layer->blobs[2]->blob;
 	int knlX, knlY, padX, padY, strideX, strideY;
 	int* ints;
 
@@ -97,10 +97,10 @@ int layer_cpu_s8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 					knlX, knlY,
 					padX, padY,
 					strideX, strideY,
-					(const int32_t*)bias,
+					bias,
 					O+batch_sizeO*batch,
+					(const int32_t*)layer->blobs[5]->blob,
 					(const int32_t*)layer->blobs[4]->blob,
-					(const int32_t*)layer->blobs[3]->blob,
 					-LAYER_Z(layer),
 					LAYER_Z(input),
 					INT8_MIN,

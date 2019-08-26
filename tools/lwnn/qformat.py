@@ -205,21 +205,22 @@ class LWNNQSFormatC(LWNNQFormatC):
             int_bits = 0
             scale = 1
         else:
+            # TODO: adjust min/max to make sure Z is an integer
             middle = (min_value+max_value)/2
             min_value = min_value - middle
             max_value = max_value - middle
-            scale = 1/max_value
+            scale = max_value
             int_bits = 0
         vq = 7 - int_bits
         cmax = 0x7F
         cmin = -0x80
-        VQ = np.round(v * scale * 2 ** vq).astype(np.int32)
+        VQ = np.round(v/scale*(2**vq)).astype(np.int32)
         minq = np.min(VQ)
         maxq = np.max(VQ)
         if((minq >= cmin) and (maxq <=cmax)):
             Z = 0
         else:
-            Z = int((maxq+minq)/2)
+            Z = np.round((maxq+minq)/2)
         VQ = (VQ-Z).astype(np.int8)
         return VQ, scale, vq, Z
 
@@ -312,28 +313,28 @@ class LWNNQSFormatC(LWNNQFormatC):
         Is = self.get_scale(inp)
         Os = self.get_scale(layer)
 
-        B,Bq = self.quantize(B)
-        B = B.astype(np.int32)
         filters = layer['shape'][1]
         OMult = np.ones(filters, dtype=np.int32)
         OShift = np.zeros(filters, dtype=np.int32)
         for i in range(filters):
+            # TODO: scale for weights
             if(op == 'CONV2D'):
                 W[i], Wq = self.quantize(W[i])
             else:
                 W[:,:,:,i], Wq = self.quantize(W[:,:,:,i])
-            B[i] = B[i]*(2**(Wq+Iq-Bq))
             OShift[i] = Wq+Iq-Oq
             OMult[i] = self.scaleQ(Is/Os)
+            B[i] = B[i]*(2**(Iq+Wq))/Is
 
         W = W.astype(np.int8)
+        B = B.astype(np.int32)
 
         if('strides' not in layer):
             strides = [1, 1]
         else:
             strides = list(layer['strides'])
 
-        M = np.asarray(list(layer['pads']) + strides + [self.get_offset(layer), Bq, Oq, self.get_scaleQ(layer)], np.int32)
+        M = np.asarray(list(layer['pads']) + strides, np.int32)
         n = layer['name']
         blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), ('%s_M'%(n), M)]
         blobs.append(('%s_output_mult'%(n), OMult))
