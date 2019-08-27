@@ -347,13 +347,22 @@ class LWNNQSFormatC(LWNNQFormatC):
         W = layer['weights']
         B = layer['bias']
 
-        Oq = self.get_encoding(layer)
         Wt = W.transpose(1,0)
-        Wt,scale,Wq,Wz = self.quanzize_QSZ(Wt)
-        B,Bq = self.quantize(B)
+        Wt,Ws,Wq,Wz = self.quanzize_QSZ(Wt)
 
-        M = np.asarray(list([Wq, Bq, Wz, self.scaleQ(scale)]), np.int32)
+        inp = self.model.get_layers(layer['inputs'])[0]
+        Iq = self.get_encoding(inp)
+        Oq = self.get_encoding(layer)
+        Is = self.get_scale(inp)
+        Os = self.get_scale(layer)
 
-        self.gen_layer_WBM(layer, Wt.reshape(W.shape), B, M)
+        out_mult = self.scaleQ(Is*Ws/Os)
+
+        B = B*(2**(Iq+Wq))/(Is*Ws)
+        B = B.astype(np.int32)
+
+        M = np.asarray(list([Wq, Wz, out_mult]), np.int32)
+
+        self.gen_layer_WBM(layer, Wt, B, M)
 
         self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))

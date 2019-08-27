@@ -23,7 +23,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | ReLU | Y | N | Y | Y | Y | |
 | MaxPool1D | Y | N | Y | Y | Y | based on MaxPool2D |
 | MaxPool2D | Y | N | Y | Y | Y | |
-| Dense | Y | N | Y | Y | Y | |
+| Dense | Y | Y | Y | Y | Y | |
 | Softmax | Y | N | Y | Y | Y | |
 | Reshape | Y | N | Y | Y | Y | |
 | Pad | Y | N | Y | Y | Y | |

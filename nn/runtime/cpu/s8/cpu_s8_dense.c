@@ -58,39 +58,39 @@ int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 	int8_t *IN = (int8_t*)input_context->out[0];
 	int8_t *O = (int8_t*)context->out[0];
 	int8_t *weights = (int8_t*)layer->blobs[1]->blob;
-	int8_t *bias = (int8_t*)layer->blobs[2]->blob;
-	int8_t filter_offset;
-	int8_t wQ, bQ;
+	int32_t *bias = (int32_t*)layer->blobs[2]->blob;
+	int32_t filter_offset;
+	int32_t out_mult;
+	int8_t wQ;
 
-	uint16_t dim_vec = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 0);
-	uint16_t num_of_rows = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 1);
+	uint16_t col_dim = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 1);
+	uint16_t row_dim = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 0);
 
 	size_t batch;
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
 
 
-	wQ = RTE_FETCH_INT8(layer->blobs[3]->blob, 0);
-	bQ = RTE_FETCH_INT8(layer->blobs[3]->blob, 1);
-	filter_offset = RTE_FETCH_INT8(layer->blobs[3]->blob, 2);
+	wQ = RTE_FETCH_INT32(layer->blobs[3]->blob, 0);
+	filter_offset = RTE_FETCH_INT32(layer->blobs[3]->blob, 1);
+	out_mult = RTE_FETCH_INT32(layer->blobs[3]->blob, 2);
 
-	NNLOG(NN_DEBUG, ("execute %s: [%d %d] %dx%d+%d -> %d\n",
+	NNLOG(NN_DEBUG, ("execute %s: [%d %d] %d -> %d\n",
 			layer->name,
-			dim_vec, num_of_rows,
-			LAYER_Q(input), wQ, bQ, LAYER_Q(layer)));
+			col_dim, row_dim,
+			LAYER_Q(input), LAYER_Q(layer)));
 
 	for(batch=0; (batch<input_context->nhwc.N) && (0 == r); batch++)
 	{
 		r = arm_fully_connected_s8(IN+batch_sizeIn*batch,
 				weights,
-				dim_vec,
-				num_of_rows,
+				col_dim,
+				row_dim,
 				1,
 				LAYER_Z(input),
 				filter_offset,
-				1,
-				//wQ+LAYER_Q(input)-bQ,
-				wQ+LAYER_Q(input)-LAYER_Q(layer),
+				out_mult,
+				-(wQ+LAYER_Q(input)-LAYER_Q(layer)),
 				-LAYER_Z(layer),
 				bias,
 				O+batch_sizeO*batch,
