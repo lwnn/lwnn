@@ -27,14 +27,15 @@ static void padding_HWC_q15(const q15_t *Im_in,
 	const uint16_t padding_right,
 	q15_t *Im_out,
 	const uint16_t dim_im_out_x,
-	const uint16_t dim_im_out_y)
+	const uint16_t dim_im_out_y,
+	int16_t value)
 {
 	int i, size;
 	q15_t * p_out = Im_out;
 
 	/* top rows */
 	size = dim_im_out_x*ch_im_in*padding_top;
-	memset(p_out, 0, size*sizeof(int16_t));
+	memset(p_out, value, size*sizeof(int16_t));
 	p_out += size;
 
 	/* middle */
@@ -42,7 +43,7 @@ static void padding_HWC_q15(const q15_t *Im_in,
 	{
 		/* left - set to 0 */
 		size = ch_im_in * padding_left;
-		memset(p_out, 0, size*sizeof(int16_t));
+		memset(p_out, value, size*sizeof(int16_t));
 		p_out += size;
 		/* data - copy a row */
 		size = dim_im_in_x * ch_im_in;
@@ -50,12 +51,12 @@ static void padding_HWC_q15(const q15_t *Im_in,
 		p_out += size;
 		/* right - set to 0 */
 		size = ch_im_in * padding_right;
-		memset(p_out, 0, size*sizeof(int16_t));
+		memset(p_out, value, size*sizeof(int16_t));
 		p_out += size;
 	}
 	/* bottom rows */
 	size = dim_im_out_x*ch_im_in*padding_bottom;
-	memset(p_out, 0, size*sizeof(int16_t));
+	memset(p_out, value, size*sizeof(int16_t));
 }
 
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -84,6 +85,8 @@ int layer_cpu_q16_PAD_execute(const nn_t* nn, const layer_t* layer)
 	uint16_t padding_left = ints[2];
 	uint16_t padding_right = ints[6];
 
+	int16_t value = RTE_FETCH_INT16(layer->blobs[1]->blob, 0);
+
 	NNLOG(NN_DEBUG, ("execute %s: [%d %d %d %d]\n", layer->name,
 			padding_top,padding_bottom, padding_left,padding_right));
 
@@ -97,7 +100,8 @@ int layer_cpu_q16_PAD_execute(const nn_t* nn, const layer_t* layer)
 				padding_left, padding_right,
 				O+batch_sizeO*batch,
 				context->nhwc.W,
-				context->nhwc.H);
+				context->nhwc.H,
+				value);
 	}
 
 	return r;

@@ -16,9 +16,4 @@ NNT_CASE_DEF(BatchNorm) =
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-NNT_TEST_DEF(CPU, BatchNorm, Q8)
-NNT_TEST_DEF(CPU, BatchNorm, Q16)
-NNT_TEST_DEF(CPU, BatchNorm, Float)
-#ifndef DISABLE_RUNTIME_OPENCL
-NNT_TEST_DEF(OPENCL, BatchNorm, Float)
-#endif
+NNT_TEST_ALL(BatchNorm)

@@ -268,9 +268,18 @@ class LWNNBaseC():
     def gen_LayerDense(self, layer):
         raise NotImplementedError()
 
+    def get_LayerPadBlobs(self, layer):
+        if('value' in layer):
+            value = layer['value']
+        else:
+            value = 0
+        return np.asarray([value], np.float32)
+
     def gen_LayerPad(self, layer):
         M = np.asarray(layer['pads'], np.int32)
-        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        P = self.get_LayerPadBlobs(layer)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M), 
+                               ('%s_P'%(layer['name']),P)])
         self.fpC.write('L_PAD ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerSoftmax(self, layer):

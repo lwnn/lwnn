@@ -24,14 +24,15 @@ static void padding_HWC_ref(const float *Im_in,
 	const int padding_right,
 	float *Im_out,
 	const int dim_im_out_x,
-	const int dim_im_out_y)
+	const int dim_im_out_y,
+	float value)
 {
 	int i, size;
 	float * p_out = Im_out;
 
 	/* top rows */
 	size = dim_im_out_x*ch_im_in*padding_top;
-	memset(p_out, 0, size*sizeof(float));
+	memset(p_out, value, size*sizeof(float));
 	p_out += size;
 
 	/* middle */
@@ -39,7 +40,7 @@ static void padding_HWC_ref(const float *Im_in,
 	{
 		/* left - set to 0 */
 		size = ch_im_in * padding_left;
-		memset(p_out, 0, size*sizeof(float));
+		memset(p_out, value, size*sizeof(float));
 		p_out += size;
 		/* data - copy a row */
 		size = dim_im_in_x * ch_im_in;
@@ -47,12 +48,12 @@ static void padding_HWC_ref(const float *Im_in,
 		p_out += size;
 		/* right - set to 0 */
 		size = ch_im_in * padding_right;
-		memset(p_out, 0, size*sizeof(float));
+		memset(p_out, value, size*sizeof(float));
 		p_out += size;
 	}
 	/* bottom rows */
 	size = dim_im_out_x*ch_im_in*padding_bottom;
-	memset(p_out, 0, size*sizeof(float));
+	memset(p_out, value, size*sizeof(float));
 }
 
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -82,6 +83,8 @@ int layer_cpu_float_PAD_execute(const nn_t* nn, const layer_t* layer)
 	int padding_left = ints[2];
 	int padding_right = ints[6];
 
+	float value = RTE_FETCH_FLOAT(layer->blobs[1]->blob, 0);
+
 	NNLOG(NN_DEBUG, ("execute %s: [%d %d %d %d]\n", layer->name,
 			padding_top,padding_bottom, padding_left,padding_right));
 
@@ -95,7 +98,8 @@ int layer_cpu_float_PAD_execute(const nn_t* nn, const layer_t* layer)
 				padding_left, padding_right,
 				O+batch_sizeO*batch,
 				context->nhwc.W,
-				context->nhwc.H);
+				context->nhwc.H,
+				value);
 	}
 
 	return r;

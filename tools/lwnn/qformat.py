@@ -199,6 +199,18 @@ class LWNNQFormatC(LWNNBaseC):
 
         self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def get_LayerPadBlobs(self, layer):
+        if('value' in layer):
+            value = layer['value']
+        else:
+            value = 0
+        if(self.T == 'q16'):
+            dtype = np.int16
+        else:
+            dtype = np.int8
+        Q = self.get_encoding(layer)
+        return np.asarray([value*(2**Q)], dtype)
+
 class LWNNQSFormatC(LWNNQFormatC):
     def __init__(self, model, feeds):
         super().__init__(model, 's8', feeds)
@@ -379,3 +391,17 @@ class LWNNQSFormatC(LWNNQFormatC):
         self.gen_layer_WBM(layer, Wt, B, M)
 
         self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def get_QSZ(self):
+        Q = self.get_encoding(layer)
+        Z = self.get_offset(layer)
+        S = self.get_scale(layer)
+        return Q,S,Z
+
+    def get_LayerPadBlobs(self, layer):
+        if('value' in layer):
+            value = layer['value']
+        else:
+            value = 0
+        Q,S,Z = self.get_QSZ(layer)
+        return np.asarray([value/S*(2**Q)-Z], np.int8)

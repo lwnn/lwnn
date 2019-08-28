@@ -4,7 +4,7 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
-#ifndef DISABLE_RUNTIME_CPU_Q8
+#if !defined(DISABLE_RUNTIME_CPU_Q8) || !defined(DISABLE_RUNTIME_CPU_S8)
 #include "../runtime_cpu.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
@@ -94,4 +94,18 @@ void layer_cpu_q8_CONCAT_deinit(const nn_t* nn, const layer_t* layer)
 	rte_cpu_destory_layer_context(nn, layer);
 }
 
+#ifndef DISABLE_RUNTIME_CPU_S8
+int layer_cpu_s8_CONCAT_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_CONCAT_init(nn, layer);
+}
+int layer_cpu_s8_CONCAT_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_CONCAT_execute(nn, layer);
+}
+void layer_cpu_s8_CONCAT_deinit(const nn_t* nn, const layer_t* layer)
+{
+	rte_cpu_destory_layer_context(nn, layer);
+}
+#endif
 #endif /* DISABLE_RUNTIME_CPU_Q8 */

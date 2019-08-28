@@ -38,7 +38,7 @@ typedef enum {
 #ifndef DISABLE_RUNTIME_CPU_Q8
 	RTE_CPU_TYPE_Q8,
 #endif
-#ifndef DISABLE_RUNTIME_CPU_Q8
+#ifndef DISABLE_RUNTIME_CPU_S8
 	RTE_CPU_TYPE_S8,
 #endif
 #ifndef DISABLE_RUNTIME_CPU_Q16

@@ -4,7 +4,7 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
-#ifndef DISABLE_RUNTIME_CPU_Q8
+#if !defined(DISABLE_RUNTIME_CPU_Q8) || !defined(DISABLE_RUNTIME_CPU_S8)
 #include "../runtime_cpu.h"
 
 #include "arm_math.h"
@@ -17,7 +17,7 @@ typedef struct {
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-static void padding_HWC_q7(const q7_t *Im_in,
+static void padding_HWC_q7(const int8_t *Im_in,
 	const uint16_t dim_im_in_x,
 	const uint16_t dim_im_in_y,
 	const uint16_t ch_im_in,
@@ -25,16 +25,17 @@ static void padding_HWC_q7(const q7_t *Im_in,
 	const uint16_t padding_bottom,
 	const uint16_t padding_left,
 	const uint16_t padding_right,
-	q7_t *Im_out,
+	int8_t *Im_out,
 	const uint16_t dim_im_out_x,
-	const uint16_t dim_im_out_y)
+	const uint16_t dim_im_out_y,
+	int8_t value)
 {
 	int i, size;
-	q7_t * p_out = Im_out;
+	int8_t * p_out = Im_out;
 
 	/* top rows */
 	size = dim_im_out_x*ch_im_in*padding_top;
-	memset(p_out, 0, size);
+	memset(p_out, value, size);
 	p_out += size;
 
 	/* middle */
@@ -42,7 +43,7 @@ static void padding_HWC_q7(const q7_t *Im_in,
 	{
 		/* left - set to 0 */
 		size = ch_im_in * padding_left;
-		memset(p_out, 0, size);
+		memset(p_out, value, size);
 		p_out += size;
 		/* data - copy a row */
 		size = dim_im_in_x * ch_im_in;
@@ -50,11 +51,11 @@ static void padding_HWC_q7(const q7_t *Im_in,
 		p_out += size;
 		/* right - set to 0 */
 		size = ch_im_in * padding_right;
-		memset(p_out, 0, size);
+		memset(p_out, value, size);
 		p_out += size;
 	}
 	/* bottom rows */
-	memset(p_out, 0, dim_im_out_x*ch_im_in*padding_bottom);
+	memset(p_out, value, dim_im_out_x*ch_im_in*padding_bottom);
 }
 
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -83,6 +84,8 @@ int layer_cpu_q8_PAD_execute(const nn_t* nn, const layer_t* layer)
 	uint16_t padding_left = ints[2];
 	uint16_t padding_right = ints[6];
 
+	int8_t value = RTE_FETCH_INT8(layer->blobs[1]->blob, 0);
+
 	NNLOG(NN_DEBUG, ("execute %s: [%d %d %d %d]\n", layer->name,
 			padding_top,padding_bottom, padding_left,padding_right));
 
@@ -96,7 +99,8 @@ int layer_cpu_q8_PAD_execute(const nn_t* nn, const layer_t* layer)
 				padding_left, padding_right,
 				O+batch_sizeO*batch,
 				context->nhwc.W,
-				context->nhwc.H);
+				context->nhwc.H,
+				value);
 	}
 
 	return r;
@@ -107,4 +111,18 @@ void layer_cpu_q8_PAD_deinit(const nn_t* nn, const layer_t* layer)
 	rte_cpu_destory_layer_context(nn, layer);
 }
 
+#ifndef DISABLE_RUNTIME_CPU_S8
+int layer_cpu_s8_PAD_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_PAD_init(nn, layer);
+}
+int layer_cpu_s8_PAD_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_PAD_execute(nn, layer);
+}
+void layer_cpu_s8_PAD_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_q8_PAD_deinit(nn, layer);
+}
+#endif
 #endif /* DISABLE_RUNTIME_CPU_Q8 */

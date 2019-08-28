@@ -4,7 +4,7 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
-#ifndef DISABLE_RUNTIME_CPU_Q8
+#if !defined(DISABLE_RUNTIME_CPU_Q8) || !defined(DISABLE_RUNTIME_CPU_S8)
 #include "../runtime_cpu.h"
 
 #include "arm_math.h"
@@ -137,4 +137,19 @@ void layer_cpu_q8_ADD_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_q8_eltwise_deinit(nn, layer);
 }
+
+#ifndef DISABLE_RUNTIME_CPU_S8
+int layer_cpu_s8_MAXIMUM_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_eltwise_init(nn, layer);
+}
+int layer_cpu_s8_MAXIMUM_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_eltwise_execute(nn, layer);
+}
+void layer_cpu_s8_MAXIMUM_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_q8_eltwise_deinit(nn, layer);
+}
+#endif
 #endif /* DISABLE_RUNTIME_CPU_Q8 */

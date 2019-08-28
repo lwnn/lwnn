@@ -19,15 +19,15 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | Conv1D | Y | Y | Y | Y | Y | based on Conv2D |
 | Conv2D | Y | Y | Y | Y | Y | |
 | DepthwiseConv2D | Y | Y | Y | Y | Y | |
-| EltmentWise Max | Y | N | Y | Y | Y | |
-| ReLU | Y | N | Y | Y | Y | |
+| EltmentWise Max | Y | Y | Y | Y | Y | |
+| ReLU | Y | Y | Y | Y | Y | |
 | MaxPool1D | Y | Y | Y | Y | Y | based on MaxPool2D |
 | MaxPool2D | Y | Y | Y | Y | Y | |
 | Dense | Y | Y | Y | Y | Y | |
-| Softmax | Y | N | Y | Y | Y | |
-| Reshape | Y | N | Y | Y | Y | |
-| Pad | Y | N | Y | Y | Y | |
-| BatchNorm | Y | N | Y | Y | Y | only support BatchNorm after Conv2D |
+| Softmax | Y | Y | Y | Y | Y | |
+| Reshape | Y | Y | Y | Y | Y | |
+| Pad | Y | Y | Y | Y | Y | |
+| BatchNorm | Y | Y | Y | Y | Y | only support BatchNorm after Conv2D |
 | Concat | Y | Y | Y | Y | Y | |
 | AvgPool1D | Y | Y | Y | Y | Y | based on AvgPool2D |
 | AvgPool2D | Y | Y | Y | Y | Y | |
