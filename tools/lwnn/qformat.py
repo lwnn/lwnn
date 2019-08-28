@@ -57,16 +57,21 @@ class LWNNQFormatC(LWNNBaseC):
 
             if(len(linked)>0):
                 linked = self.model.get_layers(linked)
-                self.set_linked_to_the_same_Q(linked, Q)
+                self.set_linked_to_the_same_Q(linked, layer)
+        for layer in self.model.lwnn_model:
+            if(layer['op'] in ['Relu', 'MaxPool','AveragePool','Reshape','Output']):
+                linked = self.model.get_layers(layer['inputs'])+[layer]
+                self.set_linked_to_the_same_Q(linked, linked[0], True)
 
-    def set_linked_to_the_same_Q(self, linked, Q):
+    def set_linked_to_the_same_Q(self, linked, layer, sameAsLayer=False):
+        Q = self.output_encodings[layer['outputs'][0]]
         for ly in linked:
             q = self.output_encodings[ly['outputs'][0]]
             if(q < Q):
                 Q = q
         for ly in linked: # adjust all linked to the same Q
             q = self.output_encodings[ly['outputs'][0]]
-            if(q != Q):
+            if((q != Q) and (sameAsLayer==False)):
                 print('warning: linked %s, set Q from %s to %s, better do quantization awareness training to get the same Q'%(ly['name'], q, Q))
             self.output_encodings[ly['outputs'][0]] = Q
 
@@ -235,33 +240,41 @@ class LWNNQSFormatC(LWNNQFormatC):
             self.output_encodings[n] = Q
             self.output_scales[n] = scale
 
-    def set_linked_to_the_same_Q(self, linked, Q):
-        Z = self.get_offset(linked[0])
-        sameQZ = True
+    def set_linked_to_the_same_Q(self, linked, layer, sameAsLayer=False):
+        Q = self.output_encodings[layer['outputs'][0]]
+        Z = self.get_offset(layer)
+        S = self.get_scale(layer)
+        sameQSZ = True
         for ly in linked:
             if(Q != self.get_encoding(ly)):
-                sameQZ = False
+                sameQSZ = False
                 break
             if(Z != self.get_offset(ly)):
-                sameQZ = False
+                sameQSZ = False
                 break
-        if(sameQZ):
+            if(S != self.get_scale(ly)):
+                sameQSZ = False
+                break
+        if(sameQSZ):
             return
-        bigV =[]
-        for ly in linked:
-            bigV.extend(self.outputs[ly['outputs'][0]].reshape(-1).tolist())
-        bigV = np.asarray(bigV)
-        _,scale,Q,Z = self.quanzize_QSZ(bigV)
+        if(sameAsLayer==False):
+            bigV =[]
+            for ly in linked:
+                bigV.extend(self.outputs[ly['outputs'][0]].reshape(-1).tolist())
+            bigV = np.asarray(bigV)
+            _,S,Q,Z = self.quanzize_QSZ(bigV)
         for ly in linked: # adjust all linked to the same Q
             q = self.output_encodings[ly['outputs'][0]]
-            if(q != Q):
-                print('warning: linked %s, set Q from %s to %s, better do quantization awareness training to get the same Q'%(ly['name'], q, Q))
-            self.output_encodings[ly['outputs'][0]] = Q
+            s = self.output_scales[ly['outputs'][0]]
             z = self.output_offsets[ly['outputs'][0]]
-            if(z != Z):
-                print('warning: linked %s, set Z from %s to %s'%(ly['name'], z, Z))
+            if(((q != Q) or (s != S) or (z != Z)) and (sameAsLayer==False)):
+                print('warning: linked %s, set Q:S:Z from %s : %.3f : %s to %s : %.3f : %s,\n'
+                      '\tbetter do quantization awareness training to get the same Q'%(ly['name'], 
+                        q,s,z,
+                        Q, S, Z))
+            self.output_encodings[ly['outputs'][0]] = Q
             self.output_offsets[ly['outputs'][0]] = Z
-            self.output_scales[ly['outputs'][0]] = scale
+            self.output_scales[ly['outputs'][0]] = S
 
     def get_Q_blob(self, layer):
         return '%s_Q'%(layer['name']), np.asarray([self.get_encoding(layer), self.get_offset(layer), self.get_scaleQ(layer)]).astype(np.int32)

@@ -178,10 +178,10 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 void nnt_fill_inputs_with_random(nn_input_t** inputs, float lo, float hi);
 void* nnt_load(const char* inraw, size_t *sz);
 
-int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q, int8_t Z=0, float scale=1.0);
-float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q, int8_t Z=0, float scale=1.0);
-int16_t* nnt_quantize16(float* in, size_t sz, int8_t Q);
-float* nnt_dequantize16(int16_t* in , size_t sz, int8_t Q);
+int8_t* nnt_quantize8(float* in, size_t sz, int32_t Q, int32_t Z=0, float scale=1.0);
+float* nnt_dequantize8(int8_t* in , size_t sz, int32_t Q, int32_t Z=0, float scale=1.0);
+int16_t* nnt_quantize16(float* in, size_t sz, int32_t Q);
+float* nnt_dequantize16(int16_t* in , size_t sz, int32_t Q);
 void nnt_siso_network_test(runtime_type_t runtime,
 		const network_t* network,
 		const char* input,

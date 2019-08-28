@@ -107,7 +107,7 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 	return equal;
 }
 
-int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q, int8_t Z, float scale)
+int8_t* nnt_quantize8(float* in, size_t sz, int32_t Q, int32_t Z, float scale)
 {
 	int8_t* out = (int8_t*)malloc(sz);
 	float v;
@@ -134,20 +134,20 @@ int8_t* nnt_quantize8(float* in, size_t sz, int8_t Q, int8_t Z, float scale)
 	return out;
 }
 
-float* nnt_dequantize8(int8_t* in , size_t sz, int8_t Q, int8_t Z, float scale)
+float* nnt_dequantize8(int8_t* in , size_t sz, int32_t Q, int32_t Z, float scale)
 {
 	float* out = (float*)malloc(sz*sizeof(float));
 	assert(out);
 
 	for(size_t i=0; i<sz; i++)
 	{
-		out[i] = scale*(in[i]+Z)/(std::pow(2,Q));
+		out[i] = scale*((float)in[i]+Z)/(std::pow(2,Q));
 	}
 
 	return out;
 }
 
-int16_t* nnt_quantize16(float* in, size_t sz, int8_t Q)
+int16_t* nnt_quantize16(float* in, size_t sz, int32_t Q)
 {
 	int16_t* out = (int16_t*)malloc(sz*sizeof(int16_t));
 	assert(out);
@@ -160,7 +160,7 @@ int16_t* nnt_quantize16(float* in, size_t sz, int8_t Q)
 	return out;
 }
 
-float* nnt_dequantize16(int16_t* in , size_t sz, int8_t Q)
+float* nnt_dequantize16(int16_t* in , size_t sz, int32_t Q)
 {
 	float* out = (float*)malloc(sz*sizeof(float));
 	assert(out);

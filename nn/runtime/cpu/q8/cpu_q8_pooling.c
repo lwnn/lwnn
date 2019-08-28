@@ -4,7 +4,7 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
-#ifndef DISABLE_RUNTIME_CPU_Q8
+#if !defined(DISABLE_RUNTIME_CPU_Q8) || !defined(DISABLE_RUNTIME_CPU_S8)
 #include "../runtime_cpu.h"
 
 #include "arm_math.h"
@@ -280,4 +280,37 @@ void layer_cpu_q8_AVGPOOL_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_q8_pool_deinit(nn, layer);
 }
+
+
+#ifndef DISABLE_RUNTIME_CPU_S8
+int layer_cpu_s8_MAXPOOL_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_pool_init(nn, layer);
+}
+
+int layer_cpu_s8_MAXPOOL_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_pool_execute(nn, layer);
+}
+
+void layer_cpu_s8_MAXPOOL_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_q8_pool_deinit(nn, layer);
+}
+
+int layer_cpu_s8_AVGPOOL_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_pool_init(nn, layer);
+}
+
+int layer_cpu_s8_AVGPOOL_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_pool_execute(nn, layer);
+}
+
+void layer_cpu_s8_AVGPOOL_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_q8_pool_deinit(nn, layer);
+}
+#endif /* DISABLE_RUNTIME_CPU_S8 */
 #endif /* DISABLE_RUNTIME_CPU_Q8 */
