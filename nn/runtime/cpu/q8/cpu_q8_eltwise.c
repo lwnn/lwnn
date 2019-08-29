@@ -151,5 +151,18 @@ void layer_cpu_s8_MAXIMUM_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_q8_eltwise_deinit(nn, layer);
 }
+
+int layer_cpu_s8_ADD_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_eltwise_init(nn, layer);
+}
+int layer_cpu_s8_ADD_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q8_eltwise_execute(nn, layer);
+}
+void layer_cpu_s8_ADD_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_q8_eltwise_deinit(nn, layer);
+}
 #endif
 #endif /* DISABLE_RUNTIME_CPU_Q8 */

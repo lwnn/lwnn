@@ -24,5 +24,5 @@ script:
   - ./lwnn_gtest
 
 env:
-  - DISABLE_OPENCL=True DISABLE_CPU_S8=True
+  - DISABLE_OPENCL=True
 

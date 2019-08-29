@@ -120,8 +120,12 @@ def concat(name, shape=[16, 16, 3], kernel_size=(3,3), strides=(1,1), padding="s
 
 def add(name, shape=[16, 16, 3], kernel_size=(3,3), strides=(1,1), padding="same"):
     input = Input(shape=shape, name=name+'_input')
-    x1 = Conv2D(32, kernel_size=kernel_size, strides=strides, padding=padding)(input)
-    x2 = Conv2D(32, kernel_size=kernel_size, strides=strides, padding=padding)(input)
+    weights = [np.random.uniform(low=-0.1,high=0.5,size=tuple(list(kernel_size)+[shape[-1],32])).astype(np.float32),
+               np.random.uniform(low=-0.1,high=3,size=tuple([32])).astype(np.float32)]
+    x1 = Conv2D(32, kernel_size=kernel_size, strides=strides, weights=weights, padding=padding)(input)
+    weights = [np.random.uniform(low=-0.7,high=0.9,size=tuple(list(kernel_size)+[shape[-1],32])).astype(np.float32),
+               np.random.uniform(low=-0.1,high=2,size=tuple([32])).astype(np.float32)]
+    x2 = Conv2D(32, kernel_size=kernel_size, strides=strides, weights=weights, padding=padding)(input)
     output = Add(name=name+'_output')([x1,x2])
     model = Model(inputs=input, outputs=output)
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}

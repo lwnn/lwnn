@@ -63,7 +63,7 @@ class LWNNQFormatC(LWNNBaseC):
         for layer in self.model.lwnn_model:
             if(layer['op'] in ['Relu', 'MaxPool','AveragePool','Reshape','Output']):
                 linked = self.model.get_layers(layer['inputs'])+[layer]
-                self.set_linked_to_the_same_Q(linked, linked[0], True)
+                self.set_linked_to_the_same_Q(linked[1:], linked[0], True)
 
     def set_linked_to_the_same_Q(self, linked, layer, sameAsLayer=False):
         Q = self.output_encodings[layer['outputs'][0]]
@@ -281,13 +281,16 @@ class LWNNQSFormatC(LWNNQFormatC):
             q = self.output_encodings[ly['outputs'][0]]
             s = self.output_scales[ly['outputs'][0]]
             z = self.output_offsets[ly['outputs'][0]]
-            if(((q != Q) or (s != S) or (z != Z)) and (sameAsLayer==False)):
+            aZ = Z
+            if(ly['op'] == 'Add'):
+                aZ = Z*2
+            if(((q != Q) or (s != S) or (z != aZ)) and (sameAsLayer==False)):
                 print('warning: linked %s, set Q:S:Z from %s : %.3f : %s to %s : %.3f : %s,\n'
                       '\tbetter do quantization awareness training to get the same Q'%(ly['name'], 
                         q,s,z,
-                        Q, S, Z))
+                        Q, S, aZ))
             self.output_encodings[ly['outputs'][0]] = Q
-            self.output_offsets[ly['outputs'][0]] = Z
+            self.output_offsets[ly['outputs'][0]] = aZ
             self.output_scales[ly['outputs'][0]] = S
 
     def get_Q_blob(self, layer):
