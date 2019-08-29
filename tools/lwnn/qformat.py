@@ -8,6 +8,8 @@ class LWNNQFormatC(LWNNBaseC):
         super().__init__(model, T, feeds)
         lwnn_model = self.model.clone()
         self.model.optimize(['RemoveReshape'])
+        if(T == 's8'):
+            self.model.optimize(['MergeReLUConv','MergeReLUDense'])
         self.calculate_output_encoding(feeds)
         self.fix_linked_to_the_same_Q()
         self.generate()
@@ -359,7 +361,12 @@ class LWNNQSFormatC(LWNNQFormatC):
         else:
             strides = list(layer['strides'])
 
-        M = np.asarray(list(layer['pads']) + strides, np.int32)
+        omin = -128
+        if('activation' in layer):
+            if(layer['activation'] == 'Relu'):
+                omin = - self.get_offset(layer)
+
+        M = np.asarray(list(layer['pads']) + strides + [omin], np.int32)
         n = layer['name']
         blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), ('%s_M'%(n), M)]
         blobs.append(('%s_output_mult'%(n), OMult))
@@ -386,7 +393,12 @@ class LWNNQSFormatC(LWNNQFormatC):
         B = B*(2**(Iq+Wq))/(Is*Ws)
         B = B.astype(np.int32)
 
-        M = np.asarray(list([Wq, Wz, out_mult]), np.int32)
+        omin = -128
+        if('activation' in layer):
+            if(layer['activation'] == 'Relu'):
+                omin = - self.get_offset(layer)
+
+        M = np.asarray(list([Wq, Wz, out_mult, omin]), np.int32)
 
         self.gen_layer_WBM(layer, Wt, B, M)
 

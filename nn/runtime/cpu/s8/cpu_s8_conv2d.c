@@ -66,6 +66,7 @@ int layer_cpu_s8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	int32_t *bias = (int32_t*)layer->blobs[2]->blob;
 	int knlX, knlY, padX, padY, strideX, strideY;
 	int* ints;
+	int omin;
 
 	size_t batch;
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
@@ -80,6 +81,8 @@ int layer_cpu_s8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	padX = ints[1];
 	strideY = ints[4];
 	strideX = ints[5];
+
+	omin = ints[6];
 
 	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d], Z=%d, %d -> %d\n",
 			layer->name,
@@ -103,7 +106,7 @@ int layer_cpu_s8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 					(const int32_t*)layer->blobs[4]->blob,
 					-LAYER_Z(layer),
 					LAYER_Z(input),
-					INT8_MIN,
+					omin,
 					INT8_MAX,
 					context->nhwc.W,
 					context->nhwc.H,

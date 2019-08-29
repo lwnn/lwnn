@@ -25,6 +25,8 @@ class LWNNModel():
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
+            (self.opt_IsLayerReLUConv, self.opt_MergeReLUConv, 'MergeReLUConv'),
+            (self.opt_IsLayerReLUDense, self.opt_MergeReLUDense, 'MergeReLUDense'),
             ]
         self.is_model_channel_first_cached=None
         self.name = name
@@ -405,6 +407,35 @@ class LWNNModel():
                 self.lwnn_model.insert(id, layer)
                 break
 
+    def opt_IsLayerActivationAfter(self, layer, act, op):
+        r = False
+        if('inputs' in layer):
+            inputs = self.get_layers(layer['inputs'])
+            if((layer['op'] == act) and 
+                   (len(inputs) == 1) and
+                   (inputs[0]['op'] == op)):
+                r = True
+        return r
+
+    def opt_MergeActivation(self, layer, activation):
+        inputs = self.get_layers(layer['inputs'])
+        inp = inputs[0]
+        inp['activation'] = activation
+        self.opt_RemoveLayer(layer)
+        return True
+
+    def opt_IsLayerReLUConv(self, layer):
+        return self.opt_IsLayerActivationAfter(layer, 'Relu', 'Conv')
+
+    def opt_MergeReLUConv(self, layer):
+        return self.opt_MergeActivation(layer, 'Relu')
+
+    def opt_IsLayerReLUDense(self, layer):
+        return self.opt_IsLayerActivationAfter(layer, 'Relu', 'Dense')
+
+    def opt_MergeReLUDense(self, layer):
+        return self.opt_MergeActivation(layer, 'Relu')
+
     def opt_IsLayerConvBeforeBN(self, layer):
         r = False
         consumers = self.get_consumers(layer)
@@ -432,13 +463,7 @@ class LWNNModel():
             raise Exception("don't know how to fuse for %s shape %s"%(layer.name, c_w.shape))
         layer['weights'] = c_w
         layer['bias'] = c_b
-        bn_consumers = self.get_consumers(bn)
-        for ly in bn_consumers:
-            new_ly = dict(ly)
-            new_ly['inputs'] = bn['inputs']
-            self.insert_after(bn, new_ly)
-        for ly in [bn] + bn_consumers:
-            self.lwnn_model.remove(ly)
+        self.opt_RemoveLayer(bn)
         return True
 
     def opt_IsLayerBeforeReshape(self, layer):
@@ -459,16 +484,8 @@ class LWNNModel():
             fr = consumers[0]
 
         layers = self.get_between_layers(fr, to)
-        new_layer = dict(to)
-        new_layer['inputs'] = layer['inputs']
-        self.insert_after(to, new_layer)
-        for ly in [layer,to]+layers:
-            if(ly['op'] == 'Concat'):
-                inputs = self.get_layers(ly['inputs'])
-                for inp in inputs:
-                    if(inp in self.lwnn_model):
-                        self.lwnn_model.remove(inp)
-            self.lwnn_model.remove(ly)
+        for ly in [layer]+layers:
+            self.opt_RemoveLayer(ly)
         return True
 
     def opt_IsLayerIdentity(self, layer):
@@ -489,13 +506,10 @@ class LWNNModel():
     def opt_LayerDense(self, layer):
         consumers = self.get_consumers(layer)
         add = consumers[0]
-        new_layer = dict(add)
-        new_layer['op'] = 'Dense'
-        new_layer['inputs'] = layer['inputs']
-        new_layer['weights'] = layer['weights']
-        self.insert_after(add, new_layer)
-        for ly in [layer,add]:
-            self.lwnn_model.remove(ly)
+        add['op'] = 'Dense'
+        add['inputs'] = layer['inputs']
+        add['weights'] = layer['weights']
+        self.lwnn_model.remove(layer)
         return True
 
     def opt_IsLayerConv1D(self, layer):
@@ -574,11 +588,8 @@ class LWNNModel():
                     new_inputs.append(self.get_layers(inp['inputs'])[0]['name'])
                 else:
                     new_inputs.append(inp['name'])
-            new_layer = dict(ly)
-            new_layer['inputs'] = new_inputs
-            self.insert_after(layer, new_layer)
-        for ly in [layer] + consumers:
-            self.lwnn_model.remove(ly)
+            ly['inputs'] = new_inputs
+        self.lwnn_model.remove(layer)
         return True
 
     def opt_IsLayerUnused(self, layer):

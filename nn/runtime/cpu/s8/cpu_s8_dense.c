@@ -62,6 +62,7 @@ int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 	int32_t filter_offset;
 	int32_t out_mult;
 	int8_t wQ;
+	int omin;
 
 	uint16_t col_dim = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 1);
 	uint16_t row_dim = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 0);
@@ -74,6 +75,7 @@ int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 	wQ = RTE_FETCH_INT32(layer->blobs[3]->blob, 0);
 	filter_offset = RTE_FETCH_INT32(layer->blobs[3]->blob, 1);
 	out_mult = RTE_FETCH_INT32(layer->blobs[3]->blob, 2);
+	omin = RTE_FETCH_INT32(layer->blobs[3]->blob, 3);
 
 	NNLOG(NN_DEBUG, ("execute %s: [%d %d] %d -> %d\n",
 			layer->name,
