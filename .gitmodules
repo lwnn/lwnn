@@ -1,0 +1,3 @@
+[submodule "nn/third_party/CMSIS_5"]
+	path = nn/third_party/CMSIS_5
+	url = https://github.com/lwnn/CMSIS_5.git

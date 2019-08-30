@@ -2,7 +2,7 @@ from building import *
 Import('asenv')
 
 objs = []
-cmsis = Package('https://github.com/autoas/CMSIS_5.git', version='lwnn')
+cmsis = Package('https://github.com/lwnn/CMSIS_5.git')
 objs += Glob('CMSIS_5/CMSIS/NN/Source/*/*.c')
 objs += Glob('CMSIS_5/CMSIS/DSP/Source/BasicMathFunctions/*.c')
 asenv.Append(CPPPATH=['%s/CMSIS/NN/Include'%(cmsis),
