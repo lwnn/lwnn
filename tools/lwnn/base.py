@@ -1,8 +1,6 @@
 # LWNN - Lightweight Neural Network
 # Copyright (C) 2019  Parai Wang <parai@foxmail.com>
 
-import onnx
-import onnxruntime
 import os
 import numpy as np
 
@@ -47,8 +45,8 @@ class LWNNBaseC():
         else:
             feeds = None
         outputs = self.model.run(feeds)
-        goldens = [n.name for n in self.model.onnx_model.graph.input] + \
-                [n.name for n in self.model.onnx_model.graph.output]
+        goldens = [n.name for n in self.model.input] + \
+                [n.name for n in self.model.output]
         for n, v in outputs.items():
             if(self.model.is_model_channel_first()):
                 if(len(v.shape) == 4):

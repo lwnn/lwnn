@@ -31,7 +31,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | Concat | Y | Y | Y | Y | Y | |
 | AvgPool1D | Y | Y | Y | Y | Y | based on AvgPool2D |
 | AvgPool2D | Y | Y | Y | Y | Y | |
-| Add | Y | N | Y | Y | Y | |
+| Add | Y | Y | Y | Y | Y | |
 
 ## Development
 

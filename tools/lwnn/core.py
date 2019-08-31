@@ -5,12 +5,7 @@ from .float import *
 from .qformat import *
 
 class LWNNModel():
-    def __init__(self, onnx_model, name):
-        self.TRANSLATOR = {
-                    'Conv': self.to_LayerConv,
-                    'BatchNormalization': self.to_LayerBatchNormalization,
-                    'MatMul': self.to_LayerMatMul,
-                    'Add': self.to_LayerAdd }
+    def __init__(self, converter, name):
         self.OPTIMIER = [
             (self.nchw_IsLayerNHWC, self.nchw_ActionLayerNHWC, None),
             (self.nchw_IsInputAdjustLayer, self.nchw_ActionInputAdjustLayer, None),
@@ -29,14 +24,10 @@ class LWNNModel():
             (self.opt_IsLayerReLUDense, self.opt_MergeReLUDense, 'MergeReLUDense'),
             ]
         self.is_model_channel_first_cached=None
+        self.converter = converter
         self.name = name
-        if(type(onnx_model) == str):
-            onnx_model = onnx.load(onnx_model)
-        else:
-            self.save(onnx_model)
-        self.onnx_model = onnx_model
-        self.shapes = self.eval_shapes()
-        self.lwnn_model = self.convert()
+        self.converter.save(self.path)
+        self.lwnn_model = self.converter.convert()
         # optimization and convert to NCHW if origin model is NHWC
         self.prepare()
         self.omodel = self.clone()
@@ -46,15 +37,21 @@ class LWNNModel():
         self.check()
         print(self)
 
+    @property
+    def input(self):
+        return self.converter.input
+    @property
+    def output(self):
+        return self.converter.output
+
+    def run(self, feed=None):
+        return self.converter.run(feed)
+
     def clone(self):
         return [dict(ly) for ly in self.lwnn_model]
 
     def set(self, model):
         self.lwnn_model = model
-
-    def save(self, onnx_model):
-        with open(self.path+'.onnx','wb') as f:
-            f.write(onnx_model.SerializeToString())
 
     @property
     def path(self):
@@ -86,100 +83,6 @@ class LWNNModel():
         LWNNQFormatC(self, 'q16', feeds)
         LWNNQSFormatC(self, feeds)
 
-    def get_inputs(self, node):
-        inputs = []
-        # order is important for some layers such as Concat
-        for iname in node.input:
-            for inp in self.onnx_model.graph.input:
-                if(inp.name == iname):
-                    inputs.append(inp.name)
-            for node2 in self.onnx_model.graph.node:
-                for out in node2.output:
-                    if(out == iname):
-                        inputs.append(node2.name)
-        return inputs
-
-    def eval_node_output_type(self, output):
-        # TODO: yes, this sounds stupid, is there anyway better?
-        def is_type_okay(oT):
-            oldoutputs = [n for n in self.onnx_model.graph.output]
-            del self.onnx_model.graph.output[:]
-            newoutputs = [onnx.helper.make_tensor_value_info(output, oT, None)]
-            self.onnx_model.graph.output.extend(newoutputs)
-            onnx.save(self.onnx_model, '.tmp.onnx')
-            del self.onnx_model.graph.output[:]
-            self.onnx_model.graph.output.extend(oldoutputs)
-            try:
-                sess = onnxruntime.InferenceSession('.tmp.onnx')
-                return True
-            except:
-                return False
-        for oT in [onnx.TensorProto.FLOAT, onnx.TensorProto.INT64, onnx.TensorProto.INT32]:
-            if(is_type_okay(oT)):
-                return oT
-        raise Exception("can't determint output type for %s"%(output))
-
-    def run(self, feed=None):
-        outputs = {}
-        oldoutputs = [n for n in self.onnx_model.graph.output]
-        del self.onnx_model.graph.output[:]
-        newoutputs = []
-        for node in self.onnx_model.graph.node:
-            for output in node.output:
-                oT = self.eval_node_output_type(output)
-                newoutputs.append(onnx.helper.make_tensor_value_info(output, oT, None))
-        self.onnx_model.graph.output.extend(newoutputs)
-
-        onnx.save(self.onnx_model, '.tmp.onnx')
-        del self.onnx_model.graph.output[:]
-        self.onnx_model.graph.output.extend(oldoutputs)
-
-        sess = onnxruntime.InferenceSession('.tmp.onnx')
-        if(feed == None):
-            feed = {}
-            for inp in sess.get_inputs():
-                shape = list(inp.shape)
-                if((str(shape[0]) == 'None') or (shape[0] == 'N')):
-                    shape[0] = 1
-                data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
-                feed[inp.name] = data
-        else:
-            feedo = feed
-            feed = {}
-            for inp in sess.get_inputs():
-                for name, data in feedo.items():
-                    m = min(len(inp.name), len(name))
-                    if((inp.name[:m] == name[:m]) or
-                       (inp.name[:m-2] == name[:m-2])):
-                        feed[inp.name] = data
-        for n, v in feed.items():
-            outputs[n] = v
-        rs = sess.run(None, feed)
-        for r,o in zip(rs, newoutputs):
-            outputs[o.name] = r
-        return outputs
-
-    def eval_shapes(self):
-        shapes = {}
-        outputs = self.run()
-        for name, r in outputs.items():
-            shapes[name] = r.shape
-        return shapes
-
-    def get_shape(self, node):
-        return self.shapes[node.output[0]]
-
-    def get_initializer(self, name):
-        for init in self.onnx_model.graph.initializer:
-            if(name == init.name):
-                return init
-        raise Exception('ERROR: weights %s is not found'%(name))
-
-    def get_weights(self, layer, node, wl):
-        for id,name in enumerate(wl):
-            W = self.get_initializer(node.input[id+1])
-            layer[name] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
-
     def get_layers(self, names, model=None):
         layers = []
         if(model == None):
@@ -188,79 +91,6 @@ class LWNNModel():
             if(layer['name'] in names):
                 layers.append(layer)
         return layers
-
-    def to_LayerCommon(self, node):
-        layer = {'name': node.name, 'op': node.op_type, 'inputs':self.get_inputs(node), 'outputs':node.output}
-        layer['shape'] = self.get_shape(node)
-        for attr in node.attribute:
-            layer[attr.name] = onnx.helper.get_attribute_value(attr)
-        return layer
-
-    def to_LayerConv(self, node):
-        layer = self.to_LayerCommon(node)
-        if('pads' not in layer):
-            layer['pads'] = [0,0,0,0]
-        W = self.get_initializer(node.input[1])
-        B = self.get_initializer(node.input[2])
-        layer['filters'] = int(W.dims[0])
-        layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
-        layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
-        return layer
-
-    def to_LayerBatchNormalization(self, node):
-        layer = self.to_LayerCommon(node)
-        self.get_weights(layer, node, ['scale', 'bias', 'mean', 'var'])
-        return layer
-
-    def to_LayerMatMul(self, node):
-        layer = self.to_LayerCommon(node)
-        W = self.get_initializer(node.input[1])
-        layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
-        return layer
-
-    def to_LayerAdd(self, node):
-        layer = self.to_LayerCommon(node)
-        try:
-            B = self.get_initializer(node.input[1])
-            layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
-        except:
-            pass
-        return layer
-
-    def convert(self):
-        lwnn_model = []
-        for inp in self.onnx_model.graph.input:
-            shape = [int(dim.dim_value) for dim in inp.type.tensor_type.shape.dim]
-            if(shape[0] == 0):
-                shape[0] = 1
-            layer = {'name': inp.name, 
-                     'op': 'Input',
-                     'outputs' : [inp.name],
-                     'shape': shape }
-            lwnn_model.append(layer)
-        for node in self.onnx_model.graph.node:
-            if(node.op_type in self.TRANSLATOR):
-                translator = self.TRANSLATOR[node.op_type]
-            else:
-                translator = self.to_LayerCommon
-            layer = translator(node)
-            if(layer != None):
-                lwnn_model.append(layer)
-            else:
-                print('WARNINING: layer %s is ignored:\n%s\n'%(node.name, node))
-        for out in self.onnx_model.graph.output:
-            inp = None
-            for ly in lwnn_model:
-                if(out.name in ly['outputs']):
-                    inp = ly
-                    break
-            layer = {'name': out.name,
-                     'op': 'Output',
-                     'inputs': [inp['name']],
-                     'outputs' : [out.name],
-                     'shape': inp['shape'] }
-            lwnn_model.append(layer)
-        return lwnn_model
 
     def nchw_IsInputAdjustLayer(self, layer):
         r = False
