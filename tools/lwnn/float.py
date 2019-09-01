@@ -5,7 +5,10 @@ from .base import *
 
 class LWNNFloatC(LWNNBaseC):
     def __init__(self, model, feeds=None):
-        super().__init__(model, 'float', feeds)
+        try:
+            super().__init__(model, 'float', feeds)
+        except:
+            LWNNBaseC.__init__(self, model, 'float', feeds)
         self.generate()
 
     def gen_LayerConv(self, layer):

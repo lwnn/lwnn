@@ -60,7 +60,11 @@ class LWNNModel():
         else:
             p = self.name
         d = os.path.dirname(p)
-        os.makedirs(d, exist_ok=True)
+        try:
+            os.makedirs(d)
+        except:
+            if(not os.path.exists(d)):
+                raise Exception('Fatal Error: can\'t create directory <%s>'%(d))
         return p
 
     def open(self, fix='.c'):
