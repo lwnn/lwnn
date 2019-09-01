@@ -21,8 +21,15 @@ class CaffeConverter():
             self.layers = self.net.layer
         self.TRANSLATOR = {
             'Convolution': self.to_LayerConv,
+            'Permute': self.to_LayerTranspose,
+            'PriorBox': self.to_LayerPriorBox,
+            'DetectionOutput': self.to_LayerDetectionOutput,
+            'Concat': self.to_LayerConcat,
              }
-        self.opMap = {'ReLU': 'Relu'}
+        self.opMap = { 
+            'ReLU': 'Relu', 
+            'Flatten': 'Reshape',
+            }
 
     def to_LayerCommon(self, cly, op=None):
         name = str(cly.name)
@@ -30,7 +37,7 @@ class CaffeConverter():
         layer = { 'name':name,
                   'outputs': [str(o) for o in cly.top],
                   'inputs': [str(o) for o in cly.bottom],
-                  'shape': blob.data.shape
+                  'shape': list(blob.data.shape)
                 }
         if(op == None):
             op = str(cly.type)
@@ -52,16 +59,53 @@ class CaffeConverter():
         stride = cly.convolution_param.stride
         pad = cly.convolution_param.pad
         if(len(stride)==1):
-            strideW  = strideH = eval(str(stride[0]))
+            strideW  = strideH = stride[0]
         else:
             strideW  = strideH = 1
         if(len(pad)==1):
-            padW  = padH = eval(str(pad[0]))
+            padW  = padH = pad[0]
         else:
             padW  = padH = 1
         layer['strides'] = [strideW,strideH]
         layer['pads'] = [padW,padH,0,0]
         layer['group'] = 1
+        return layer
+
+    def to_LayerTranspose(self, cly):
+        layer = self.to_LayerCommon(cly, 'Transpose')
+        layer['perm'] = [d for d in cly.permute_param.order]
+        return layer
+
+    def to_LayerPriorBox(self, cly):
+        layer = self.to_LayerCommon(cly)
+        layer['min_size'] = cly.prior_box_param.min_size[0]
+        layer['aspect_ratio'] = cly.prior_box_param.aspect_ratio[0]
+        layer['variance'] = [v for v in cly.prior_box_param.variance]
+        layer['offset'] = cly.prior_box_param.offset
+        layer['flip'] = cly.prior_box_param.flip
+        layer['clip'] = cly.prior_box_param.clip
+        return layer
+
+    def to_LayerDetectionOutput(self, cly):
+        layer = self.to_LayerCommon(cly)
+        layer['num_classes'] = cly.detection_output_param.num_classes
+        layer['nms_threshold'] = cly.detection_output_param.nms_param.nms_threshold
+        layer['top_k'] = cly.detection_output_param.nms_param.top_k
+        layer['code_type'] = cly.detection_output_param.code_type
+        layer['keep_top_k'] = cly.detection_output_param.keep_top_k
+        layer['confidence_threshold'] = cly.detection_output_param.confidence_threshold
+        layer['share_location'] = cly.detection_output_param.share_location
+        layer['background_label_id'] = cly.detection_output_param.background_label_id
+        shape = layer['shape']
+        layer['shape'] = [shape[0],
+                          shape[3],
+                          cly.detection_output_param.num_classes*2 if (shape[2]==1) else shape[2],
+                          shape[1]]
+        return layer
+
+    def to_LayerConcat(self, cly):
+        layer = self.to_LayerCommon(cly)
+        layer['axis'] = cly.concat_param.axis
         return layer
 
     def save(self, path):
@@ -100,29 +144,32 @@ class CaffeConverter():
                 translator = self.to_LayerCommon
             layer = translator(ly)
             lwnn_model.append(layer)
-        for ly in self.model.inputs:
-            layers = self.get_layers([ly], lwnn_model)
+        for iname in self.model.inputs:
+            iname = str(iname)
+            layers = self.get_layers([iname], lwnn_model)
             if(len(layers) == 0):
-                layer = { 'name': ly, 
+                layer = { 'name': iname, 
                           'op': 'Input',
-                          'outputs' : [ly],
-                          'shape': self.model.blobs[ly].data.shape }
+                          'outputs' : [iname],
+                          'shape': self.model.blobs[iname].data.shape }
                 lwnn_model.insert(0, layer)
-        for ly in self.model.outputs:
-            layer = { 'name': ly+'_O', 
+        for oname in self.model.outputs:
+            oname = str(oname)
+            inp = None
+            for ly in lwnn_model:
+                if(oname in ly['outputs']):
+                    inp = ly
+                    break
+            layer = { 'name': oname+'_O', 
                       'op': 'Output',
-                      'inputs' : [ly],
-                      'outputs' : [ly],
-                      'shape': self.model.blobs[ly].data.shape }
+                      'inputs' : [inp['name']],
+                      'outputs' : [oname+'_O'],
+                      'shape': inp['shape'] }
             lwnn_model.append(layer)
         for ly in lwnn_model:
             if('inputs' in ly):
                 inputs = self.get_inputs(ly, lwnn_model)
-                if(len(inputs)):
-                    ly['inputs'] = inputs
-                else:
-                    print('xx',ly['name'], ly['inputs'])
-                    exit()
+                ly['inputs'] = inputs
         return lwnn_model
 
 def caffe2lwnn(model, name, **kargs):
