@@ -50,14 +50,21 @@ class CaffeConverter():
         layer = self.to_LayerCommon(cly, 'Input')
         return layer
 
+    def get_field(self, param, field, default):
+        if('%s:'%(field) in str(param)):
+            v = param.__getattribute__(field)
+        else:
+            v = default
+        return v
+
     def to_LayerConv(self, cly):
         layer = self.to_LayerCommon(cly, 'Conv')
         name = layer['name']
         params = self.model.params[name]
         layer['weights'] = params[0].data
         layer['bias'] = params[1].data
-        stride = cly.convolution_param.stride
-        pad = cly.convolution_param.pad
+        stride = self.get_field(cly.convolution_param, 'stride', [1])
+        pad = self.get_field(cly.convolution_param, 'pad', [0])
         if(len(stride)==1):
             strideW  = strideH = stride[0]
         else:
@@ -68,7 +75,7 @@ class CaffeConverter():
             padW  = padH = 1
         layer['strides'] = [strideW,strideH]
         layer['pads'] = [padW,padH,0,0]
-        layer['group'] = 1
+        layer['group'] = self.get_field(cly.convolution_param, 'group', 1)
         return layer
 
     def to_LayerTranspose(self, cly):
@@ -124,8 +131,10 @@ class CaffeConverter():
 
     def get_inputs(self, layer, lwnn_model):
         inputs = []
+        L = list(lwnn_model)
+        L.reverse()
         for iname in layer['inputs']:
-            for ly in lwnn_model:
+            for ly in L:
                 for o in ly['outputs']:
                     if(o == iname):
                         inputs.append(ly['name'])
@@ -166,9 +175,9 @@ class CaffeConverter():
                       'outputs' : [oname+'_O'],
                       'shape': inp['shape'] }
             lwnn_model.append(layer)
-        for ly in lwnn_model:
+        for id,ly in enumerate(lwnn_model):
             if('inputs' in ly):
-                inputs = self.get_inputs(ly, lwnn_model)
+                inputs = self.get_inputs(ly, lwnn_model[:id])
                 ly['inputs'] = inputs
         return lwnn_model
 

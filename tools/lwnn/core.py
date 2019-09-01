@@ -18,6 +18,7 @@ class LWNNModel():
             (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
             (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
+            (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, None),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             (self.opt_IsLayerReLUConv, self.opt_MergeReLUConv, 'MergeReLUConv'),
@@ -433,6 +434,14 @@ class LWNNModel():
             r = True
         return r
 
+    def opt_IsLayerTransposeCanBeRemoved(self, layer):
+        r = False
+        if((layer['op'] == 'Transpose') and
+           (layer['perm'] == [0 , 2 , 3 , 1])):
+            # LWNN is already NHWC
+            r = True
+        return r
+
     def opt_LayerUnusedAction(self, layer):
         self.lwnn_model.remove(layer)
         return True
@@ -484,12 +493,18 @@ class LWNNModel():
         if(model == None):
             model = self.lwnn_model
         cstr = 'LWNN Model %s:\n'%(self.name)
+        order = ['name', 'op', 'shape','inputs', 'outputs', 'weights', 'bias']
         for layer in model:
             cstr += ' {'
+            for k in order:
+                if(k in layer):
+                    v = layer[k]
+                    if(k in ['weights','bias']):
+                        cstr += '%s: %s, '%(k, v.shape)
+                    else:
+                        cstr += '%s: %s, '%(k,v)
             for k,v in layer.items():
-                if(k in ['weights','bias']):
-                    cstr += '%s: %s, '%(k, v.shape)
-                else:
+                if(k not in order):
                     cstr += '%s: %s, '%(k,v)
             cstr += '}\n'
         return cstr

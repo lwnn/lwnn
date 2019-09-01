@@ -36,7 +36,19 @@
 		"build/" RAW_P #name "/" LIBFIX #name "_q16" DLLFIX ,		\
 		"build/" RAW_P #name "/" LIBFIX #name "_float" DLLFIX ,		\
 		RAW_P #name "/golden/input.raw",							\
-		RAW_P #name "/golden/output.raw"							\
+		RAW_P #name "/golden/output.raw",							\
+		NULL														\
+	}
+
+#define NNT_CASE_DESC_ARGS(name)									\
+	{																\
+		"build/" RAW_P #name "/" LIBFIX #name "_q8" DLLFIX ,		\
+		"build/" RAW_P #name "/" LIBFIX #name "_s8" DLLFIX ,		\
+		"build/" RAW_P #name "/" LIBFIX #name "_q16" DLLFIX ,		\
+		"build/" RAW_P #name "/" LIBFIX #name "_float" DLLFIX ,		\
+		RAW_P #name "/golden/",										\
+		RAW_P #name "/golden/",										\
+		&nnt_##name##_args											\
 	}
 
 #define NNT_CASE_DEF(name)	\
@@ -73,6 +85,7 @@ TEST(Runtime##runtime, Model##name##T)					\
 				name##_cases[i].network##T,				\
 				name##_cases[i].input,					\
 				name##_cases[i].output,					\
+				name##_cases[i].args,					\
 				NNT_##name##_TOP1,						\
 				NNT_##name##_NOT_FOUND_OKAY);			\
 	}													\
@@ -162,6 +175,7 @@ typedef struct {
 	const char* networkFloat;
 	const char* input;
 	const char* output;
+	const void* args;
 } nnt_case_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int g_CaseNumber; /* default -1 */

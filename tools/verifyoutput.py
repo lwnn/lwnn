@@ -18,7 +18,7 @@ def compare(a, b, name=''):
     plt.plot(aL)
     plt.plot(aL1,'r')
     plt.grid()
-    plt.title('gloden-%s'%(name))
+    plt.title('golden-%s'%(name))
     plt.subplot(133)
     plt.plot(bL1,'g')
     plt.plot(aL1,'r')

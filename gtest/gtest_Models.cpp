@@ -10,10 +10,22 @@
 
 #define NNT_UCI_INCEPTION_NOT_FOUND_OKAY TRUE
 #define NNT_UCI_INCEPTION_TOP1 0.85
+
+#define NNT_SSD_NOT_FOUND_OKAY TRUE
+#define NNT_SSD_TOP1 0.9
+
 /* ============================ [ TYPES     ] ====================================================== */
+typedef struct {
+	void* (*load_input)(const char* path, int id, size_t* sz);
+	void* (*load_output)(const char* path, int id, size_t* sz);
+	int (*compare)(int id, float * output, size_t szo, float* gloden, size_t szg);
+	size_t n;
+} nnt_model_args_t;
 /* ============================ [ DECLARES  ] ====================================================== */
+static void* load_input(const char* path, int id, size_t* sz);
+static void* load_output(const char* path, int id, size_t* sz);
+static int ssd_compare(int id, float * output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
-/* ============================ [ LOCALS    ] ====================================================== */
 NNT_CASE_DEF(MNIST) =
 {
 	NNT_CASE_DESC(mnist),
@@ -23,37 +35,82 @@ NNT_CASE_DEF(UCI_INCEPTION) =
 {
 	NNT_CASE_DESC(uci_inception),
 };
+
+static const nnt_model_args_t nnt_ssd_args =
+{
+	load_input,
+	load_output,
+	ssd_compare,
+	7	/* 7 test images */
+};
+
+NNT_CASE_DEF(SSD) =
+{
+	NNT_CASE_DESC_ARGS(ssd),
+};
+/* ============================ [ LOCALS    ] ====================================================== */
+static void* load_input(const char* path, int id, size_t* sz)
+{
+	char name[256];
+	snprintf(name, sizeof(name), "%s/input%d.raw", path, id);
+
+	return nnt_load(name, sz);
+}
+
+static void* load_output(const char* path, int id, size_t* sz)
+{
+	char name[256];
+	snprintf(name, sizeof(name), "%s/output%d.raw", path, id);
+
+	return nnt_load(name, sz);
+}
+static int ssd_compare(int id, float* output, size_t szo, float* gloden, size_t szg)
+{
+	return 0;
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 void ModelTestMain(runtime_type_t runtime,
 		const network_t* network,
 		const char* input,
 		const char* output,
+		const nnt_model_args_t* args,
 		float mintop1)
 {
 	int r = 0;
 	size_t x_test_sz;
 	size_t y_test_sz;
-	float* x_test = (float*)nnt_load(input, &x_test_sz);
-	int32_t* y_test = (int32_t*)nnt_load(output,&y_test_sz);
+	float* x_test = NULL;
+	int32_t* y_test = NULL;
 
 	const nn_input_t* const * inputs = network->inputs;
 	const nn_output_t* const * outputs = network->outputs;
 
-	int H = RTE_FETCH_INT32(inputs[0]->layer->dims, 1);
-	int W = RTE_FETCH_INT32(inputs[0]->layer->dims, 2);
-	int C = RTE_FETCH_INT32(inputs[0]->layer->dims, 3);
-	if(C==0)
-	{
-		C=1;
-	}
-	int B = x_test_sz/(H*W*C*sizeof(float));
-
-	int classes = RTE_FETCH_INT32(outputs[0]->layer->dims, 1);
-
-	ASSERT_EQ(B, y_test_sz/sizeof(int32_t));
+	int H,W,C,B;
+	int classes;
 
 	nn_t* nn = nn_create(network, runtime);
 	ASSERT_TRUE(nn != NULL);
+
+	if(NULL == nn)
+	{
+		return;
+	}
+
+	H = inputs[0]->layer->C->context->nhwc.H;
+	W = inputs[0]->layer->C->context->nhwc.W;
+	C = inputs[0]->layer->C->context->nhwc.C;
+	classes = NHWC_BATCH_SIZE(outputs[0]->layer->C->context->nhwc);
+	if(NULL == args)
+	{
+		x_test = (float*)nnt_load(input, &x_test_sz);
+		y_test = (int32_t*)nnt_load(output,&y_test_sz);
+		B = x_test_sz/(H*W*C*sizeof(float));
+		ASSERT_EQ(B, y_test_sz/sizeof(int32_t));
+	}
+	else
+	{
+		B = args->n;
+	}
 
 	void* IN;
 
@@ -64,8 +121,23 @@ void ModelTestMain(runtime_type_t runtime,
 		{
 			i = g_CaseNumber;
 		}
-		float* in = x_test+H*W*C*i;
+		float* in;
 		size_t sz_in;
+		float* golden;
+		size_t sz_golden;
+
+		if(NULL == args)
+		{
+			in = x_test+H*W*C*i;
+		}
+		else
+		{
+			in = (float*)args->load_input(input, i, &sz_in);
+			EXPECT_EQ(sz_in, H*W*C*sizeof(float));
+			golden = (float*)args->load_output(input, i, &sz_golden);
+			ASSERT_TRUE(golden != NULL);
+		}
+
 		if(network->type== NETWORK_TYPE_Q8)
 		{
 			sz_in = H*W*C;
@@ -117,31 +189,48 @@ void ModelTestMain(runtime_type_t runtime,
 				out = nnt_dequantize16((int16_t*)out, classes, LAYER_Q(outputs[0]->layer));
 			}
 
-			for(int j=0; j<classes; j++)
+			if(NULL == args)
 			{
-				if(out[j] > prob)
+				for(int j=0; j<classes; j++)
 				{
-					prob = out[j];
-					y = j;
+					if(out[j] > prob)
+					{
+						prob = out[j];
+						y = j;
+					}
+				}
+
+				EXPECT_GE(y, 0);
+
+				if(y == y_test[i])
+				{
+					top1 ++;
 				}
 			}
-
-			EXPECT_GE(y, 0);
-
-			if(y == y_test[i])
+			else
 			{
-				top1 ++;
+				y = args->compare(i, out, classes, golden, sz_golden/sizeof(float));
+				if(0 == y)
+				{
+					top1 ++;
+				}
+
+				free(in);
+				free(golden);
+			}
+
+			if(g_CaseNumber != -1)
+			{
+				if(NULL == args)
+				{
+					printf("image %d predict as %d%s%d with prob=%.2f\n", i, y, (y==y_test[i])?"==":"!=", y_test[i], prob);
+				}
+				break;
 			}
 
 			if(out != outputs[0]->data)
 			{
 				free(out);
-			}
-
-			if(g_CaseNumber != -1)
-			{
-				printf("image %d predict as %d%s%d with prob=%.2f\n", i, y, (y==y_test[i])?"==":"!=", y_test[i], prob);
-				break;
 			}
 		}
 
@@ -163,8 +252,14 @@ void ModelTestMain(runtime_type_t runtime,
 	}
 	nn_destory(nn);
 
-	free(x_test);
-	free(y_test);
+	if(NULL != x_test)
+	{
+		free(x_test);
+	}
+	if(NULL != y_test)
+	{
+		free(y_test);
+	}
 
 }
 
@@ -172,6 +267,7 @@ void NNTModelTestGeneral(runtime_type_t runtime,
 		const char* netpath,
 		const char* input,
 		const char* output,
+		const void* args,
 		float mintop1,
 		float not_found_okay)
 {
@@ -186,7 +282,7 @@ void NNTModelTestGeneral(runtime_type_t runtime,
 	{
 		return;
 	}
-	ModelTestMain(runtime, network, input, output, mintop1);
+	ModelTestMain(runtime, network, input, output, (const nnt_model_args_t*)args, mintop1);
 	dlclose(dll);
 }
 
@@ -194,3 +290,4 @@ NNT_MODEL_TEST_ALL(MNIST)
 
 NNT_MODEL_TEST_ALL(UCI_INCEPTION)
 
+NNT_MODEL_TEST_CPU_FLOAT(SSD)
