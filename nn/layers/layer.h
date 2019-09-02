@@ -83,10 +83,18 @@ extern "C" {
 			inputs, NULL };								\
 	L_LAYER_MI(name, CONCAT)
 
-#define L_PRIORBOX(name, inputs)						\
-	static LCONST layer_t* l_inputs_##name[] = {		\
-			inputs, NULL };								\
-	L_LAYER_MI(name, PRIORBOX)
+#define L_CONST(name)									\
+	static layer_context_container_t l_context_##name;	\
+	static LCONST int l_dims_##name[] = { name##_DIMS, 0 };	\
+	static LCONST layer_t l_layer_##name = {			\
+		/* name */ #name,								\
+		/* inputs */ NULL,								\
+		/* blobs */ l_blobs_##name,						\
+		/* dims */ l_dims_##name,						\
+		/* context */ &l_context_##name,				\
+		/* op */ L_OP_CONST,							\
+		/* dtype */ L_DT_AUTO							\
+	}
 
 #define L_DETECTIONOUTPUT(name, inputs)					\
 	static LCONST layer_t* l_inputs_##name[] = {		\

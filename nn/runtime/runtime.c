@@ -120,7 +120,7 @@ int rte_is_layer_consumed_from(const nn_t* nn, const layer_t* layer, const layer
 	do
 	{
 		inputs = (*layers)->inputs;
-		while((*inputs != NULL) && (FALSE == r))
+		while((inputs != NULL) && (*inputs != NULL) && (FALSE == r))
 		{
 			if(*inputs == layer)
 			{

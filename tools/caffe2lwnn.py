@@ -7,6 +7,7 @@ os.environ['GLOG_minloglevel'] = '2'
 import caffe
 from caffe.proto import caffe_pb2
 from google.protobuf import text_format
+import numpy as np
 
 __all__ = ['caffe2lwnn']
 
@@ -118,8 +119,20 @@ class CaffeConverter():
     def save(self, path):
         pass
 
-    def run(self, feed=None):
+    def run(self, feed):
         outputs = {}
+        if(feed == None):
+            feed = {}
+            for iname in self.model.inputs:
+                iname = str(iname)
+                shape = self.model.blobs[iname].data.shape
+                data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
+                feed[iname] = data
+        for n, v in feed.items():
+            self.model.blobs[n].data[...] = v
+        _ = self.model.forward()
+        for n, v in self.model.blobs.items():
+            outputs[n] = v.data
         return outputs
 
     def get_layers(self, names, lwnn_model):

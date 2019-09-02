@@ -19,6 +19,7 @@ class LWNNModel():
             (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
             (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, None),
+            (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             (self.opt_IsLayerReLUConv, self.opt_MergeReLUConv, 'MergeReLUConv'),
@@ -441,6 +442,25 @@ class LWNNModel():
             # LWNN is already NHWC
             r = True
         return r
+
+    def opt_IsLayerConcatOnPriorBox(self, layer):
+        r = False
+        if(layer['op'] == 'Concat'):
+            inputs = self.get_layers(layer['inputs'])
+            r = True
+            for inp in inputs:
+                if(inp['op'] != 'PriorBox'):
+                    r = False
+        return r
+
+    def opt_ReplaceAsConstant(self, layer):
+        outputs = self.run()
+        const = outputs[layer['outputs'][0]]
+        const = np.array(const, np.float32)
+        layer['op'] = 'Const'
+        layer['inputs'] = []
+        layer['const'] = const
+        return True
 
     def opt_LayerUnusedAction(self, layer):
         self.lwnn_model.remove(layer)

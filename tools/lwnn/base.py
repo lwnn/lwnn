@@ -21,6 +21,7 @@ class LWNNBaseC():
                 'Transpose': self.gen_LayerTranspose,
                 'PriorBox': self.gen_LayerPriorBox,
                 'DetectionOutput': self.gen_LayerDetectionOutput,
+                'Const': self.gen_LayerConst,
                 'Output': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -302,6 +303,9 @@ class LWNNBaseC():
         raise NotImplementedError()
 
     def gen_LayerDetectionOutput(self, layer):
+        raise NotImplementedError()
+
+    def gen_LayerConst(self, layer):
         raise NotImplementedError()
 
     def gen_LayerOutput(self, layer):

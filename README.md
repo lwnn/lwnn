@@ -32,6 +32,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | AvgPool1D | Y | Y | Y | Y | Y | based on AvgPool2D |
 | AvgPool2D | Y | Y | Y | Y | Y | |
 | Add | Y | Y | Y | Y | Y | |
+| PriorBox | Y | N | N | N | N | |
 
 ## Development
 
