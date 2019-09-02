@@ -285,7 +285,8 @@ class LWNNBaseC():
         self.fpC.write('L_PAD ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerSoftmax(self, layer):
-        self.gen_no_blobs(layer)
+        M = np.asarray([layer['axis']], np.int8)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_SOFTMAX ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerAdd(self, layer):

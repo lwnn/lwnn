@@ -26,6 +26,7 @@ class CaffeConverter():
             'PriorBox': self.to_LayerPriorBox,
             'DetectionOutput': self.to_LayerDetectionOutput,
             'Concat': self.to_LayerConcat,
+            'Softmax': self.to_LayerSoftmax,
              }
         self.opMap = { 
             'ReLU': 'Relu', 
@@ -114,6 +115,11 @@ class CaffeConverter():
     def to_LayerConcat(self, cly):
         layer = self.to_LayerCommon(cly)
         layer['axis'] = cly.concat_param.axis
+        return layer
+
+    def to_LayerSoftmax(self, cly):
+        layer = self.to_LayerCommon(cly)
+        layer['axis'] = cly.softmax_param.axis
         return layer
 
     def save(self, path):

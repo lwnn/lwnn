@@ -20,6 +20,7 @@ class LWNNModel():
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
             (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, None),
             (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
+            (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             (self.opt_IsLayerReLUConv, self.opt_MergeReLUConv, 'MergeReLUConv'),
@@ -301,6 +302,28 @@ class LWNNModel():
         layer['bias'] = c_b
         self.opt_RemoveLayer(bn)
         return True
+
+    def opt_IsLayerReshapeBeforeSoftmax(self, layer):
+        r = False
+        consumers = self.get_consumers(layer)
+        if((layer['op'] == 'Reshape') and
+               (len(consumers) == 1) and
+               (consumers[0]['op'] == 'Softmax')):
+            r = True
+        return r
+
+    def permute_shape(self, layer):
+        if('permute' not in layer):
+            shape = layer['shape']
+            if(len(shape) == 3):
+                layer['shape'] = [shape[0], shape[2], shape[1]]
+        layer['permute'] = True
+
+    def opt_PermuteReshapeSoftmax(self, layer):
+        self.permute_shape(layer)
+        softmax = self.get_consumers(layer)[0]
+        self.permute_shape(softmax)
+        return False
 
     def opt_IsLayerBeforeReshape(self, layer):
         r = False
