@@ -9,6 +9,7 @@ objs += Glob('layers/*.c')
 objs += Glob('runtime/*.c')
 objs += Glob('runtime/cpu/*.c')
 objs += Glob('runtime/cpu/*/*.c')
+objs += Glob('runtime/cpu/float/ssd/*.cpp')
 objs += Glob('runtime/opencl/*.c')
 objs += Glob('*.c')
 

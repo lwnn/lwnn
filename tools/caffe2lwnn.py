@@ -99,10 +99,10 @@ class CaffeConverter():
         layer = self.to_LayerCommon(cly)
         layer['num_classes'] = cly.detection_output_param.num_classes
         layer['nms_threshold'] = cly.detection_output_param.nms_param.nms_threshold
-        layer['top_k'] = cly.detection_output_param.nms_param.top_k
+        layer['top_k'] = self.get_field(cly.detection_output_param.nms_param, 'top_k', -1)
         layer['code_type'] = cly.detection_output_param.code_type
         layer['keep_top_k'] = cly.detection_output_param.keep_top_k
-        layer['confidence_threshold'] = cly.detection_output_param.confidence_threshold
+        layer['confidence_threshold'] = self.get_field(cly.detection_output_param, 'confidence_threshold', float('inf'))# default -FLT_MAX
         layer['share_location'] = cly.detection_output_param.share_location
         layer['background_label_id'] = cly.detection_output_param.background_label_id
         shape = layer['shape']
