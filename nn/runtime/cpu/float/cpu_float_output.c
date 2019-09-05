@@ -17,21 +17,8 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_float_OUTPUT_init(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-
-	layer_cpu_float_output_context_t* context;
-
-	r = rte_cpu_create_layer_context(nn, layer,
+	return rte_cpu_create_layer_context(nn, layer,
 				sizeof(layer_cpu_float_output_context_t), 0);
-
-	if(0 == r)
-	{
-		context = (layer_cpu_float_output_context_t*)layer->C->context;
-
-		RTE_CPU_LOG_LAYER_SHAPE(layer);
-	}
-
-	return r;
 }
 
 int layer_cpu_float_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
@@ -49,6 +36,7 @@ int layer_cpu_float_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
 	data = (float*) nn_get_output_data(nn, layer);
 	if(NULL != data)
 	{
+		context->nhwc = input_context->nhwc;
 		memcpy(data, input_context->out[0], NHWC_SIZE(context->nhwc)*sizeof(float));
 	}
 	else

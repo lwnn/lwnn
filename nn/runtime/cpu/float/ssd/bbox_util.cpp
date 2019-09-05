@@ -1010,7 +1010,7 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 	const float* loc_data = (float*) mbox_loc_context->out[0];
 	const float* conf_data = (float*) mbox_conf_context->out[0];
 	const float* prior_data = (float*) mbox_priorbox_context->out[0];
-	const int num = context->nhwc.N;
+	int num;
 
 	int num_priors_ = mbox_priorbox_context->nhwc.H / 4;
 	float nms_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
@@ -1026,6 +1026,9 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 	int eta_ = 1.0;
 
 	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
+
+	layer_get_NHWC(layer, &context->nhwc);
+	num = context->nhwc.N;
 
 	// Retrieve all location predictions.
 	vector<LabelBBox> all_loc_preds;
@@ -1122,11 +1125,12 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 	top_shape.push_back(7);
 
 	float* top_data = (float*)context->out[0];
-	if(num_kept > context->nhwc.N*context->nhwc.H) {
-		num_kept =  context->nhwc.N*context->nhwc.H;
-	} else {
-		memset(top_data+7*num_kept, 0, 7*sizeof(float)); /* fill the last one all zeros to indicate the end */
+	if(num_kept > (context->nhwc.N*context->nhwc.H)) {
+		num_kept =  (context->nhwc.N*context->nhwc.H);
 	}
+
+	context->nhwc.N = num_kept;
+	context->nhwc.H = 1;
 
 	int count = 0;
 	for (int i = 0; i < num; ++i) {

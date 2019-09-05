@@ -15,7 +15,7 @@ def detect(imgfile):
     global id
     data = np.array(net.blobs['data'].data, np.float32).transpose(0,2,3,1)
     data.tofile('models/mobilenet_ssd/golden/input%d.raw'%(id))
-    o = np.array(out['detection_out'].data, np.float32)
+    o = np.array(out['detection_out'], np.float32)
     o.tofile('models/mobilenet_ssd/golden/output%d.raw'%(id))
     id+=1
 ```

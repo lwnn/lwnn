@@ -116,5 +116,8 @@ typedef map<int, vector<NormalizedBBox> > LabelBBox;
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
+// Compute the jaccard (intersection over union IoU) overlap between two bboxes.
+template <typename Dtype>
+Dtype JaccardOverlap(const Dtype* bbox1, const Dtype* bbox2);
 } /* namespace ssd */
 #endif /* _SSD_BBOX_UTIL_HPP_ */

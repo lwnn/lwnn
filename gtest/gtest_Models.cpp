@@ -4,6 +4,7 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn_test_util.h"
+#include "bbox_util.hpp"
 /* ============================ [ MACROS    ] ====================================================== */
 #define NNT_MNIST_NOT_FOUND_OKAY FALSE
 #define NNT_MNIST_TOP1 0.9
@@ -18,13 +19,13 @@
 typedef struct {
 	void* (*load_input)(const char* path, int id, size_t* sz);
 	void* (*load_output)(const char* path, int id, size_t* sz);
-	int (*compare)(int id, float * output, size_t szo, float* gloden, size_t szg);
+	int (*compare)(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 	size_t n;
 } nnt_model_args_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 static void* load_input(const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
-static int ssd_compare(int id, float * output, size_t szo, float* gloden, size_t szg);
+static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(MNIST) =
 {
@@ -64,8 +65,50 @@ static void* load_output(const char* path, int id, size_t* sz)
 
 	return nnt_load(name, sz);
 }
-static int ssd_compare(int id, float* output, size_t szo, float* gloden, size_t szg)
+static int ssd_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg)
 {
+	int r = 0;
+	int i;
+	float IoU;
+	int num_det = nn->network->outputs[0]->layer->C->context->nhwc.N;
+
+	EXPECT_EQ(num_det, szg/7);
+
+	for(i=0; i<num_det; i++)
+	{
+		IoU = ssd::JaccardOverlap(&output[7*i+3], &gloden[7*i+3]);
+
+		EXPECT_EQ(output[7*i], gloden[7*i]);	/* batch */
+		EXPECT_EQ(output[7*i+1], gloden[7*i+1]); /* label */
+		EXPECT_NEAR(output[7*i+2], gloden[7*i+2], 0.05); /* prop */
+		EXPECT_GT(IoU, 0.9);
+
+		if(output[7*i] != gloden[7*i])
+		{
+			r = -1;
+		}
+
+		if(output[7*i+1] != gloden[7*i+1])
+		{
+			r = -2;
+		}
+
+		if(std::fabs(output[7*i+2]-gloden[7*i+2]) > 0.05)
+		{
+			r = -3;
+		}
+
+		if(IoU < 0.9)
+		{
+			r = -4;
+		}
+	}
+
+	if(0 != r)
+	{
+		printf("output for image %d is not correct\n", id);
+	}
+
 	return 0;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -209,7 +252,7 @@ void ModelTestMain(runtime_type_t runtime,
 			}
 			else
 			{
-				y = args->compare(i, out, classes, golden, sz_golden/sizeof(float));
+				y = args->compare(nn, i, out, classes, golden, sz_golden/sizeof(float));
 				if(0 == y)
 				{
 					top1 ++;

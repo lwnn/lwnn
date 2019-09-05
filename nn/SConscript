@@ -13,7 +13,7 @@ objs += Glob('runtime/cpu/float/ssd/*.cpp')
 objs += Glob('runtime/opencl/*.c')
 objs += Glob('*.c')
 
-asenv.Append(CPPPATH=['%s/%s'%(cwd,d) for d in ['','layers','runtime']])
+asenv.Append(CPPPATH=['%s/%s'%(cwd,d) for d in ['','layers','runtime','runtime/cpu/float/ssd']])
 
 if(os.getenv('DISABLE_OPENCL') != 'True'):
     if(IsPlatformWindows()):
