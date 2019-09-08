@@ -478,6 +478,8 @@ class LWNNModel():
 
     def opt_ReplaceAsConstant(self, layer):
         outputs = self.run()
+        if(self.opt_IsLayerConcatOnPriorBox(layer)):
+            layer['ConcatOnPriorBox'] = True
         const = outputs[layer['outputs'][0]]
         const = np.array(const, np.float32)
         layer['op'] = 'Const'
@@ -536,13 +538,13 @@ class LWNNModel():
         if(model == None):
             model = self.lwnn_model
         cstr = 'LWNN Model %s:\n'%(self.name)
-        order = ['name', 'op', 'shape','inputs', 'outputs', 'weights', 'bias']
+        order = ['name', 'op', 'shape','inputs', 'outputs', 'weights', 'bias', 'const']
         for layer in model:
             cstr += ' {'
             for k in order:
                 if(k in layer):
                     v = layer[k]
-                    if(k in ['weights','bias']):
+                    if(k in ['weights','bias', 'const']):
                         cstr += '%s: %s, '%(k, v.shape)
                     else:
                         cstr += '%s: %s, '%(k,v)

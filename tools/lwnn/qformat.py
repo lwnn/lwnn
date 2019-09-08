@@ -5,7 +5,10 @@ from .base import *
 
 class LWNNQFormatC(LWNNBaseC):
     def __init__(self, model, T, feeds):
-        super().__init__(model, T, feeds)
+        try:
+            super().__init__(model, T, feeds)
+        except:
+            LWNNBaseC.__init__(self, model, T, feeds)
         lwnn_model = self.model.clone()
         self.model.optimize(['RemoveReshape'])
         if(T == 's8'):
@@ -213,11 +216,25 @@ class LWNNQFormatC(LWNNBaseC):
         Q = self.get_encoding(layer)
         return np.asarray([value*(2**Q)], dtype)
 
+    def gen_LayerConst(self, layer):
+        const = layer['const']
+        if('ConcatOnPriorBox' in layer):
+            pass
+        else:
+            const,constQ = self.quantize(const)
+            Q = self.get_encoding(layer)
+            assert(constQ == Q)
+        self.gen_blobs(layer, [('%s_CONST'%(layer['name']), const)])
+        self.fpC.write('L_CONST ({0});\n\n'.format(layer['name']))
+
 class LWNNQSFormatC(LWNNQFormatC):
     def __init__(self, model, feeds):
-        super().__init__(model, 's8', feeds)
+        try:
+            super().__init__(model, 's8', feeds)
+        except:
+            LWNNQFormatC.__init__(self, model, 's8', feeds)
 
-    def quanzize_QSZ(self, v):
+    def quantize_QSZ(self, v):
         min_value = np.min(v)
         max_value = np.max(v)
         if((min_value==0.0) and (max_value==0.0)):
@@ -249,7 +266,7 @@ class LWNNQSFormatC(LWNNQFormatC):
         self.output_scales = {}
         self.outputs = self.model.run(feeds)
         for n,v in self.outputs.items():
-            _,scale,Q,Z = self.quanzize_QSZ(v)
+            _,scale,Q,Z = self.quantize_QSZ(v)
             self.output_offsets[n] = Z
             self.output_encodings[n] = Q
             self.output_scales[n] = scale
@@ -276,7 +293,7 @@ class LWNNQSFormatC(LWNNQFormatC):
             for ly in linked:
                 bigV.extend(self.outputs[ly['outputs'][0]].reshape(-1).tolist())
             bigV = np.asarray(bigV)
-            _,S,Q,Z = self.quanzize_QSZ(bigV)
+            _,S,Q,Z = self.quantize_QSZ(bigV)
         for ly in linked: # adjust all linked to the same Q
             q = self.output_encodings[ly['outputs'][0]]
             s = self.output_scales[ly['outputs'][0]]
@@ -383,7 +400,7 @@ class LWNNQSFormatC(LWNNQFormatC):
         B = layer['bias']
 
         Wt = W.transpose(1,0)
-        Wt,Ws,Wq,Wz = self.quanzize_QSZ(Wt)
+        Wt,Ws,Wq,Wz = self.quantize_QSZ(Wt)
 
         inp = self.model.get_layers(layer['inputs'])[0]
         Iq = self.get_encoding(inp)
@@ -420,3 +437,16 @@ class LWNNQSFormatC(LWNNQFormatC):
             value = 0
         Q,S,Z = self.get_QSZ(layer)
         return np.asarray([value/S*(2**Q)-Z], np.int8)
+
+    def gen_LayerConst(self, layer):
+        const = layer['const']
+        if('ConcatOnPriorBox' in layer):
+            pass
+        else:
+            const,constS,constQ,constZ  = self.quantize_QSZ(const)
+            Q,S,Z = self.get_QSZ(layer)
+            assert(constS == S)
+            assert(constQ == Q)
+            assert(constZ == Z)
+        self.gen_blobs(layer, [('%s_CONST'%(layer['name']), const)])
+        self.fpC.write('L_CONST ({0});\n\n'.format(layer['name']))

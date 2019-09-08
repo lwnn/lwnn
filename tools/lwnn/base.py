@@ -19,7 +19,6 @@ class LWNNBaseC():
                 'Softmax': self.gen_LayerSoftmax,
                 'Add': self.gen_LayerAdd,
                 'Transpose': self.gen_LayerTranspose,
-                'PriorBox': self.gen_LayerPriorBox,
                 'DetectionOutput': self.gen_LayerDetectionOutput,
                 'Const': self.gen_LayerConst,
                 'Output': self.gen_LayerOutput }
@@ -126,7 +125,8 @@ class LWNNBaseC():
         self.fpH.write('};\n')
 
     def gen_blobs(self, layer, blobs):
-        if(self.T in ['q8', 's8', 'q16']):
+        if((self.T in ['q8', 's8', 'q16']) and
+           (layer['op'] not in ['DetectionOutput'])):
             blobs = [self.get_Q_blob(layer)] + blobs
         for blob in blobs:
             self.gen_blob(*blob)
@@ -300,11 +300,16 @@ class LWNNBaseC():
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_TRANSPOSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
-    def gen_LayerPriorBox(self, layer):
-        raise NotImplementedError()
-
     def gen_LayerDetectionOutput(self, layer):
-        raise NotImplementedError()
+        M1 = np.array([layer['nms_threshold'], layer['confidence_threshold']], np.float32)
+        M2 = np.array([layer['num_classes'], layer['share_location'], 
+                       layer['background_label_id'], layer['top_k'], 
+                       layer['keep_top_k'], layer['code_type']], np.int32)
+        self.gen_blobs(layer, [('%s_M1'%(layer['name']),M1), 
+                           ('%s_M2'%(layer['name']),M2)])
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_DETECTIONOUTPUT ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
     def gen_LayerConst(self, layer):
         raise NotImplementedError()

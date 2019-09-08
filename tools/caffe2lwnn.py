@@ -8,6 +8,7 @@ import caffe
 from caffe.proto import caffe_pb2
 from google.protobuf import text_format
 import numpy as np
+import glob
 
 __all__ = ['caffe2lwnn']
 
@@ -134,11 +135,31 @@ class CaffeConverter():
                 shape = self.model.blobs[iname].data.shape
                 data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
                 feed[iname] = data
+        nbr = 0
         for n, v in feed.items():
-            self.model.blobs[n].data[...] = v
-        _ = self.model.forward()
-        for n, v in self.model.blobs.items():
-            outputs[n] = v.data
+            nbr = v.shape[0]
+            break
+        for i in range(nbr):
+            for n, v in feed.items():
+                self.model.blobs[n].data[...] = v[i]
+            _ = self.model.forward()
+            for n, v in self.model.blobs.items():
+                if(n in outputs):
+                    try:
+                        outputs[n] = np.concatenate((outputs[n], v.data))
+                    except Exception as e:
+                        shape = v.data.shape
+                        if((shape[-1] == 7) and 
+                           (shape[0]==1) and
+                           (shape[1]==1)): # this is generally DetectionOutput
+                            outputs[n] = outputs[n].reshape([1,1,-1,7])
+                            outputs[n] = np.concatenate((outputs[n], v.data), axis=2)
+                        else:
+                            raise(e)
+                else:
+                    outputs[n] = v.data
+        for oname in self.model.outputs:
+            outputs['%s_O'%(oname)] = outputs[oname]
         return outputs
 
     def get_layers(self, names, lwnn_model):
@@ -200,6 +221,13 @@ class CaffeConverter():
                 ly['inputs'] = inputs
         return lwnn_model
 
+    @property
+    def inputs(self):
+        L = {}
+        for iname in self.model.inputs:
+            L[iname] = self.model.blobs[iname].data.shape
+        return L
+
 def caffe2lwnn(model, name, **kargs):
     if('weights' in kargs):
         weights = kargs['weights']
@@ -211,6 +239,30 @@ def caffe2lwnn(model, name, **kargs):
     else:
         feeds = None
 
+    if(type(feeds) == str):
+        inputs = model.converter.inputs
+        feeds_ = {}
+        for rawF in glob.glob('%s/*.raw'%(feeds)):
+            raw = np.fromfile(rawF, np.float32)
+            for n, shape in inputs.items():
+                if(len(shape) == 4):
+                    shape = [shape[s] for s in [0,2,3,1]]
+                sz = 1
+                for s in shape:
+                    sz = sz*s
+                if(raw.shape[0] == sz):
+                    raw = raw.reshape(shape)
+                    if(n in feeds_):
+                        feeds_[n] = np.concatenate((feeds_[n], raw))
+                    else:
+                        feeds_[n] = raw
+                    print('using %s for input %s'%(rawF, n))
+        feeds = {}
+        for n,v in feeds_.items():
+            if(len(v.shape) == 4):
+                v = np.transpose(v, (0,3,1,2))
+            feeds[n] = v
+
     model.gen_float_c(feeds)
     if(feeds != None):
         model.gen_quantized_c(feeds)
@@ -221,7 +273,8 @@ if(__name__ == '__main__'):
     parser.add_argument('-i', '--input', help='input caffe model', type=str, required=True)
     parser.add_argument('-w', '--weights', help='input caffe weights', type=str, required=True)
     parser.add_argument('-o', '--output', help='output lwnn model', type=str, default=None, required=False)
+    parser.add_argument('-r', '--raw', help='input raw directory', type=str, default=None, required=False)
     args = parser.parse_args()
     if(args.output == None):
         args.output = os.path.basename(args.input)[:-9]
-    caffe2lwnn(args.input, args.output, weights=args.weights)
+    caffe2lwnn(args.input, args.output, weights=args.weights, feeds=args.raw)
