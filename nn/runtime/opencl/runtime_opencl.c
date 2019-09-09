@@ -748,7 +748,15 @@ int rte_cl_create_layer_context(
 
 	if(0 == r)
 	{
-		r = cl_create_kernel(nn, program, kernel, &context->program, &context->kernel);
+		if(program != NULL)
+		{
+			r = cl_create_kernel(nn, program, kernel, &context->program, &context->kernel);
+		}
+		else
+		{
+			context->program = NULL;
+			context->kernel = NULL;
+		}
 	}
 
 	if(0 != r)
@@ -773,9 +781,16 @@ void rte_cl_destory_layer_context(const nn_t* nn, const layer_t* layer)
 
 	if(NULL != context)
 	{
-		clReleaseKernel(context->kernel);
-		clReleaseProgram(context->program);
-#ifdef ENABLE_CL_IMAGE_REUSE
+		if(context->kernel != NULL)
+		{
+			clReleaseKernel(context->kernel);
+		}
+
+		if(context->program != NULL)
+		{
+			clReleaseProgram(context->program);
+		}
+#ifndef ENABLE_CL_IMAGE_REUSE
 		for(i=0; i<context->nout; i++)
 		{
 			if(NULL != context->out[i])

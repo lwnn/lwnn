@@ -4,8 +4,13 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
+#if !defined(DISABLE_RUNTIME_CPU_FLOAT) || !defined(DISABLE_RUNTIME_OPENCL)
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 #include "../../runtime_cpu.h"
+#endif
+#ifndef DISABLE_RUNTIME_OPENCL
+#include "../../../opencl/runtime_opencl.h"
+#endif
 #include "bbox_util.hpp"
 
 #include <boost/iterator/counting_iterator.hpp>
@@ -997,38 +1002,28 @@ void ApplyNMSFast(const double* bboxes, const double* scores, const int num,
 		const float score_threshold, const float nms_threshold, const float eta,
 		const int top_k, vector<int>* indices);
 
-extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
-		const layer_t* layer) {
+extern "C" int detection_output_forward(
+		const float* loc_data,
+		const float* conf_data,
+		const float* prior_data,
+		float* top_data,
+		int num_priors_,
+		float nms_threshold_,
+		float confidence_threshold_,
+		int num_classes_,
+		int share_location_,
+		int background_label_id_,
+		int top_k_,
+		int keep_top_k_,
+		CodeType code_type_,
+		bool variance_encoded_in_target_,
+		int eta_,
+		layer_context_t* context
+		)
+{
 	int r = 0;
-	layer_cpu_context_t* context = (layer_cpu_context_t*) layer->C->context;
-	layer_cpu_context_t* mbox_loc_context =
-			(layer_cpu_context_t*) layer->inputs[0]->C->context;
-	layer_cpu_context_t* mbox_conf_context =
-			(layer_cpu_context_t*) layer->inputs[1]->C->context;
-	layer_cpu_context_t* mbox_priorbox_context =
-			(layer_cpu_context_t*) layer->inputs[2]->C->context;
-	const float* loc_data = (float*) mbox_loc_context->out[0];
-	const float* conf_data = (float*) mbox_conf_context->out[0];
-	const float* prior_data = (float*) mbox_priorbox_context->out[0];
-	int num;
-
-	int num_priors_ = mbox_priorbox_context->nhwc.H / 4;
-	float nms_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
-	float confidence_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 1);
-	int num_classes_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 0);
-	int share_location_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 1);
-	int background_label_id_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 2);
-	int top_k_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 3);
-	int keep_top_k_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 4);
-	CodeType code_type_ = (CodeType)RTE_FETCH_INT32(layer->blobs[1]->blob, 5);
 	int num_loc_classes_ = share_location_ ? 1 : num_classes_;
-	bool variance_encoded_in_target_ = false;
-	int eta_ = 1.0;
-
-	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
-
-	layer_get_NHWC(layer, &context->nhwc);
-	num = context->nhwc.N;
+	int num = context->nhwc.N;
 
 	// Retrieve all location predictions.
 	vector<LabelBBox> all_loc_preds;
@@ -1124,7 +1119,6 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 	top_shape.push_back(num_kept);
 	top_shape.push_back(7);
 
-	float* top_data = (float*)context->out[0];
 	if(num_kept > (context->nhwc.N*context->nhwc.H)) {
 		num_kept =  (context->nhwc.N*context->nhwc.H);
 	}
@@ -1175,6 +1169,129 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 
 	return r;
 }
+#ifndef DISABLE_RUNTIME_CPU_FLOAT
+extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
+		const layer_t* layer) {
+	int r = 0;
+	layer_cpu_context_t* context = (layer_cpu_context_t*) layer->C->context;
+	layer_cpu_context_t* mbox_loc_context =
+			(layer_cpu_context_t*) layer->inputs[0]->C->context;
+	layer_cpu_context_t* mbox_conf_context =
+			(layer_cpu_context_t*) layer->inputs[1]->C->context;
+	layer_cpu_context_t* mbox_priorbox_context =
+			(layer_cpu_context_t*) layer->inputs[2]->C->context;
+	const float* loc_data = (float*) mbox_loc_context->out[0];
+	const float* conf_data = (float*) mbox_conf_context->out[0];
+	const float* prior_data = (float*) mbox_priorbox_context->out[0];
 
+	int num_priors_ = mbox_priorbox_context->nhwc.H / 4;
+	float nms_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
+	float confidence_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 1);
+	int num_classes_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 0);
+	int share_location_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 1);
+	int background_label_id_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 2);
+	int top_k_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 3);
+	int keep_top_k_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 4);
+	CodeType code_type_ = (CodeType)RTE_FETCH_INT32(layer->blobs[1]->blob, 5);
+	int num_loc_classes_ = share_location_ ? 1 : num_classes_;
+	bool variance_encoded_in_target_ = false;
+	int eta_ = 1.0;
+
+	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
+
+	layer_get_NHWC(layer, &context->nhwc);
+
+	r = detection_output_forward(
+			loc_data,
+			conf_data,
+			prior_data,
+			(float*)context->out[0],
+			num_priors_,
+			nms_threshold_,
+			confidence_threshold_,
+			num_classes_,
+			share_location_,
+			background_label_id_,
+			top_k_,
+			keep_top_k_,
+			code_type_,
+			variance_encoded_in_target_,
+			eta_,
+			(layer_context_t*)context);
+
+	return r;
+}
+#endif
+
+#ifndef DISABLE_RUNTIME_OPENCL
+extern "C" int layer_cl_DETECTIONOUTPUT_execute(const nn_t* nn,
+		const layer_t* layer) {
+	int r = 0;
+	layer_cl_context_t* context = (layer_cl_context_t*) layer->C->context;
+	layer_cl_context_t* mbox_loc_context =
+			(layer_cl_context_t*) layer->inputs[0]->C->context;
+	layer_cl_context_t* mbox_conf_context =
+			(layer_cl_context_t*) layer->inputs[1]->C->context;
+	layer_cl_context_t* mbox_priorbox_context =
+			(layer_cl_context_t*) layer->inputs[2]->C->context;
+	float* loc_data = new float[NHWC_SIZE(mbox_loc_context->nhwc)];
+	float* conf_data = new float[NHWC_SIZE(mbox_conf_context->nhwc)];
+	float* prior_data = new float[NHWC_SIZE(mbox_priorbox_context->nhwc)];
+	float* top_data = new float[NHWC_SIZE(context->nhwc)];
+
+	r = rte_cl_image2d_copy_out(nn, mbox_loc_context->out[0], loc_data, &(mbox_loc_context->nhwc));
+	if(0 == r) r = rte_cl_image2d_copy_out(nn, mbox_conf_context->out[0], conf_data, &(mbox_conf_context->nhwc));
+	if(0 == r) r = rte_cl_image2d_copy_out(nn, mbox_priorbox_context->out[0], prior_data, &(mbox_priorbox_context->nhwc));
+
+	int num_priors_ = mbox_priorbox_context->nhwc.H / 4;
+	float nms_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
+	float confidence_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 1);
+	int num_classes_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 0);
+	int share_location_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 1);
+	int background_label_id_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 2);
+	int top_k_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 3);
+	int keep_top_k_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 4);
+	CodeType code_type_ = (CodeType)RTE_FETCH_INT32(layer->blobs[1]->blob, 5);
+	int num_loc_classes_ = share_location_ ? 1 : num_classes_;
+	bool variance_encoded_in_target_ = false;
+	int eta_ = 1.0;
+
+	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
+
+	layer_get_NHWC(layer, &context->nhwc);
+
+	if(0 == r) {
+		r = detection_output_forward(
+			loc_data,
+			conf_data,
+			prior_data,
+			top_data,
+			num_priors_,
+			nms_threshold_,
+			confidence_threshold_,
+			num_classes_,
+			share_location_,
+			background_label_id_,
+			top_k_,
+			keep_top_k_,
+			code_type_,
+			variance_encoded_in_target_,
+			eta_,
+			(layer_context_t*)context);
+	}
+
+	if(0 == r)
+	{
+		r = rte_cl_image2d_copy_in(nn, context->out[0], top_data, &(context->nhwc));
+	}
+
+	delete loc_data;
+	delete conf_data;
+	delete prior_data;
+	delete top_data;
+
+	return r;
+}
+#endif
 } /* namespace ssd */
 #endif /* DISABLE_RUNTIME_CPU_FLOAT */
