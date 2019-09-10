@@ -256,8 +256,12 @@ class LWNNBaseC():
         shape = layer['shape']
         if(len(shape) == 4):
             axis = [0,3,1,2][axis]
-        if(len(shape) == 3):
+        elif(len(shape) == 3):
             axis = [0,3,1][axis]
+        elif(len(shape) == 2):
+            axis = [0,3][axis]
+        else:
+            assert(0)
         return axis
 
     def gen_LayerConcat(self, layer):
@@ -305,8 +309,10 @@ class LWNNBaseC():
         M2 = np.array([layer['num_classes'], layer['share_location'], 
                        layer['background_label_id'], layer['top_k'], 
                        layer['keep_top_k'], layer['code_type']], np.int32)
+        priorbox = layer['priorbox']
         self.gen_blobs(layer, [('%s_M1'%(layer['name']),M1), 
-                           ('%s_M2'%(layer['name']),M2)])
+                           ('%s_M2'%(layer['name']),M2),
+                           ('%s_priorbox'%(layer['name']),priorbox),])
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_DETECTIONOUTPUT ({0}, {0}_INPUTS);\n\n'.format(layer['name']))

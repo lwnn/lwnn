@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
-def compare(a, b, name=''):
+def compare(a, b, name='', delayedShow=False):
     aL = a.reshape(-1).tolist()
     bL = b.reshape(-1).tolist()
     if(len(aL) != len(bL)):
@@ -31,7 +31,8 @@ def compare(a, b, name=''):
     plt.plot(bL1,'g')
     plt.grid()
     plt.title('lwnn-%s'%(name))
-    plt.show()
+    if(not delayedShow):
+        plt.show()
 
 if(__name__ == '__main__'):
     import argparse

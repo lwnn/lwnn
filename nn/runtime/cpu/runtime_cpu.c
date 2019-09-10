@@ -160,8 +160,9 @@ static int cpu_execute_layer(const nn_t* nn, const layer_t* layer)
 		if(layer->op < ARRAY_SIZE(cpu_lops[rt->type]))
 		{
 			r = cpu_lops[rt->type][layer->op].execute(nn, layer);
-
+#ifndef DISABLE_NN_DDO
 			NNDDO(NN_DEBUG, rte_ddo_save(nn, layer));
+#endif
 		}
 	}
 	else

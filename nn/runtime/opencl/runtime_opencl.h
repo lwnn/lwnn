@@ -65,11 +65,7 @@ typedef struct rte_cl_image
 						layer->C->context->nhwc.W, layer->C->context->nhwc.C,	\
 						RTE_CL_NHWC_H(layer->C->context->nhwc),					\
 						RTE_CL_NHWC_W(layer->C->context->nhwc)))
-/*   NOTE: If enabled, the rte_ddo_save will not be correct for each
- * layer, but generally, the accuracy and all gtest case is okay,
- * I don't know what is wrong.
- *   So I still decide to by default enable it, for per layer output
- * debug, this can be temporarily disabled */
+
 #define ENABLE_CL_IMAGE_REUSE
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */

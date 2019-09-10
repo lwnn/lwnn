@@ -20,6 +20,7 @@ class LWNNModel():
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
             (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, None),
             (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
+            (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
@@ -485,6 +486,28 @@ class LWNNModel():
         layer['op'] = 'Const'
         layer['inputs'] = []
         layer['const'] = const
+        return True
+
+    def opt_IsLayerDetectionOutputWithConst(self, layer):
+        r = False
+        if(layer['op'] == 'DetectionOutput'):
+            inputs = self.get_layers(layer['inputs'])
+            if((len(inputs) == 3) and
+               self.is_there_op(inputs, 'Const')):
+                r = True
+        return r
+
+    def opt_MergeConstToDetectionOutput(self, layer):
+        inputs = self.get_layers(layer['inputs'])
+        const = None
+        inputsL = []
+        for inp in inputs:
+            if(inp['op'] == 'Const'):
+                const = inp
+            else:
+                inputsL.append(inp['name'])
+        layer['priorbox'] = const['const']
+        layer['inputs'] = inputsL
         return True
 
     def opt_LayerUnusedAction(self, layer):

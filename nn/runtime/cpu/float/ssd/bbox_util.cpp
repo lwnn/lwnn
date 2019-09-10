@@ -1178,13 +1178,11 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 			(layer_cpu_context_t*) layer->inputs[0]->C->context;
 	layer_cpu_context_t* mbox_conf_context =
 			(layer_cpu_context_t*) layer->inputs[1]->C->context;
-	layer_cpu_context_t* mbox_priorbox_context =
-			(layer_cpu_context_t*) layer->inputs[2]->C->context;
 	const float* loc_data = (float*) mbox_loc_context->out[0];
 	const float* conf_data = (float*) mbox_conf_context->out[0];
-	const float* prior_data = (float*) mbox_priorbox_context->out[0];
+	const float* prior_data = (float*) layer->blobs[2]->blob;
 
-	int num_priors_ = mbox_priorbox_context->nhwc.H / 4;
+	int num_priors_ = RTE_FETCH_INT32(layer->blobs[2]->dims,2) / 4;
 	float nms_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
 	float confidence_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 1);
 	int num_classes_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 0);
@@ -1232,18 +1230,15 @@ extern "C" int layer_cl_DETECTIONOUTPUT_execute(const nn_t* nn,
 			(layer_cl_context_t*) layer->inputs[0]->C->context;
 	layer_cl_context_t* mbox_conf_context =
 			(layer_cl_context_t*) layer->inputs[1]->C->context;
-	layer_cl_context_t* mbox_priorbox_context =
-			(layer_cl_context_t*) layer->inputs[2]->C->context;
 	float* loc_data = new float[NHWC_SIZE(mbox_loc_context->nhwc)];
 	float* conf_data = new float[NHWC_SIZE(mbox_conf_context->nhwc)];
-	float* prior_data = new float[NHWC_SIZE(mbox_priorbox_context->nhwc)];
+	const float* prior_data = (float*) layer->blobs[2]->blob;
 	float* top_data = new float[NHWC_SIZE(context->nhwc)];
 
 	r = rte_cl_image2d_copy_out(nn, mbox_loc_context->out[0], loc_data, &(mbox_loc_context->nhwc));
 	if(0 == r) r = rte_cl_image2d_copy_out(nn, mbox_conf_context->out[0], conf_data, &(mbox_conf_context->nhwc));
-	if(0 == r) r = rte_cl_image2d_copy_out(nn, mbox_priorbox_context->out[0], prior_data, &(mbox_priorbox_context->nhwc));
 
-	int num_priors_ = mbox_priorbox_context->nhwc.H / 4;
+	int num_priors_ = RTE_FETCH_INT32(layer->blobs[2]->dims,2) / 4;
 	float nms_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
 	float confidence_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 1);
 	int num_classes_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 0);

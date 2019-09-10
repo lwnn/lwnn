@@ -28,6 +28,7 @@ typedef struct
 #undef OP_DEF
 #ifndef DISABLE_NN_DDO
 extern void rte_ddo_save(const nn_t* nn, const layer_t* layer);
+static int cl_ddo_layer(const nn_t* nn, const layer_t* layer);
 #endif
 /* ============================ [ DATAS     ] ====================================================== */
 static const layer_ops_t cl_lops[] =
@@ -122,8 +123,6 @@ static cl_program cl_create_program(cl_context context, cl_device_id device, con
 	FILE* file;
 	size_t sz;
 
-	NNLOG(NN_DEBUG, ("CL load %s\n", fileName));
-
 	file = fopen(fileName, "rb");
 
 	if(NULL != file)
@@ -176,6 +175,10 @@ static int cl_execute_layer(const nn_t* nn, const layer_t* layer)
 	if(layer->op < ARRAY_SIZE(cl_lops))
 	{
 		r = cl_lops[layer->op].execute(nn, layer);
+
+#ifndef DISABLE_NN_DDO
+		NNDDO(NN_DEBUG, cl_ddo_layer(nn, layer));
+#endif
 	}
 
 	return r;
@@ -183,8 +186,12 @@ static int cl_execute_layer(const nn_t* nn, const layer_t* layer)
 #ifndef DISABLE_NN_DDO
 static int cl_ddo_layer(const nn_t* nn, const layer_t* layer)
 {
+	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
+
 	if(layer->op != L_OP_OUTPUT)
 	{
+		clFlush(rt->command_queue);
+		clFinish(rt->command_queue);
 		NNDDO(NN_DEBUG, rte_ddo_save(nn, layer));
 	}
 	return 0;
@@ -221,6 +228,8 @@ static int cl_create_kernel(const nn_t* nn,
 	int r = 0;
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 	cl_int errNum;
+
+	NNLOG(NN_DEBUG, ("CL load %s::%s\n", program, kernel));
 
 	*clprogram = cl_create_program(rt->context, rt->device, program);
 	if(NULL != (*clprogram))
@@ -535,10 +544,6 @@ int rte_OPENCL_execute(const nn_t* nn)
 	{
 		clFlush(rt->command_queue);
 		clFinish(rt->command_queue);
-
-#ifndef DISABLE_NN_DDO
-		rte_do_for_each_layer(nn, cl_ddo_layer);
-#endif
 	}
 
 	return r;
