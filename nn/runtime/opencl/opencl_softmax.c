@@ -32,7 +32,7 @@ int layer_cl_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 
 	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 
-	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NC, 2,
+	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHC, 2,
 					sizeof(cl_mem), &(input_context->out[0]),
 					sizeof(cl_mem), &(context->out[0]));
 
