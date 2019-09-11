@@ -14,14 +14,32 @@ typedef struct {
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
+void* cl_concat_fetch_out0(const nn_t* nn, const layer_t* layer)
+{
+	int r;
+	float* pout = (float*)nn->scratch.area;
+	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
+
+	r = rte_cl_image2d_copy_out(nn, context->out[0], pout, &(context->nhwc));
+
+	if(0 != r)
+	{
+		pout = NULL;
+	}
+
+	return pout;
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cl_CONCAT_init(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	int axis = RTE_FETCH_INT32(layer->blobs[0]->blob, 0);
 	const layer_t** input = layer->inputs;
+	const char* program = OPENCL_PATH "concat.cl";
 	const char* kernel;
+	layer_cl_concat_context_t* context;
 	layer_cl_context_t* input_context;
+	size_t scratch_size = 0;
 
 	switch(axis)
 	{
@@ -40,10 +58,14 @@ int layer_cl_CONCAT_init(const nn_t* nn, const layer_t* layer)
 			{
 				input_context = (layer_cl_context_t*)(*input)->C->context;
 				if(0 != (input_context->nhwc.C&0x03))
+				{	/* fall back to CPU */
+					program = NULL;
+					kernel = NULL;
+				}
+
+				if(NHWC_SIZE(input_context->nhwc) > scratch_size)
 				{
-					NNLOG(NN_ERROR, ("%s's input %s: depth=%d is not 4 aligned\n",
-							layer->name, (*input)->name, input_context->nhwc.C));
-					r = NN_E_CL_DEPTH_NOT_4_ALIGNED;
+					scratch_size = NHWC_SIZE(input_context->nhwc);
 				}
 
 				input++;
@@ -57,8 +79,18 @@ int layer_cl_CONCAT_init(const nn_t* nn, const layer_t* layer)
 	if(0 == r)
 	{
 		r = rte_cl_create_layer_common(nn, layer,
-				OPENCL_PATH "concat.cl", kernel,
+				program, kernel,
 				sizeof(layer_cl_concat_context_t));
+	}
+
+	if(0 == r)
+	{
+		context = (layer_cl_concat_context_t*)layer->C->context;
+		if(0 != scratch_size)
+		{
+			scratch_size += NHWC_SIZE(context->nhwc);
+			nn_request_scratch(nn, scratch_size*sizeof(float));
+		}
 	}
 
 	return r;
@@ -76,12 +108,12 @@ int layer_cl_CONCAT_execute(const nn_t* nn, const layer_t* layer)
 
 	NNLOG(NN_DEBUG, ("execute %s: axis=%d\n", layer->name, axis));
 
-	while((0==r) && ((*input) != NULL))
+	while((0==r) && ((*input) != NULL) && (NULL != context->kernel))
 	{
 		input_context = (layer_cl_context_t*)(*input)->C->context;
 		in_stride = RTE_FETCH_INT32(&(input_context->nhwc), axis);
 
-		NNLOG(NN_DEBUG, ("concat %s, in stride=%d\n", (*input)->name, in_stride));
+		NNLOG(NN_DEBUG, ("cl concat %s, in stride=%d\n", (*input)->name, in_stride));
 		r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHWC, 4,
 					sizeof(cl_mem), &(input_context->out[0]),
 					sizeof(cl_mem), &(context->out[0]),
@@ -95,6 +127,20 @@ int layer_cl_CONCAT_execute(const nn_t* nn, const layer_t* layer)
 		offset += in_stride;
 		input ++;
 	}
+
+	if(NULL == context->kernel)
+	{	/* fall back to CPU algorithm */
+		void* pout = (void*)(((size_t)nn->scratch.area) + nn->scratch.size - NHWC_SIZE(context->nhwc)*sizeof(float));
+
+		r = alg_concat(nn, layer, axis, pout, cl_concat_fetch_out0, sizeof(float));
+
+		if(0 == r)
+		{
+			r = rte_cl_image2d_copy_in(nn, context->out[0], pout, &(context->nhwc));
+		}
+	}
+
+
 
 	return r;
 }

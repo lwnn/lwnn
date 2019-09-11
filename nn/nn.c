@@ -21,6 +21,10 @@ nn_t* nn_create(const network_t* network, runtime_type_t runtime_type)
 	{
 		nn->runtime_type = runtime_type;
 		nn->network = network;
+		#ifndef DISABLE_NN_SCRATCH
+		nn->scratch.size = 0;
+		nn->scratch.area = NULL;
+		#endif
 
 		nn->runtime = rte_create(nn);
 	}
@@ -29,6 +33,17 @@ nn_t* nn_create(const network_t* network, runtime_type_t runtime_type)
 	{
 		int r = rte_init(nn);
 
+		#ifndef DISABLE_NN_SCRATCH
+		if((0 == r) && (0 != nn->scratch.size))
+		{
+			nn->scratch.area = malloc(nn->scratch.size);
+
+			if(NULL == nn->scratch.area)
+			{
+				r = NN_E_NO_MEMORY;
+			}
+		}
+		#endif
 		if(0 != r)
 		{
 			NNLOG(NN_ERROR,("nn create failed with %d\n", r));
@@ -99,9 +114,26 @@ void nn_destory(nn_t* nn)
 	if(NULL != nn)
 	{
 		rte_destory(nn);
+		#ifndef DISABLE_NN_SCRATCH
+		if(NULL != nn->scratch.area)
+		{
+			free(nn->scratch.area);
+		}
+		#endif
 		free(nn);
 	}
 }
+
+#ifndef DISABLE_NN_SCRATCH
+void nn_request_scratch(const nn_t* nn, size_t sz)
+{
+	nn_t * pnn = (nn_t*)nn;
+	if(sz > pnn->scratch.size)
+	{
+		pnn->scratch.size = sz;
+	}
+}
+#endif
 
 void* nn_allocate_input(const layer_t* layer)
 {

@@ -17,9 +17,20 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cl_RESHAPE_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cl_create_layer_common(nn, layer,
+	int r;
+	layer_cl_reshape_context_t* context;
+
+	r = rte_cl_create_layer_common(nn, layer,
 			OPENCL_PATH "reshape.cl", "reshape",
 			sizeof(layer_cl_reshape_context_t));
+
+	if(0 == r)
+	{
+		context = (layer_cl_reshape_context_t*)layer->C->context;
+		nn_request_scratch(nn, NHWC_SIZE(context->nhwc)*sizeof(float));
+	}
+
+	return r;
 }
 int layer_cl_RESHAPE_execute(const nn_t* nn, const layer_t* layer)
 {
@@ -52,19 +63,11 @@ int layer_cl_RESHAPE_execute(const nn_t* nn, const layer_t* layer)
 	}
 	else
 	{
-		data = malloc(sz*sizeof(float));
-		if(NULL != data)
+		data = nn->scratch.area;
+		r = rte_cl_image2d_copy_out(nn, input_context->out[0], data, &(input_context->nhwc));
+		if(0 == r)
 		{
-			r = rte_cl_image2d_copy_out(nn, input_context->out[0], data, &(input_context->nhwc));
-			if(0 == r)
-			{
-				r = rte_cl_image2d_copy_in(nn, context->out[0], data, &(context->nhwc));
-			}
-			free(data);
-		}
-		else
-		{
-			r = NN_E_NO_MEMORY;
+			r = rte_cl_image2d_copy_in(nn, context->out[0], data, &(context->nhwc));
 		}
 	}
 

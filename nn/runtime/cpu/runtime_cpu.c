@@ -449,5 +449,14 @@ void rte_cpu_release_buffer(rte_cpu_buffer_t* buffer)
 	assert(buffer != NULL);
 	buffer->owner = NULL;
 }
+
+void* rte_cpu_fetch_out0(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_context_t* context;
+	context = (layer_cpu_context_t*)layer->C->context;
+	(void)nn;
+
+	return context->out[0];
+}
 #endif /* DISABLE_RUNTIME_CPU */
 

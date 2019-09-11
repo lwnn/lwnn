@@ -97,6 +97,12 @@ typedef struct nn {
 	runtime_t runtime;
 	const network_t* network;
 	runtime_type_t runtime_type;
+#ifndef DISABLE_NN_SCRATCH
+	struct {
+		size_t size;
+		void* area;
+	} scratch;
+#endif
 } nn_t;
 
 enum {
@@ -133,6 +139,10 @@ int nn_predict(nn_t* nn);
 void nn_set_log_level(int level);
 
 void nn_destory(nn_t* nn);
+
+#ifndef DISABLE_NN_SCRATCH
+void nn_request_scratch(const nn_t* nn, size_t sz);
+#endif
 
 void* nn_allocate_input(const layer_t* layer);
 void* nn_allocate_output(const layer_t* layer);
