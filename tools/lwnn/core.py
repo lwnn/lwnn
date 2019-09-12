@@ -22,6 +22,7 @@ class LWNNModel():
             (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
             (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
+            (self.opt_IsLayerOutputWithOutput, self.opt_RemoveOutputWithOutput, None),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             (self.opt_IsLayerReLUConv, self.opt_MergeReLUConv, 'MergeReLUConv'),
@@ -313,6 +314,22 @@ class LWNNModel():
             r = True
         return r
 
+    def opt_IsLayerOutputWithOutput(self, layer):
+        r = False
+        if('inputs' in layer):
+            inputs = self.get_layers(layer['inputs'])
+            if((layer['op'] == 'Output') and
+               (len(inputs) == 1) and
+                (inputs[0]['op'] in ['Softmax', 'DetectionOutput'])):
+                r = True
+        return r
+
+    def opt_RemoveOutputWithOutput(self, layer):
+        inp = self.get_layers(layer['inputs'])[0]
+        inp['Output'] = True
+        self.opt_RemoveLayer(layer)
+        return True
+
     def permute_shape(self, layer):
         if('permute' not in layer):
             shape = layer['shape']
@@ -455,7 +472,8 @@ class LWNNModel():
     def opt_IsLayerUnused(self, layer):
         r = False
         consumers = self.get_consumers(layer)
-        if((len(consumers) == 0) and (layer['op'] != 'Output')):
+        if((len(consumers) == 0) and
+           ((layer['op'] != 'Output') and ('Output' not in layer))):
             r = True
         return r
 

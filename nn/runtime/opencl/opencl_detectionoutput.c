@@ -17,7 +17,27 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cl_DETECTIONOUTPUT_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cl_create_layer_common(nn, layer, NULL, NULL, sizeof(layer_cl_detection_output_context_t));
+	int r;
+	layer_cl_context_t* context;
+	layer_cl_context_t* mbox_loc_context;
+	layer_cl_context_t* mbox_conf_context;
+	size_t scratch_size;
+
+	r = rte_cl_create_layer_context(nn, layer, NULL, NULL, sizeof(layer_cl_detection_output_context_t), 0);
+
+	if(0 == r)
+	{
+		context = (layer_cl_context_t*) layer->C->context;
+		mbox_loc_context =
+				(layer_cl_context_t*) layer->inputs[0]->C->context;
+		mbox_conf_context =
+				(layer_cl_context_t*) layer->inputs[1]->C->context;
+
+		scratch_size = NHWC_SIZE(mbox_loc_context->nhwc) + NHWC_SIZE(mbox_conf_context->nhwc);
+		nn_request_scratch(nn, scratch_size*sizeof(float));
+	}
+
+	return r;
 }
 
 void layer_cl_DETECTIONOUTPUT_deinit(const nn_t* nn, const layer_t* layer)

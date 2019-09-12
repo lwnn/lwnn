@@ -187,13 +187,13 @@ class LWNNBaseC():
                 self.fpC.write('\t&%s_input,\n'%(layer['name']))
         self.fpC.write('\tNULL\n};\n\n')
         for layer in self.model.lwnn_model:
-            if(layer['op'] == 'Output'):
+            if((layer['op'] == 'Output') or ('Output' in layer)):
                 self.fpC.write('static %s %s_output_buffer[%s];\n'%(self.get_type(), layer['name'], self.get_size(layer)))
                 self.fpC.write('static const nn_output_t %s_output=\n{\n\tL_REF(%s), %s_output_buffer\n};\n'
                                %(layer['name'],layer['name'],layer['name']))
         self.fpC.write('static const nn_output_t* const %s_%s_outputs[] =\n{\n'%(self.name, self.T))
         for layer in self.model.lwnn_model:
-            if(layer['op'] == 'Output'):
+            if((layer['op'] == 'Output') or ('Output' in layer)):
                 self.fpC.write('\t&%s_output,\n'%(layer['name']))
         self.fpC.write('\tNULL\n};\n\n')
         self.fpC.write('static const layer_t* const %s_%s_layers[] =\n{\n'%(self.name, self.T))

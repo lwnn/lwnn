@@ -10,6 +10,7 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CL_CONTEXT_MEMBER;
+	void* p_out;
 } layer_cl_softmax_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -17,9 +18,21 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cl_SOFTMAX_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cl_create_layer_common(nn, layer,
+	int r;
+	layer_cl_softmax_context_t* context;
+	void* out = nn_get_output_data(nn, layer);
+
+	r = rte_cl_create_layer_common(nn, layer,
 					OPENCL_PATH "softmax.cl", "softmax",
 					sizeof(layer_cl_softmax_context_t));
+
+	if(0 == r)
+	{
+		context = (layer_cl_softmax_context_t*)layer->C->context;
+		context->p_out = out;
+	}
+
+	return r;
 }
 int layer_cl_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 {
@@ -39,6 +52,11 @@ int layer_cl_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 	if(0 == r)
 	{
 		r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H, FALSE, NULL);
+	}
+
+	if((0 == r) && (NULL != context->p_out))
+	{
+		r = rte_cl_image2d_copy_out(nn, context->out[0], context->p_out, &context->nhwc);
 	}
 
 	return r;
