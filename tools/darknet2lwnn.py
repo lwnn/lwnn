@@ -29,15 +29,18 @@ class DarknetConverter():
              }
         self.opMap = { 
             'convolutional': 'Conv',
-            'route': 'Concat'
+            'route': 'Concat',
+            'shortcut': 'Add',
             }
 
     def read(self, num, type='f'):
         sz = 4
-        if(type=='q'): # long long
+        if(type in ['q','d']): # long long or double
             sz = 8
-        return np.array(struct.unpack('<'+str(num)+type,
-                    self.weights.read(sz*num)))
+        v = np.array(struct.unpack('<'+str(num)+type, self.weights.read(sz*num)))
+        if(type == 'f'):
+            v = v.astype(np.float32)
+        return v
 
     def check_version(self):
         major = self.read(1, 'i')[0]
@@ -85,6 +88,7 @@ class DarknetConverter():
         size = layer['size']
         filters = layer['filters']
         layer['strides'] = [stride,stride]
+        layer['pads'] = [pad, pad, pad, pad]
         if('groups' not in layer):
             group = 1
         else:
@@ -107,11 +111,13 @@ class DarknetConverter():
     def to_LayerShortcut(self, cfg):
         layer = self.to_LayerCommon(cfg)
         fr = layer['from']
+        assert(fr != -1)
         if(fr < 0):
             inp = self.lwnn_model[fr]
         else:
             inp = self.lwnn_model[fr+1]
-        layer['inputs'] = [inp['name']]
+        inp2 = self.lwnn_model[-1]
+        layer['inputs'] = [inp['name'], inp2['name']]
         layer['shape'] = inp['shape']
         return layer
 
@@ -134,6 +140,7 @@ class DarknetConverter():
         for inp in inputs[1:]:
             c += inp['shape'][1]
         layer['shape'] = [n,c,h,w]
+        layer['axis'] = 1
         return layer
 
     def to_LayerUpsample(self, cfg):
@@ -147,7 +154,15 @@ class DarknetConverter():
 
     def to_LayerYolo(self, cfg):
         layer = self.to_LayerCommon(cfg)
-        layer['shape'] = []
+        total = layer['num']
+        mask = layer['mask']
+        num = len(mask)
+        classes = layer['classes']
+        n,c,h,w = layer['shape']
+        n = num
+        c = n*(classes + 4 + 1)
+        layer['shape'] = [n,c,h,w]
+        self.yolos.append(layer)
         return layer
 
     def to_LayerCommon(self, cfg):
@@ -180,20 +195,37 @@ class DarknetConverter():
     def __str__(self):
         cstr = 'Darknet Model %s:\n'%(self.cfgFile)
         for ID, L in enumerate(self.lwnn_model):
-            cstr += '%3s %-17s: %-18s'%(ID-1, L['name'], L['shape'])
-            if(L['op'] == 'Shortcut'):
-                cstr += ' %s'%(L['inputs'][0])
-            elif(L['op'] == 'Conv'):
+            cstr += '%3s %-17s: %-18s %s'%(ID-1, L['name'], L['shape'], L['inputs'] if 'inputs' in L else '')
+            if(L['op'] == 'Conv'):
                 inp = self.get_layers(L['inputs'])[0]
-                cstr += ' %-18s %s %sx%s/%s'%(inp['shape'], inp['name'], L['size'], L['size'], L['stride'])
+                cstr += ' %-18s %sx%s/%s'%(inp['shape'], L['size'], L['size'], L['stride'])
             elif(L['op'] == 'Upsample'):
                 cstr += ' x%s'%(L['stride'])
-            elif(L['op'] == 'Concat'):
-                cstr += ' %s'%(L['inputs'])
             cstr += '\n'
         return cstr
 
+    def setup_output(self):
+        if(0 == len(self.yolos)):
+            inp = self.lwnn_model[-1]
+            oname = inp['name']
+            layer = { 'name': oname+'_O', 
+                      'op': 'Output',
+                      'inputs' : [oname],
+                      'outputs' : [oname+'_O'],
+                      'shape': inp['shape'] }
+        else:
+            classes = self.yolos[0]['classes']
+            n = self.lwnn_model[0]['shape'][0]
+            layer = { 'name': 'YoloOutput', 
+                      'op': 'YoloOutput',
+                      'inputs' : [L['name'] for L in self.yolos],
+                      'outputs' : ['YoloOutput'],
+                      'shape': [n, 7 , 1, classes*2],
+                      'Output': True }
+        self.lwnn_model.append(layer)
+
     def convert(self):
+        self.yolos = []
         self.weights = open(self.weightsFile, 'rb')
         self.check_version()
         self.lwnn_model = []
@@ -205,6 +237,10 @@ class DarknetConverter():
                 translator = self.to_LayerCommon
             layer = translator(self.cfg[section])
             self.lwnn_model.append(layer)
+        self.setup_output()
+        anymore = self.weights.read()
+        if(len(anymore) != 0):
+            raise Exception('weights %s mismatched with the cfg %s'%(self.weightsFile, self.cfgFile))
         self.weights.close()
         return self.lwnn_model
 

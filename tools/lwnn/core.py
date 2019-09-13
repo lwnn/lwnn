@@ -579,13 +579,14 @@ class LWNNModel():
         if(model == None):
             model = self.lwnn_model
         cstr = 'LWNN Model %s:\n'%(self.name)
-        order = ['name', 'op', 'shape','inputs', 'outputs', 'weights', 'bias', 'const']
+        WL = ['weights','bias', 'const', 'scales', 'rolling_mean', 'rolling_variance']
+        order = ['name', 'op', 'shape','inputs', 'outputs'] + WL
         for layer in model:
             cstr += ' {'
             for k in order:
                 if(k in layer):
                     v = layer[k]
-                    if(k in ['weights','bias', 'const', 'scales', 'rolling_mean', 'rolling_variance']):
+                    if(k in WL):
                         cstr += '%s: %s, '%(k, v.shape)
                     else:
                         cstr += '%s: %s, '%(k,v)
