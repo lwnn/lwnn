@@ -6,12 +6,15 @@ import os
 import configparser
 import io
 from collections import defaultdict
+import numpy as np
+import struct
 
 __all__ = ['dartnet2lwnn']
 
 class DarknetConverter():
     def __init__(self, cfg, weights):
         self.cfgFile = cfg
+        self.weightsFile = weights
         unique_config_file = self.unique_config_sections(cfg)
         self.cfg = configparser.ConfigParser()
         self.cfg.read_file(unique_config_file)
@@ -28,6 +31,24 @@ class DarknetConverter():
             'convolutional': 'Conv',
             'route': 'Concat'
             }
+
+    def read(self, num, type='f'):
+        sz = 4
+        if(type=='q'): # long long
+            sz = 8
+        return np.array(struct.unpack('<'+str(num)+type,
+                    self.weights.read(sz*num)))
+
+    def check_version(self):
+        major = self.read(1, 'i')[0]
+        minor = self.read(1, 'i')[0]
+        revision = self.read(1, 'i')[0]
+        if (((major*10 + minor) >= 2) and (major < 1000) and (minor < 1000)):
+            seen = self.read(1, 'q')[0]
+        else:
+            seen = self.read(1, 'i')[0]
+        print('Loading weights from %s..., version=%s.%s.%s, seen=%s'%(self.weightsFile, major, minor, revision, seen))
+        self.transpose = (major > 1000) or (minor > 1000)
 
     def unique_config_sections(self, config_file):
         """Convert all config sections to have unique names.
@@ -64,11 +85,23 @@ class DarknetConverter():
         size = layer['size']
         filters = layer['filters']
         layer['strides'] = [stride,stride]
+        if('groups' not in layer):
+            group = 1
+        else:
+            group = layer['groups']
+        layer['group'] = group
         n,c,h,w = layer['shape']
         if(size != 1):
-            h = int(h/stride+pad*2-(size-1))
-            w = int(w/stride+pad*2-(size-1))
+            h = int((h+pad*2-size)/stride)+1
+            w = int((w+pad*2-size)/stride)+1
         layer['shape'] = [n,filters, h, w]
+        layer['bias'] = self.read(filters, 'f')
+        if(('batch_normalize' in layer) and 
+           (layer['batch_normalize'] == 1)):
+            layer['scales'] = self.read(filters, 'f')
+            layer['rolling_mean'] = self.read(filters, 'f')
+            layer['rolling_variance'] = self.read(filters, 'f')
+        layer['weights'] = self.read(int(c/group*filters*size*size), 'f').reshape(filters, size, size, c)
         return layer
 
     def to_LayerShortcut(self, cfg):
@@ -161,6 +194,8 @@ class DarknetConverter():
         return cstr
 
     def convert(self):
+        self.weights = open(self.weightsFile, 'rb')
+        self.check_version()
         self.lwnn_model = []
         for section in self.cfg.sections():
             op = section.split('_')[0]
@@ -170,6 +205,7 @@ class DarknetConverter():
                 translator = self.to_LayerCommon
             layer = translator(self.cfg[section])
             self.lwnn_model.append(layer)
+        self.weights.close()
         return self.lwnn_model
 
 def dartnet2lwnn(cfg, name, **kargs):

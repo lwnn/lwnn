@@ -585,7 +585,7 @@ class LWNNModel():
             for k in order:
                 if(k in layer):
                     v = layer[k]
-                    if(k in ['weights','bias', 'const']):
+                    if(k in ['weights','bias', 'const', 'scales', 'rolling_mean', 'rolling_variance']):
                         cstr += '%s: %s, '%(k, v.shape)
                     else:
                         cstr += '%s: %s, '%(k,v)
