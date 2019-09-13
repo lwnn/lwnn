@@ -32,8 +32,14 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | AvgPool1D | Y | Y | Y | Y | Y | based on AvgPool2D |
 | AvgPool2D | Y | Y | Y | Y | Y | |
 | Add | Y | Y | Y | Y | Y | |
-| PriorBox | Y | N | N | N | N | |
-| DetectionOutput | Y | N | N | N | N | |
+| PriorBox | Y | N | N | N | F | |
+| DetectionOutput | Y | N | N | N | F | |
+
+* F means fallback to others runtime that supported that layer.
+
+## Supported Famous Models
+
+* [MobileNet-SSD](https://github.com/chuanqi305/MobileNet-SSD) : [README](gtest/models/ssd/README.md)
 
 ## Development
 
