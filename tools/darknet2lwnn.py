@@ -7,7 +7,7 @@ import configparser
 import io
 from collections import defaultdict
 import numpy as np
-import struct
+#import struct
 
 __all__ = ['dartnet2lwnn']
 
@@ -35,9 +35,14 @@ class DarknetConverter():
 
     def read(self, num, type='f'):
         sz = 4
+        tM = { 'f':np.float32, 'i':np.int32, 'q':np.int64, 'd':np.float64 }
         if(type in ['q','d']): # long long or double
             sz = 8
-        v = np.array(struct.unpack('<'+str(num)+type, self.weights.read(sz*num)))
+        #v = np.array(struct.unpack('<'+str(num)+type, self.weights.read(sz*num)))
+        v = np.ndarray(
+                shape=(num,),
+                dtype=tM[type],
+                buffer=self.weights.read(num*sz))
         if(type == 'f'):
             v = v.astype(np.float32)
         return v
@@ -57,6 +62,7 @@ class DarknetConverter():
         """Convert all config sections to have unique names.
         Adds unique suffixes to config sections for compability with configparser.
         """
+        # taken from https://github.com/allanzelener/YAD2K/blob/master/yad2k.py
         section_counters = defaultdict(int)
         output_stream = io.StringIO()
         with open(config_file) as fin:
@@ -105,7 +111,7 @@ class DarknetConverter():
             layer['scales'] = self.read(filters, 'f')
             layer['rolling_mean'] = self.read(filters, 'f')
             layer['rolling_variance'] = self.read(filters, 'f')
-        layer['weights'] = self.read(int(c/group*filters*size*size), 'f').reshape(filters, size, size, c)
+        layer['weights'] = self.read(int(c/group*filters*size*size), 'f').reshape(filters, c, size, size)
         return layer
 
     def to_LayerShortcut(self, cfg):

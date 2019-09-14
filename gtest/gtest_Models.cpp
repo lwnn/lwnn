@@ -15,6 +15,8 @@
 #define NNT_SSD_NOT_FOUND_OKAY TRUE
 #define NNT_SSD_TOP1 0.9
 
+#define NNT_YOLOV3_NOT_FOUND_OKAY TRUE
+#define NNT_YOLOV3_TOP1 0.9
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	void* (*load_input)(const char* path, int id, size_t* sz);
@@ -26,6 +28,7 @@ typedef struct {
 static void* load_input(const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
 static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
+static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
 NNT_CASE_DEF(MNIST) =
 {
@@ -48,6 +51,19 @@ static const nnt_model_args_t nnt_ssd_args =
 NNT_CASE_DEF(SSD) =
 {
 	NNT_CASE_DESC_ARGS(ssd),
+};
+
+static const nnt_model_args_t nnt_yolov3_args =
+{
+	load_input,
+	load_output,
+	yolov3_compare,
+	1	/* 1 test images */
+};
+
+NNT_CASE_DEF(YOLOV3) =
+{
+	NNT_CASE_DESC_ARGS(yolov3),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 static void* load_input(const char* path, int id, size_t* sz)
@@ -109,7 +125,14 @@ static int ssd_compare(nn_t* nn, int id, float* output, size_t szo, float* glode
 		printf("output for image %d is not correct\n", id);
 	}
 
-	return 0;
+	return r;
+}
+
+static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg)
+{
+	int r = 0;
+
+	return r;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
 void ModelTestMain(runtime_type_t runtime,
@@ -334,3 +357,5 @@ NNT_MODEL_TEST_ALL(MNIST)
 NNT_MODEL_TEST_ALL(UCI_INCEPTION)
 
 NNT_MODEL_TEST_ALL(SSD)
+
+NNT_MODEL_TEST_ALL(YOLOV3)

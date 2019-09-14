@@ -6,6 +6,7 @@
 #include "nn.h"
 #ifndef DISABLE_RUNTIME_OPENCL
 #include "runtime_opencl.h"
+#include "algorithm.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {

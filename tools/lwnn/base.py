@@ -18,7 +18,9 @@ class LWNNBaseC():
                 'Pad': self.gen_LayerPad,
                 'Softmax': self.gen_LayerSoftmax,
                 'Add': self.gen_LayerAdd,
-                'Transpose': self.gen_LayerTranspose,
+                'Upsample': self.gen_LayerUpsample,
+                'Yolo': self.gen_LayerYolo,
+                'YoloOutput': self.gen_LayerYoloOutput,
                 'DetectionOutput': self.gen_LayerDetectionOutput,
                 'Const': self.gen_LayerConst,
                 'Output': self.gen_LayerOutput }
@@ -299,10 +301,19 @@ class LWNNBaseC():
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_ADD ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
-    def gen_LayerTranspose(self, layer):
-        M = np.asarray(layer['perm'], np.int32)
-        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
-        self.fpC.write('L_TRANSPOSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+    def gen_LayerUpsample(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_UPSAMPLE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerYolo(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_YOLO ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerYoloOutput(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_YOLOOUTPUT ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
     def gen_LayerDetectionOutput(self, layer):
         M1 = np.array([layer['nms_threshold'], layer['confidence_threshold']], np.float32)
