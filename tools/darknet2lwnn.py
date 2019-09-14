@@ -92,6 +92,8 @@ class DarknetConverter():
         stride = layer['stride']
         pad = layer['pad']
         size = layer['size']
+        if(size == 1):
+            pad = 0
         filters = layer['filters']
         layer['strides'] = [stride,stride]
         layer['pads'] = [pad, pad, pad, pad]
