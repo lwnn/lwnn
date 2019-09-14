@@ -299,7 +299,7 @@ class LWNNModel():
                 c_w[i] *= bn_gamma[i] / np.sqrt(bn_variance[i] + epsilon)
                 c_b[i] = (bn_gamma[i] * (c_b[i] - bn_mean[i]) / np.sqrt(bn_variance[i] + epsilon)) + bn_beta[i]
         else:
-            raise Exception("don't know how to fuse for %s shape %s"%(layer.name, c_w.shape))
+            raise Exception("don't know how to fuse for %s shape %s"%(layer['name'], c_w.shape))
         layer['weights'] = c_w
         layer['bias'] = c_b
         self.opt_RemoveLayer(bn)

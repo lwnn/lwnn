@@ -29,7 +29,8 @@ static void convolve_HWC_ref_nonsquare(const float * Im_in,  /* input image */
 		const float * bias,   /* bias */
 		float * Im_out, /* output image */
 		const int dim_im_out_x, /* output image dimension x */
-		const int dim_im_out_y  /* output image dimension y */
+		const int dim_im_out_y,  /* output image dimension y */
+		layer_activation_type_t act
 		)
 {
 	int i, j, k, l, m, n;
@@ -57,6 +58,16 @@ static void convolve_HWC_ref_nonsquare(const float * Im_in,  /* input image */
 						}
 					}
 				}
+				switch(act) {
+					case L_ACT_RELU:
+						if(conv_out<0) conv_out = 0;
+						break;
+					case L_ACT_LEAKY:
+						if(conv_out<0) conv_out = 0.1*conv_out;
+						break;
+					default:
+						break;
+				}
 				Im_out[i + (j * dim_im_out_x + k) * ch_im_out] = conv_out;
 			}
 		}
@@ -79,6 +90,7 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	float *bias = (float*)layer->blobs[1]->blob;
 	int knlX, knlY, padX, padY, strideX, strideY;
 	int* ints;
+	layer_activation_type_t act;
 
 	size_t batch;
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
@@ -94,6 +106,7 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	padX = ints[1];
 	strideY = ints[4];
 	strideX = ints[5];
+	act = ints[6];
 
 	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n",
 			layer->name,
@@ -113,7 +126,8 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			bias,
 			O+batch_sizeO*batch,
 			context->nhwc.W,
-			context->nhwc.H);
+			context->nhwc.H,
+			act);
 	}
 
 	return r;

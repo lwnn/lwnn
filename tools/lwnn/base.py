@@ -29,6 +29,14 @@ class LWNNBaseC():
         self.feeds = feeds
         self.name = os.path.basename(self.model.name)
 
+    def get_activation(self, layer):
+        actMap = { 'linear':0, 'Relu':1, 'leaky':2, }
+        if('activation' not in layer):
+            act = 0 # 0 means no activation
+        else:
+            act = actMap[layer['activation']]
+        return act
+
     def generate(self):
         self.fpH = self.model.open('%s.h'%(self.T))
         self.fpC = self.model.open('%s.c'%(self.T))

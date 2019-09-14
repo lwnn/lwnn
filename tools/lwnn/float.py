@@ -20,7 +20,7 @@ class LWNNFloatC(LWNNBaseC):
         else:
             strides = list(layer['strides'])
 
-        M = np.asarray(list(layer['pads']) + strides, np.int32)
+        M = np.asarray(list(layer['pads']) + strides + [self.get_activation(layer)], np.int32)
         self.gen_layer_WBM(layer, W, B, M)
 
         if(layer['group'] == 1):

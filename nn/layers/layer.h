@@ -164,6 +164,13 @@ typedef enum
 	L_DT_AUTO
 } layer_data_type_t;
 
+typedef enum
+{
+	L_ACT_NONE  = 0,
+	L_ACT_RELU  = 1,
+	L_ACT_LEAKY = 2,
+} layer_activation_type_t;
+
 typedef const int* layer_dimension_t;
 
 typedef struct layer_blob {

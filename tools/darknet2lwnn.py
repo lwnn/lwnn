@@ -112,6 +112,22 @@ class DarknetConverter():
             layer['rolling_mean'] = self.read(filters, 'f')
             layer['rolling_variance'] = self.read(filters, 'f')
         layer['weights'] = self.read(int(c/group*filters*size*size), 'f').reshape(filters, c, size, size)
+        if(('batch_normalize' in layer) and 
+           (layer['batch_normalize'] == 1)):
+            c_w = layer['weights']
+            c_b = layer['bias']
+            bn_gamma = layer['scales']
+            bn_mean = layer['rolling_mean']
+            bn_variance = layer['rolling_variance']
+            epsilon = 0.000001
+            if(len(c_w.shape) == 4):
+                for i in range(c_w.shape[0]):
+                    c_w[i] *= bn_gamma[i] / (np.sqrt(bn_variance[i]) + epsilon)
+                    c_b[i] = c_b[i] - bn_gamma[i]*bn_mean[i] / (np.sqrt(bn_variance[i]) + epsilon)
+                layer['weights'] = c_w
+                layer['bias'] = c_b
+            else:
+                raise Exception("don't know how to fuse for %s shape %s"%(layer['name'], c_w.shape))
         return layer
 
     def to_LayerShortcut(self, cfg):
