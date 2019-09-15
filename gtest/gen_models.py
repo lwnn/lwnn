@@ -42,6 +42,13 @@ def avgpool(name, shape=[13,17,3], pool_size=(2, 2), strides=(2, 2)):
     feeds = {input:np.random.uniform(low=-1,high=2,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def upsample2d(name, shape=[5,5,1], size=(2, 2)):
+    input = Input(shape=shape, name=name+'_input')
+    output = UpSampling2D(size=size, name=name+'_output')(input)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.randint(low=-128,high=127,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 def maxpool1d(name, shape=[32,32], pool_size=2, strides=2):
     input = Input(shape=shape, name=name+'_input')
     output = MaxPooling1D(pool_size=pool_size, strides=strides, name=name+'_output')(input)
@@ -230,3 +237,5 @@ if(__name__ == '__main__'):
     avgpool1d('avgpool1d_1')
     avgpool1d('avgpool1d_2',shape=[341,129], pool_size=4, strides=5)
     add('add_1')
+    upsample2d('upsample2d_1')
+    upsample2d('upsample2d_2', shape=[8,8,3], size=(2, 3))

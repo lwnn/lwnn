@@ -5,6 +5,39 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+def show(mts):
+    if(mts is None):
+        print('>>> nothing to show  <<<')
+    if(type(mts) != list):
+        mts = [mts]
+
+    for i, mt in enumerate(mts):
+        X = mt.shape[0]
+        Y = mt.shape[1]
+        fig, ax = plt.subplots(figsize=(Y, X))
+        im = ax.imshow(mt)
+
+        # We want to show all ticks...
+        ax.set_xticks(np.arange(Y))
+        ax.set_yticks(np.arange(X))
+        # ... and label them with the respective list entries
+        ax.set_xticklabels([y for y in range(Y)])
+        ax.set_yticklabels([x for x in range(X)])
+
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                 rotation_mode="anchor")
+
+        # Loop over data dimensions and create text annotations.
+        for x in range(X):
+            for y in range(Y):
+                text = ax.text(y, x, mt[x, y], fontweight='bold',fontsize='x-large',
+                               ha="center", va="center", color="w")
+
+        ax.set_title('matrix%d'%(i))
+        fig.tight_layout()
+    plt.show()
+
 def compare(a, b, name='', delayedShow=False):
     aL = a.reshape(-1).tolist()
     bL = b.reshape(-1).tolist()

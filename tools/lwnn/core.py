@@ -20,6 +20,7 @@ class LWNNModel():
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
             (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, None),
             (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
+            (self.opt_IsLayerConcatWithOneOnly, self.opt_RemoveLayer, None),
             (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
             (self.opt_IsLayerOutputWithOutput, self.opt_RemoveOutputWithOutput, None),
@@ -194,7 +195,7 @@ class LWNNModel():
         r = False
         if(self.is_model_channel_first_cached==True):
             pass
-        elif(layer['op'] not in ['Conv', 'MaxPool', 'AveragePool']):
+        elif(layer['op'] not in ['Conv', 'MaxPool', 'AveragePool', 'Upsample']):
             CHIA = self.nchw_IsConsumerHasInputAdjustLayer(layer)
             PHOA = self.nchw_IsPreviousHasOutputAdjustLayer(layer)
             if( ((CHIA==True) and (PHOA==False)) or
@@ -505,6 +506,14 @@ class LWNNModel():
         layer['inputs'] = []
         layer['const'] = const
         return True
+
+    def opt_IsLayerConcatWithOneOnly(self, layer):
+        r = False
+        if(layer['op'] == 'Concat'):
+            inputs = self.get_layers(layer['inputs'])
+            if(len(inputs) == 1):
+                r = True
+        return r
 
     def opt_IsLayerDetectionOutputWithConst(self, layer):
         r = False

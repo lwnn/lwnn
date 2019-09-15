@@ -34,6 +34,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | Add | Y | Y | Y | Y | Y | |
 | PriorBox | Y | N | N | N | F | |
 | DetectionOutput | Y | N | N | N | F | |
+| Upsample | Y | Y | Y | Y | Y | |
 
 * F means fallback to others runtime that supported that layer.
 

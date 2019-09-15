@@ -2,20 +2,19 @@
  * LWNN - Lightweight Neural Network
  * Copyright (C) 2019  Parai Wang <parai@foxmail.com>
  */
-#ifndef NN_ALGORITHM_H_
-#define NN_ALGORITHM_H_
 /* ============================ [ INCLUDES  ] ====================================================== */
-#include "nn.h"
+#include "nn_test_util.h"
 /* ============================ [ MACROS    ] ====================================================== */
-/* adjust pointer address by offset */
-#define APABO(addr, offset) ((void*)(((size_t)(addr))+(offset)))
+#define NNT_Upsample_MAX_DIFF 1.0/100
+#define NNT_Upsample_MAX_QDIFF 0.01
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
+NNT_CASE_DEF(Upsample) =
+{
+	NNT_CASE_DESC(upsample2d_1),
+	NNT_CASE_DESC(upsample2d_2),
+};
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
-		void* pout, void* (*fetch_input)(const nn_t* nn, const layer_t* layer),
-		size_t type_size);
-int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size);
-#endif /* NN_ALGORITHM_H_ */
+NNT_TEST_ALL(Upsample)

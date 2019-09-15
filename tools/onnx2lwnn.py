@@ -14,6 +14,7 @@ class OnnxConverter():
                 'Conv': self.to_LayerConv,
                 'BatchNormalization': self.to_LayerBatchNormalization,
                 'MatMul': self.to_LayerMatMul,
+                'Resize': self.to_LayerUpsample,
                 'Add': self.to_LayerAdd }
         if(type(onnx_model) == str):
             onnx_model = onnx.load(onnx_model)
@@ -152,6 +153,11 @@ class OnnxConverter():
         layer = self.to_LayerCommon(node)
         W = self.get_initializer(node.input[1])
         layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
+        return layer
+
+    def to_LayerUpsample(self, node):
+        layer = self.to_LayerCommon(node)
+        layer['op'] = 'Upsample'
         return layer
 
     def to_LayerAdd(self, node):
