@@ -6,10 +6,10 @@
 #include "nn.h"
 #if !defined(DISABLE_RUNTIME_CPU_FLOAT) || !defined(DISABLE_RUNTIME_OPENCL)
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
-#include "../../runtime_cpu.h"
+#include "runtime_cpu.h"
 #endif
 #ifndef DISABLE_RUNTIME_OPENCL
-#include "../../../opencl/runtime_opencl.h"
+#include "runtime_opencl.h"
 #endif
 #include "bbox_util.hpp"
 

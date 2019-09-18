@@ -183,9 +183,7 @@ class DarknetConverter():
         num = len(mask)
         classes = layer['classes']
         n,c,h,w = layer['shape']
-        n = num
-        c = n*(classes + 4 + 1)
-        layer['shape'] = [n,c,h,w]
+        assert(c == num*(classes + 4 + 1))
         self.yolos.append(layer)
         return layer
 

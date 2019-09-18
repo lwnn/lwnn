@@ -138,6 +138,15 @@ def add(name, shape=[16, 16, 3], kernel_size=(3,3), strides=(1,1), padding="same
     feeds = {input:np.random.uniform(low=-1,high=1,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def transpose():
+    O = 'models/transpose/golden'
+    os.makedirs(O, exist_ok=True)
+    for i,shape in enumerate([(1,2,4,3), (1,34,23,77)]):
+        data = np.random.randint(low=0, high=100, size=shape).astype(np.float32)
+        output = data.transpose(0,3,1,2)
+        data.tofile('%s/input%s.raw'%(O, i))
+        output.tofile('%s/output%s_0.raw'%(O, i))
+
 def mnist():
     from keras.datasets import mnist
     from keras.utils import to_categorical
@@ -208,6 +217,7 @@ def mobilenetv2():
     keras2lwnn(model, 'mobilenetv2')
 
 if(__name__ == '__main__'):
+    transpose()
     conv2d('conv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), strides=(1,1), padding="same")
     conv2d('conv2d_2')
     conv2d('conv2d_3',shape=[45,17,23], filters=13, kernel_size=(2,3), strides=(3,2), padding="valid")

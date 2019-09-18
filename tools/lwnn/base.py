@@ -314,7 +314,12 @@ class LWNNBaseC():
         self.fpC.write('L_UPSAMPLE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerYolo(self, layer):
-        self.gen_no_blobs(layer)
+        mask = np.asarray(layer['mask'], np.int32)
+        anchors = np.asarray(layer['anchors'], np.int32)
+        M = np.asarray([layer['classes'], layer['num'], layer['jitter'], layer['ignore_thresh'], layer['truth_thresh']], np.float32)
+        self.gen_blobs(layer, [('%s_mask'%(layer['name']),mask),
+                               ('%s_anchors'%(layer['name']),anchors),
+                               ('%s_M'%(layer['name']),M)])
         self.fpC.write('L_YOLO ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerYoloOutput(self, layer):

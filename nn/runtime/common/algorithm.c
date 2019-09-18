@@ -9,6 +9,37 @@
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
+#define TEMPLATE_ALG_TRANSPOSE_FROM_NHWC_TO_NCHW(DTYPE)					\
+static void alg_transpose_from_nhwc_to_nchw_##DTYPE(					\
+		void* output,													\
+		const void* input,												\
+		const NHWC_t *inhwc)											\
+{																		\
+	int n,h,w,c;														\
+	size_t indexI;														\
+	const DTYPE##_t* pin = (const DTYPE##_t*)input;						\
+	DTYPE##_t* pout = (DTYPE##_t*)output;								\
+																		\
+	for(n=0; n<inhwc->N; n++)											\
+	{																	\
+		for(c=0; c<inhwc->C; c++)										\
+		{																\
+			for(h=0; h<inhwc->H; h++)									\
+			{															\
+				for(w=0; w<inhwc->W; w++)								\
+				{														\
+					indexI = ((n*inhwc->H+h)*inhwc->W+w)*inhwc->C+c;	\
+					*pout = pin[indexI];								\
+					pout++;												\
+				}														\
+			}															\
+		}																\
+	}																	\
+}
+
+TEMPLATE_ALG_TRANSPOSE_FROM_NHWC_TO_NCHW(int8)
+TEMPLATE_ALG_TRANSPOSE_FROM_NHWC_TO_NCHW(int16)
+TEMPLATE_ALG_TRANSPOSE_FROM_NHWC_TO_NCHW(int32)
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
 		void* pout, void* (*fetch_input)(const nn_t* nn, const layer_t* layer),
@@ -118,6 +149,43 @@ int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size
 					memcpy(APABO(p_out, i*inNHWC->C*outNHWC->W*type_size), p_out, inNHWC->C*strideX*type_size);
 				}
 			}
+		}
+	}
+
+	return r;
+}
+
+int alg_transpose(void* output, const void* input, const NHWC_t *inhwc, size_t type_size, alg_transpose_t transpose)
+{
+	int r = 0;
+	void (*transpose_func)(void*, const void*, const NHWC_t*) = NULL;
+
+	switch(type_size)
+	{
+		case 1:
+			transpose_func = alg_transpose_from_nhwc_to_nchw_int8;
+			break;
+		case 2:
+			transpose_func = alg_transpose_from_nhwc_to_nchw_int16;
+			break;
+		case 4:
+			transpose_func = alg_transpose_from_nhwc_to_nchw_int32;
+			break;
+		default:
+			r = NN_E_INVALID_PARAMETER;
+			break;
+	}
+
+	if(0 == r)
+	{
+		switch(transpose)
+		{
+			case ALG_TRANSPOSE_FROM_NHWC_TO_NCHW:
+				transpose_func(output, input, inhwc);
+				break;
+			default:
+				r = NN_E_INVALID_PARAMETER;
+				break;
 		}
 	}
 

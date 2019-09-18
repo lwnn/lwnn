@@ -127,6 +127,7 @@ enum {
 	NN_E_CL_DEPTH_NOT_4_ALIGNED = -17,
 	NN_E_INPUTS_Z_MISMATCH = -18,
 	NN_E_INPUTS_S_MISMATCH = -19,
+	NN_E_INVALID_PARAMETER = -20,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;

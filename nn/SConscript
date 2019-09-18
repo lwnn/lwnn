@@ -9,14 +9,15 @@ objs += Glob('layers/*.c')
 objs += Glob('runtime/*.c')
 objs += Glob('runtime/cpu/*.c')
 objs += Glob('runtime/cpu/*/*.c')
-objs += Glob('runtime/cpu/float/ssd/*.cpp')
 objs += Glob('runtime/opencl/*.c')
 objs += Glob('runtime/common/*.c')
+objs += Glob('runtime/common/ssd/*.cpp')
+objs += Glob('runtime/common/yolo/*.c')
 objs += Glob('*.c')
 
-asenv.Append(CPPPATH=['%s/%s'%(cwd,d) for d in ['','layers','runtime',
-                                                'runtime/cpu/float/ssd',
-                                                'runtime/common']])
+INCD = ['','layers','runtime','runtime/cpu','runtime/opencl','runtime/common',
+        'runtime/common/ssd','runtime/common/yolo']
+asenv.Append(CPPPATH=['%s/%s'%(cwd,d) for d in INCD])
 
 if(os.getenv('DISABLE_OPENCL') != 'True'):
     if(IsPlatformWindows()):

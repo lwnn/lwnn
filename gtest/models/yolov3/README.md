@@ -34,3 +34,7 @@ for inp in glob.glob('tmp/input*_.raw'):
     img = img.transpose((1,2,0))
     img.tofile('%s.raw'%(inp[:-5]))
 ```
+
+```sh
+python darknet2lwnn.py -i cfg/yolov3.cfg -w yolov3.weights -o yolov3
+```
