@@ -1,3 +1,4 @@
+
 /**
  * LWNN - Lightweight Neural Network
  * Copyright (C) 2019  Parai Wang <parai@foxmail.com>
@@ -89,7 +90,7 @@ int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
 			in_stride *= RTE_FETCH_INT32(&(input_context->nhwc), j);
 		}
 
-		NNLOG(NN_DEBUG, ("concat %s[%d %d %d %d], in stride=%d\n",
+		NNLOG(NN_DEBUG, ("  concat %s[%d %d %d %d], in stride=%d\n",
 				(*input)->name,
 				input_context->nhwc.N, input_context->nhwc.H,
 				input_context->nhwc.W, input_context->nhwc.C,

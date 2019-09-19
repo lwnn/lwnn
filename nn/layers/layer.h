@@ -210,6 +210,8 @@ typedef struct layer
 
 typedef struct nn nn_t;
 
+typedef void* (*layer_fetch_t)(const nn_t*, const layer_t*);
+
 typedef struct
 {
 	int (*init)(const nn_t*, const layer_t*);

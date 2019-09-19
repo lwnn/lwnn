@@ -17,6 +17,9 @@
 
 #define NNT_YOLOV3_NOT_FOUND_OKAY TRUE
 #define NNT_YOLOV3_TOP1 0.9
+
+#define NNT_YOLOV3TINY_NOT_FOUND_OKAY TRUE
+#define NNT_YOLOV3TINY_TOP1 0.9
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	void* (*load_input)(const char* path, int id, size_t* sz);
@@ -61,9 +64,22 @@ static const nnt_model_args_t nnt_yolov3_args =
 	1	/* 1 test images */
 };
 
+static const nnt_model_args_t nnt_yolov3_tiny_args =
+{
+	load_input,
+	load_output,
+	yolov3_compare,
+	1	/* 1 test images */
+};
+
 NNT_CASE_DEF(YOLOV3) =
 {
 	NNT_CASE_DESC_ARGS(yolov3),
+};
+
+NNT_CASE_DEF(YOLOV3TINY) =
+{
+	NNT_CASE_DESC_ARGS(yolov3_tiny),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 static void* load_input(const char* path, int id, size_t* sz)
@@ -359,3 +375,6 @@ NNT_MODEL_TEST_ALL(UCI_INCEPTION)
 NNT_MODEL_TEST_ALL(SSD)
 
 NNT_MODEL_TEST_ALL(YOLOV3)
+
+NNT_MODEL_TEST_ALL(YOLOV3TINY)
+

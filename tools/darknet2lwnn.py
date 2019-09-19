@@ -26,11 +26,13 @@ class DarknetConverter():
             'upsample': self.to_LayerUpsample,
             'yolo': self.to_LayerYolo,
             'route': self.to_LayerRoute,
+            'maxpool': self.to_LayerMaxPool,
              }
         self.opMap = { 
             'convolutional': 'Conv',
             'route': 'Concat',
             'shortcut': 'Add',
+            'maxpool': 'MaxPool',
             }
 
     def read(self, num, type='f'):
@@ -165,6 +167,24 @@ class DarknetConverter():
             c += inp['shape'][1]
         layer['shape'] = [n,c,h,w]
         layer['axis'] = 1
+        return layer
+
+    def to_LayerMaxPool(self, cfg):
+        layer = self.to_LayerCommon(cfg)
+        stride = layer['stride']
+        size = layer['size']
+        if('padding' in layer):
+            padding = layer['padding']
+        else:
+            padding = (size-1)
+        n,c,h,w = layer['shape']
+        w = int((w + padding - size)/stride + 1)
+        h = int((h + padding - size)/stride + 1)
+        layer['shape'] = [n, c, h, w]
+        layer['kernel_shape'] = [size, size]
+        layer['strides'] = [stride, stride]
+        padding = int(padding/2)
+        layer['pads'] = [padding, padding]
         return layer
 
     def to_LayerUpsample(self, cfg):
