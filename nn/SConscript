@@ -2,7 +2,6 @@ from building import *
 Import('asenv')
 
 cwd = GetCurrentDir()
-print(cwd)
 
 objs = []
 objs += Glob('layers/*.c')

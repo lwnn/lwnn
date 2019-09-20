@@ -1,0 +1,11 @@
+from building import *
+Import('asenv')
+
+cwd = GetCurrentDir()
+asenv.Append(CPPPATH=[cwd])
+
+stbpkg = Package('https://github.com/nothings/stb.git')
+
+objs = Glob('*.c')
+
+Return('objs')

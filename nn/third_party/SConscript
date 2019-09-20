@@ -12,4 +12,6 @@ asenv.Append(CPPDEFINES=['__ARM_ARCH_8M_BASE__'])
 
 objs = asenv.Library('cmsisnn', objs)
 
+objs += SConscript('image/SConscript')
+
 Return('objs')

@@ -5,6 +5,7 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn_test_util.h"
 #include "bbox_util.hpp"
+#include "image.h"
 /* ============================ [ MACROS    ] ====================================================== */
 #define NNT_MNIST_NOT_FOUND_OKAY FALSE
 #define NNT_MNIST_TOP1 0.9
@@ -22,17 +23,20 @@
 #define NNT_YOLOV3TINY_TOP1 0.9
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
-	void* (*load_input)(const char* path, int id, size_t* sz);
+	void* (*load_input)(nn_t* nn, const char* path, int id, size_t* sz);
 	void* (*load_output)(const char* path, int id, size_t* sz);
 	int (*compare)(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 	size_t n;
 } nnt_model_args_t;
 /* ============================ [ DECLARES  ] ====================================================== */
-static void* load_input(const char* path, int id, size_t* sz);
+static void* load_input(nn_t* nn, const char* path, int id, size_t* sz);
+static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
 static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
+const char* g_InputImagePath = NULL;
+
 NNT_CASE_DEF(MNIST) =
 {
 	NNT_CASE_DESC(mnist),
@@ -66,7 +70,7 @@ static const nnt_model_args_t nnt_yolov3_args =
 
 static const nnt_model_args_t nnt_yolov3_tiny_args =
 {
-	load_input,
+	load_yolov3_input,
 	load_output,
 	yolov3_compare,
 	1	/* 1 test images */
@@ -82,12 +86,46 @@ NNT_CASE_DEF(YOLOV3TINY) =
 	NNT_CASE_DESC_ARGS(yolov3_tiny),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
-static void* load_input(const char* path, int id, size_t* sz)
+static void* load_input(nn_t* nn, const char* path, int id, size_t* sz)
 {
 	char name[256];
 	snprintf(name, sizeof(name), "%s/input%d.raw", path, id);
 
 	return nnt_load(name, sz);
+}
+
+static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz)
+{
+	image_t* im;
+	image_t* resized_im;
+	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
+
+	EXPECT_EQ(context->nhwc.C, 3);
+
+	if(g_InputImagePath != NULL)
+	{
+		im = image_open(g_InputImagePath);
+		image_save(im, "tmp/debug1.png");
+		assert(im != NULL);
+		resized_im = image_letterbox(im, context->nhwc.W, context->nhwc.H);
+		assert(resized_im != NULL);
+		image_save(resized_im, "tmp/debug2.png");
+		float* input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
+
+		for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc); i++)
+		{
+			input[i] = resized_im->data[i]/255.f;
+		}
+		image_close(im);
+		image_close(resized_im);
+
+		*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);
+		return (void*) input;
+	}
+	else
+	{
+		return load_input(nn, path, id, sz);
+	}
 }
 
 static void* load_output(const char* path, int id, size_t* sz)
@@ -214,7 +252,7 @@ void ModelTestMain(runtime_type_t runtime,
 		}
 		else
 		{
-			in = (float*)args->load_input(input, i, &sz_in);
+			in = (float*)args->load_input(nn, input, i, &sz_in);
 			EXPECT_EQ(sz_in, H*W*C*sizeof(float));
 			golden = (float*)args->load_output(input, i, &sz_golden);
 			ASSERT_TRUE(golden != NULL);
@@ -301,18 +339,18 @@ void ModelTestMain(runtime_type_t runtime,
 				free(golden);
 			}
 
-			if(g_CaseNumber != -1)
+			if(out != outputs[0]->data)
+			{
+				free(out);
+			}
+
+			if((g_CaseNumber != -1) || (g_InputImagePath != NULL))
 			{
 				if(NULL == args)
 				{
 					printf("image %d predict as %d%s%d with prob=%.2f\n", i, y, (y==y_test[i])?"==":"!=", y_test[i], prob);
 				}
 				break;
-			}
-
-			if(out != outputs[0]->data)
-			{
-				free(out);
 			}
 		}
 

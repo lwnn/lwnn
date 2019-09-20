@@ -26,9 +26,6 @@ int layer_cpu_float_INPUT_init(const nn_t* nn, const layer_t* layer)
 	if(0 == r)
 	{
 		context = (layer_cpu_float_input_context_t*)layer->C->context;
-
-		RTE_CPU_LOG_LAYER_SHAPE(layer);
-
 		context->out[0] = NULL;
 	}
 
