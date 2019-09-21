@@ -13,9 +13,12 @@
 #include "stb/stb_image_resize.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb/stb_truetype.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
+extern const uint8_t pCharset10x14[];
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -245,4 +248,52 @@ image_t* image_letterbox(image_t* im, int w, int h)
 	image_close(resized);
 
 	return boxed;
+}
+
+
+void image_draw_char(image_t* im, int x, int y, uint8_t c, uint32_t color)
+{
+	int row, col ;
+
+	assert( (c >= 0x20) && (c <= 0x7F) ) ;
+
+	for (col = 0; col < 10; col++)
+	{
+		for (row = 0 ; row < 8 ; row++)
+		{
+			if ( (pCharset10x14[((c - 0x20) * 20) + col * 2] >> (7 - row)) & 0x1 )
+			{
+				image_draw_pixel(im, x+col, y+row, color);
+			}
+		}
+
+		for ( row = 0 ; row < 6 ; row++ )
+		{
+			if ( (pCharset10x14[((c - 0x20) * 20) + col * 2 + 1] >> (7 - row)) & 0x1 )
+			{
+				image_draw_pixel(im, x+col, y+row+8, color);
+			}
+		}
+	}
+}
+
+void image_draw_text(image_t* im, int x, int y, const char *string, uint32_t color)
+{
+	unsigned xorg = x;
+
+	while ( *string != 0 )
+	{
+		if ( *string == '\n' )
+		{
+			y += 14 + 2 ;
+			x = xorg ;
+		}
+		else
+		{
+			image_draw_char(im, x, y, *string, color) ;
+			x += 10 + 2;
+		}
+
+		string++;
+	}
 }

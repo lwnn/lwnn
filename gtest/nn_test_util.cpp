@@ -68,7 +68,7 @@ void* nnt_load(const char* inraw, size_t *sz)
 	if(NULL==fp)
 	{
 		printf("failed to load raw %s\n", inraw);
-		assert(0);
+		return NULL;
 	}
 	fseek(fp, 0, SEEK_END);
 	*sz = ftell(fp);

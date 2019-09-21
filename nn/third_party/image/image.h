@@ -34,6 +34,8 @@ void image_draw_pixel(image_t* im, int x, int y, uint32_t color);
 void image_fill_area(image_t* im, int x, int y, int cx, int cy, uint32_t color);
 void image_draw_line(image_t* im, int x0, int y0, int x1, int y1, uint32_t color);
 void image_draw_rectange(image_t* im, int x, int y, int w, int h, uint32_t color);
+void image_draw_text(image_t* im, int x, int y, const char *string, uint32_t color);
+void image_draw_char(image_t* im, int x, int y, uint8_t c, uint32_t color);
 #ifdef __cplusplus
 }
 #endif

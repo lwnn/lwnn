@@ -30,12 +30,16 @@ typedef struct {
 } nnt_model_args_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz);
+static void* load_ssd_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
 static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
 const char* g_InputImagePath = NULL;
+
+static const char* voc_names_for_ssd[] = {"background","aeroplane", "bicycle", "bird", "boat","bottle", "bus", "car", "cat", "chair","cow", "diningtable", "dog", "horse","motorbike", "person", "pottedplant","sheep", "sofa", "train", "tvmonitor"};
+static const char* coco_names_for_yolo[] = {"person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck","boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "sofa", "pottedplant", "bed", "diningtable", "toilet", "tvmonitor", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush" };
 
 NNT_CASE_DEF(MNIST) =
 {
@@ -49,7 +53,7 @@ NNT_CASE_DEF(UCI_INCEPTION) =
 
 static const nnt_model_args_t nnt_ssd_args =
 {
-	load_input,
+	load_ssd_input,
 	load_output,
 	ssd_compare,
 	7	/* 7 test images */
@@ -62,7 +66,7 @@ NNT_CASE_DEF(SSD) =
 
 static const nnt_model_args_t nnt_yolov3_args =
 {
-	load_input,
+	load_yolov3_input,
 	load_output,
 	yolov3_compare,
 	1	/* 1 test images */
@@ -92,6 +96,39 @@ static void* load_input(nn_t* nn, const char* path, int id, size_t* sz)
 	snprintf(name, sizeof(name), "%s/input%d.raw", path, id);
 
 	return nnt_load(name, sz);
+}
+
+static void* load_ssd_input(nn_t* nn, const char* path, int id, size_t* sz)
+{
+	image_t* im;
+	image_t* resized_im;
+	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
+
+	EXPECT_EQ(context->nhwc.C, 3);
+
+	if(g_InputImagePath != NULL)
+	{
+		printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
+		im = image_open(g_InputImagePath);
+		assert(im != NULL);
+		resized_im = image_resize(im, context->nhwc.W, context->nhwc.H);
+		assert(resized_im != NULL);
+		float* input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
+
+		for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc); i++)
+		{
+			input[i] = 0.007843*(resized_im->data[i]-127.5);
+		}
+		image_close(im);
+		image_close(resized_im);
+
+		*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);
+		return (void*) input;
+	}
+	else
+	{
+		return load_input(nn, path, id, sz);
+	}
 }
 
 static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz)
@@ -134,48 +171,93 @@ static void* load_output(const char* path, int id, size_t* sz)
 
 	return nnt_load(name, sz);
 }
+
 static int ssd_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg)
 {
 	int r = 0;
 	int i;
 	float IoU;
 	int num_det = nn->network->outputs[0]->layer->C->context->nhwc.N;
+	image_t* im;
 
-	EXPECT_EQ(num_det, szg/7);
-
-	for(i=0; i<num_det; i++)
+	if(g_InputImagePath != NULL)
 	{
-		IoU = ssd::JaccardOverlap(&output[7*i+3], &gloden[7*i+3]);
+		im = image_open(g_InputImagePath);
+		assert(im != NULL);
 
-		EXPECT_EQ(output[7*i], gloden[7*i]);	/* batch */
-		EXPECT_EQ(output[7*i+1], gloden[7*i+1]); /* label */
-		EXPECT_NEAR(output[7*i+2], gloden[7*i+2], 0.05); /* prop */
-		EXPECT_GT(IoU, 0.9);
-
-		if(output[7*i] != gloden[7*i])
+		for(int i=0; i<num_det; i++)
 		{
-			r = -1;
+			float batch = output[7*i];
+			int label = output[7*i+1];
+			float prop = output[7*i+2];
+
+			int x = output[7*i+3]*im->w;
+			int y = output[7*i+4]*im->h;
+			int w = output[7*i+5]*im->w-x;
+			int h = output[7*i+6]*im->h-y;
+
+			const char* name = "unknow";
+			if(label < ARRAY_SIZE(voc_names_for_ssd))
+			{
+				name = voc_names_for_ssd[label];
+			}
+
+			printf("predict L=%s(%d) P=%f.2 @%d %d %d %d\n", name, label, prop, x, y, w, h);
+			image_draw_rectange(im, x, y, w, h, 0x00FF00);
+
+			char text[128];
+
+			snprintf(text, sizeof(text), "%s %.1f%%", name, prop*100);
+			image_draw_text(im, x, y, text,  0xFF0000);
 		}
 
-		if(output[7*i+1] != gloden[7*i+1])
-		{
-			r = -2;
-		}
-
-		if(std::fabs(output[7*i+2]-gloden[7*i+2]) > 0.05)
-		{
-			r = -3;
-		}
-
-		if(IoU < 0.9)
-		{
-			r = -4;
-		}
+		image_save(im, "predictions.png");
+		printf("checking predictions.png for %s\n", g_InputImagePath);
+#ifdef _WIN32
+		system("predictions.png");
+#else
+		system("eog predictions.png");
+#endif
+		image_close(im);
 	}
-
-	if(0 != r)
+	else
 	{
-		printf("output for image %d is not correct\n", id);
+		EXPECT_EQ(num_det, szg/7);
+
+		for(i=0; i<num_det; i++)
+		{
+			IoU = ssd::JaccardOverlap(&output[7*i+3], &gloden[7*i+3]);
+
+			EXPECT_EQ(output[7*i], gloden[7*i]);	/* batch */
+			EXPECT_EQ(output[7*i+1], gloden[7*i+1]); /* label */
+			EXPECT_NEAR(output[7*i+2], gloden[7*i+2], 0.05); /* prop */
+			EXPECT_GT(IoU, 0.9);
+
+			if(output[7*i] != gloden[7*i])
+			{
+				r = -1;
+			}
+
+			if(output[7*i+1] != gloden[7*i+1])
+			{
+				r = -2;
+			}
+
+			if(std::fabs(output[7*i+2]-gloden[7*i+2]) > 0.05)
+			{
+				r = -3;
+			}
+
+			if(IoU < 0.9)
+			{
+				r = -4;
+			}
+		}
+
+		if(0 != r)
+		{
+			printf("output for image %d is not correct\n", id);
+		}
 	}
 
 	return r;
@@ -230,13 +312,28 @@ static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gl
 			x -= w/2;
 			y -= h/2;
 
-			printf("predict L=%d P=%f.2 @%d %d %d %d\n", label, prop, x, y, w, h);
-			image_draw_rectange(im, x, y, w, h, 0xFF0000);
+			const char* name = "unknow";
+			if(label < ARRAY_SIZE(coco_names_for_yolo))
+			{
+				name = coco_names_for_yolo[label];
+			}
+
+			printf("predict L=%s(%d) P=%f.2 @%d %d %d %d\n", name, label, prop, x, y, w, h);
+			image_draw_rectange(im, x, y, w, h, 0x00FF00);
+
+			char text[128];
+
+			snprintf(text, sizeof(text), "%s %.1f%%", name, prop*100);
+			image_draw_text(im, x, y, text, 0xFF0000);
 		}
 
 		image_save(im, "predictions.png");
 		printf("checking predictions.png for %s\n", g_InputImagePath);
-
+#ifdef _WIN32
+		system("predictions.png");
+#else
+		system("eog predictions.png");
+#endif
 		image_close(im);
 	}
 
@@ -308,8 +405,11 @@ void ModelTestMain(runtime_type_t runtime,
 		{
 			in = (float*)args->load_input(nn, input, i, &sz_in);
 			EXPECT_EQ(sz_in, H*W*C*sizeof(float));
-			golden = (float*)args->load_output(input, i, &sz_golden);
-			ASSERT_TRUE(golden != NULL);
+			if(NULL == g_InputImagePath)
+			{
+				golden = (float*)args->load_output(input, i, &sz_golden);
+				ASSERT_TRUE(golden != NULL);
+			}
 		}
 
 		if(network->type== NETWORK_TYPE_Q8)
@@ -419,7 +519,7 @@ void ModelTestMain(runtime_type_t runtime,
 		}
 	}
 
-	if(-1 == g_CaseNumber)
+	if((-1 == g_CaseNumber) && (NULL == g_InputImagePath))
 	{
 		printf("LWNN TOP1 is %f\n", (float)top1/B);
 		EXPECT_GT(top1, B*mintop1);

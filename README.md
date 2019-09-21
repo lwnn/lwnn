@@ -44,6 +44,16 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 
 * [MobileNet-SSD](https://github.com/chuanqi305/MobileNet-SSD) : [README](gtest/models/ssd/README.md)
 
+* [YOLOv3](https://github.com/pjreddie/darknet) : [README](gtest/models/yolov3/README.md)
+
+Below is a list of command to run above models on OPENCL or CPU runtime.
+
+```sh
+lwnn_gtest --gtest_filter=*CL*SSDFloat -i images/dog.jpg
+lwnn_gtest --gtest_filter=*CPU*SSDFloat -i images/dog.jpg
+lwnn_gtest --gtest_filter=*CL*YOLOV3Float -i images/dog.jpg
+lwnn_gtest --gtest_filter=*CPU*YOLOV3Float -i images/dog.jpg
+```
 ## Development
 
 ### prepare environment
