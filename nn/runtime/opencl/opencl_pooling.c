@@ -33,7 +33,7 @@ static int layer_cl_pooling_init(const nn_t* nn, const layer_t* layer)
 	}
 
 	r = rte_cl_create_layer_common(nn, layer,
-				OPENCL_PATH "pooling.cl", kernel,
+				OPENCL_PATH "pooling.cl", kernel, NULL,
 				sizeof(layer_cl_pooling_context_t));
 
 	return r;

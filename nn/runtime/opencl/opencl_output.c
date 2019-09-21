@@ -22,7 +22,7 @@ int layer_cl_OUTPUT_init(const nn_t* nn, const layer_t* layer)
 	layer_cl_output_context_t* context;
 
 	r = rte_cl_create_layer_context(nn, layer,
-				OPENCL_PATH "output.cl", "output",
+				OPENCL_PATH "output.cl", "output", NULL,
 				sizeof(layer_cl_output_context_t), 1);
 
 	if(0 == r)

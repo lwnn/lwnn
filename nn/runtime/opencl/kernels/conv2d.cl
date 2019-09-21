@@ -86,6 +86,14 @@ __kernel void conv2d(
 				}
 			}
 		}
+		
+#ifdef RELU
+		out0 = fmax(out0, (float)0);
+#endif
+
+#ifdef LEAKY
+		out0 = select(0.1 * out0, out0, out0 >= (float)0);
+#endif
 
 		write_imagef(out, (int2)(x*out_channels+c, y+n*dim_im_out_y), out0);
 	}

@@ -23,7 +23,7 @@ int layer_cl_INPUT_init(const nn_t* nn, const layer_t* layer)
 	layer_cl_input_context_t* context;
 
 	r = rte_cl_create_layer_common(nn, layer,
-				OPENCL_PATH "input.cl", "input",
+				OPENCL_PATH "input.cl", "input", NULL,
 				sizeof(layer_cl_input_context_t));
 	if(0 == r)
 	{

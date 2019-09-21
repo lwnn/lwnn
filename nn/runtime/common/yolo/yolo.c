@@ -51,6 +51,7 @@ static int yolo_num_detections(const nn_t* nn, const layer_t* layer,
 	int num = layer->blobs[0]->dims[0];
 	int classes = RTE_FETCH_FLOAT(layer->blobs[2]->blob, 0);
 	layer_context_t* context = (layer_context_t*)layer->C->context;
+
 	for (i = 0; i < context->nhwc.W*context->nhwc.H; ++i){
 		for(n = 0; n < num; ++n){
 			int obj_index  = entry_index(&context->nhwc, classes, 0,
@@ -84,6 +85,7 @@ static detection *make_network_boxes(const nn_t* nn, const layer_t* layer,
 	int classes = RTE_FETCH_FLOAT(input->blobs[2]->blob, 0);
 	int coords = 0; /* TODO: what is coords */
 	int nboxes = num_detections(nn, layer, fetch, thresh);
+	NNLOG(NN_DEBUG, ("  detected boxes number = %d\n", nboxes));
 	if(num) *num = nboxes;
 	detection *dets = calloc(nboxes, sizeof(detection));
 	for(i = 0; i < nboxes; ++i){
@@ -245,6 +247,8 @@ static float box_iou(box a, box b)
 static void do_nms_sort(detection *dets, int total, int classes, float thresh)
 {
 	int i, j, k;
+
+	NNLOG(NN_DEBUG, ("  do nms sort(%d, %d, %.2f)\n", total, classes, thresh));
 	k = total-1;
 	for(i = 0; i <= k; ++i){
 		if(dets[i].objectness == 0){
@@ -354,7 +358,7 @@ int yolo_output_forward(const nn_t* nn, const layer_t* layer, layer_fetch_t fetc
 	const layer_t* input = layer->inputs[0];
 	int classes = RTE_FETCH_FLOAT(input->blobs[2]->blob, 0);
 	int nboxes = 0;
-	float* output = (float*)fetch(nn, layer);
+	float* output = (float*)nn_get_output_data(nn, layer);
 
 	float thresh = 0.5;
 	float hier_thresh = 0.5;
@@ -362,7 +366,13 @@ int yolo_output_forward(const nn_t* nn, const layer_t* layer, layer_fetch_t fetc
 
 	detection *dets = get_network_boxes(nn, layer, fetch, thresh, hier_thresh, 0, 1, &nboxes);
 	do_nms_sort(dets, nboxes, classes, 0.45);
-	context->nhwc.N=save_detections(output, dets, nboxes, thresh, classes);
+
+	layer_get_NHWC(layer, &context->nhwc);
+	if(nboxes > (context->nhwc.N*context->nhwc.H)) {
+		nboxes = (context->nhwc.N*context->nhwc.H);
+	}
+	context->nhwc.H = 1;
+	context->nhwc.N = save_detections(output, dets, nboxes, thresh, classes);
 	free_detections(dets, nboxes);
 
 	return r;

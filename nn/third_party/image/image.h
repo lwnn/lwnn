@@ -27,8 +27,13 @@ void image_close(image_t *im);
 void image_save(image_t* im, const char *filename);
 void image_fill(image_t* im, uint8_t color);
 image_t* image_resize(image_t* im, int w, int h);
-void image_embed(image_t* dest, image_t* source);
 image_t* image_letterbox(image_t* im, int w, int h);
+
+void image_draw(image_t* dest, image_t* source, int dx, int dy);
+void image_draw_pixel(image_t* im, int x, int y, uint32_t color);
+void image_fill_area(image_t* im, int x, int y, int cx, int cy, uint32_t color);
+void image_draw_line(image_t* im, int x0, int y0, int x1, int y1, uint32_t color);
+void image_draw_rectange(image_t* im, int x, int y, int w, int h, uint32_t color);
 #ifdef __cplusplus
 }
 #endif

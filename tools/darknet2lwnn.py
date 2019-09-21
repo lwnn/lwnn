@@ -262,7 +262,7 @@ class DarknetConverter():
                       'op': 'YoloOutput',
                       'inputs' : [L['name'] for L in self.yolos],
                       'outputs' : ['YoloOutput'],
-                      'shape': [n, 7 , 1, classes*2],
+                      'shape': [n, 7 , classes*2, 1],
                       'Output': True }
         self.lwnn_model.append(layer)
 

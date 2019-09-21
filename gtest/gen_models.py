@@ -249,3 +249,4 @@ if(__name__ == '__main__'):
     add('add_1')
     upsample2d('upsample2d_1')
     upsample2d('upsample2d_2', shape=[8,8,3], size=(2, 3))
+    upsample2d('upsample2d_3', shape=[19,19,13], size=(3, 2))

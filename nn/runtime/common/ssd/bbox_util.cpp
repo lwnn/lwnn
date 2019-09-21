@@ -1181,7 +1181,7 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 	const float* loc_data = (float*) mbox_loc_context->out[0];
 	const float* conf_data = (float*) mbox_conf_context->out[0];
 	const float* prior_data = (float*) layer->blobs[2]->blob;
-	float* top_data = (float*)context->out[0];
+	float* top_data = (float*)nn_get_output_data(nn, layer);
 
 	int num_priors_ = RTE_FETCH_INT32(layer->blobs[2]->dims,2) / 4;
 	float nms_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
@@ -1195,12 +1195,6 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 	int num_loc_classes_ = share_location_ ? 1 : num_classes_;
 	bool variance_encoded_in_target_ = false;
 	int eta_ = 1.0;
-
-	if(NULL == top_data)
-	{
-		context->out[0] = nn_get_output_data(nn, layer);
-		top_data = (float*)context->out[0];
-	}
 
 	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
 

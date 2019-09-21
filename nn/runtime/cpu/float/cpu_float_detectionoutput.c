@@ -17,7 +17,7 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_float_DETECTIONOUTPUT_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cpu_create_layer_context(nn, layer, sizeof(layer_cpu_float_detection_output_context_t), 1);
+	return rte_cpu_create_layer_context(nn, layer, sizeof(layer_cpu_float_detection_output_context_t), 0);
 }
 
 void layer_cpu_float_DETECTIONOUTPUT_deinit(const nn_t* nn, const layer_t* layer)

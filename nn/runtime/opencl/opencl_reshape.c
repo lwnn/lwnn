@@ -21,7 +21,7 @@ int layer_cl_RESHAPE_init(const nn_t* nn, const layer_t* layer)
 	layer_cl_reshape_context_t* context;
 
 	r = rte_cl_create_layer_common(nn, layer,
-			OPENCL_PATH "reshape.cl", "reshape",
+			OPENCL_PATH "reshape.cl", "reshape", NULL,
 			sizeof(layer_cl_reshape_context_t));
 
 	if(0 == r)

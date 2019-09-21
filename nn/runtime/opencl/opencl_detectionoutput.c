@@ -23,7 +23,7 @@ int layer_cl_DETECTIONOUTPUT_init(const nn_t* nn, const layer_t* layer)
 	layer_cl_context_t* mbox_conf_context;
 	size_t scratch_size;
 
-	r = rte_cl_create_layer_context(nn, layer, NULL, NULL, sizeof(layer_cl_detection_output_context_t), 0);
+	r = rte_cl_create_layer_context(nn, layer, NULL, NULL, NULL, sizeof(layer_cl_detection_output_context_t), 0);
 
 	if(0 == r)
 	{

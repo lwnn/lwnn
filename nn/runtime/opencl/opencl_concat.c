@@ -80,7 +80,7 @@ int layer_cl_CONCAT_init(const nn_t* nn, const layer_t* layer)
 	if(0 == r)
 	{
 		r = rte_cl_create_layer_common(nn, layer,
-				program, kernel,
+				program, kernel, NULL,
 				sizeof(layer_cl_concat_context_t));
 	}
 
@@ -114,7 +114,7 @@ int layer_cl_CONCAT_execute(const nn_t* nn, const layer_t* layer)
 		input_context = (layer_cl_context_t*)(*input)->C->context;
 		in_stride = RTE_FETCH_INT32(&(input_context->nhwc), axis);
 
-		NNLOG(NN_DEBUG, ("cl concat %s, in stride=%d\n", (*input)->name, in_stride));
+		NNLOG(NN_DEBUG, ("  cl concat %s, in stride=%d\n", (*input)->name, in_stride));
 		r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHWC, 4,
 					sizeof(cl_mem), &(input_context->out[0]),
 					sizeof(cl_mem), &(context->out[0]),

@@ -24,7 +24,7 @@ int layer_cl_DWCONV2D_init(const nn_t* nn, const layer_t* layer)
 	layer_cl_dwconv2d_context_t* context;
 
 	r = rte_cl_create_layer_common(nn, layer,
-			OPENCL_PATH "dwconv2d.cl", "dwconv2d",
+			OPENCL_PATH "dwconv2d.cl", "dwconv2d", NULL,
 			sizeof(layer_cl_dwconv2d_context_t));
 
 	if(0 == r)

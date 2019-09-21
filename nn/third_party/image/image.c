@@ -96,17 +96,131 @@ image_t* image_resize(image_t* im, int w, int h)
 	return resized;
 }
 
-void image_embed(image_t* dest, image_t* source)
+void image_draw(image_t* dest, image_t* source, int dx, int dy)
 {
 	int y;
 
-	int dx = (dest->w-source->w)/2;
-	int dy = (dest->h-source->h)/2;
+	assert((dx>=0) && (dx<dest->w));
+	assert((dy>=0) && (dy<dest->h));
 
-	for(y=0; y<source->h; y++){
+	assert(((dx+source->w)<=dest->w));
+	assert(((dy+source->h)<=dest->h));
+
+	for(y=0; y<source->h; y++) {
 		memcpy(&dest->data[((dy+y)*dest->w+dx)*dest->c],
 				&source->data[y*source->w*source->c], source->w*source->c);
 	}
+}
+
+void image_draw_pixel(image_t* im, int x, int y, uint32_t color)
+{
+	if( (x>=0) && (y>=0) &&
+		(x<im->w) && (y<im->h) ) {
+		if(3 == im->c) {
+			im->data[(y*im->w+x)*3] = 0xFF&(color>>16);
+			im->data[(y*im->w+x)*3+1] = 0xFF&(color>>8);
+			im->data[(y*im->w+x)*3+2] = 0xFF&(color);
+		} else if(1 == im->c) {
+			im->data[(y*im->w+x)*3] = 0xFF&(color);
+		}
+	}
+}
+
+void image_fill_area(image_t* im, int x, int y, int cx, int cy, uint32_t color)
+{
+	int x0, x1, y1;
+
+	x0 = x;
+	x1 = x + cx;
+	y1 = y + cy;
+	for(; y < y1; y++) {
+		for(x = x0; x < x1; x++) {
+			image_draw_pixel(im, x, y, color);
+		}
+	}
+}
+
+void image_draw_line(image_t* im, int x0, int y0, int x1, int y1, uint32_t color)
+{
+	int dy, dx;
+	int addx, addy;
+	int P, diff, i;
+
+
+	/* speed improvement if vertical or horizontal */
+	if (x0 == x1) {
+		if (y1 > y0) {
+			image_fill_area(im, x0, y0, 1, y1-y0+1, color);
+		}
+		else {
+			image_fill_area(im, x0, y1, 1, y0-y1+1, color);
+		}
+		return;
+	}
+	if (y0 == y1) {
+		if (x1 > x0)
+			image_fill_area(im, x0, y0, x1-x0+1, 1, color);
+		else
+			image_fill_area(im, x1, y0, x0-x1+1, 1, color);
+		return;
+	}
+
+	if (x1 >= x0) {
+		dx = x1 - x0;
+		addx = 1;
+	} else {
+		dx = x0 - x1;
+		addx = -1;
+	}
+	if (y1 >= y0) {
+		dy = y1 - y0;
+		addy = 1;
+	} else {
+		dy = y0 - y1;
+		addy = -1;
+	}
+
+	if (dx >= dy) {
+		dy *= 2;
+		P = dy - dx;
+		diff = P - dx;
+
+		for(i=0; i<=dx; ++i) {
+			image_draw_pixel(im, x0, y0, color);
+			if (P < 0) {
+				P  += dy;
+				x0 += addx;
+			} else {
+				P  += diff;
+				x0 += addx;
+				y0 += addy;
+			}
+		}
+	} else {
+		dx *= 2;
+		P = dx - dy;
+		diff = P - dy;
+
+		for(i=0; i<=dy; ++i) {
+			image_draw_pixel(im, x0, y0, color);
+			if (P < 0) {
+				P  += dx;
+				y0 += addy;
+			} else {
+				P  += diff;
+				x0 += addx;
+				y0 += addy;
+			}
+		}
+	}
+}
+
+void image_draw_rectange(image_t* im, int x, int y, int w, int h, uint32_t color)
+{
+	image_draw_line(im, x, y, x+w, y, color);
+	image_draw_line(im, x, y, x, y+h, color);
+	image_draw_line(im, x, y+h, x+w, y+h, color);
+	image_draw_line(im, x+w, y, x+w, y+h, color);
 }
 
 image_t* image_letterbox(image_t* im, int w, int h)
@@ -127,7 +241,7 @@ image_t* image_letterbox(image_t* im, int w, int h)
 	resized = image_resize(im, new_w, new_h);
 	boxed = image_create(w, h, im->c);
 	image_fill(boxed, 127);
-	image_embed(boxed, resized);
+	image_draw(boxed, resized, (w-new_w)/2, (h-new_h)/2);
 	image_close(resized);
 
 	return boxed;

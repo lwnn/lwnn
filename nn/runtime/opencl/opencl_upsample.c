@@ -18,7 +18,7 @@ typedef struct {
 int layer_cl_UPSAMPLE_init(const nn_t* nn, const layer_t* layer)
 {
 	return rte_cl_create_layer_common(nn, layer,
-			OPENCL_PATH "upsample.cl", "upsample2d",
+			OPENCL_PATH "upsample.cl", "upsample2d", NULL,
 			sizeof(layer_cl_upsample_context_t));
 }
 int layer_cl_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
@@ -36,7 +36,7 @@ int layer_cl_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
 	strideY = context->nhwc.H/input_context->nhwc.H;
 	strideX = context->nhwc.W/input_context->nhwc.W;
 
-	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHWC, 4,
+	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_C, 4,
 					sizeof(cl_mem), &(input_context->out[0]),
 					sizeof(cl_mem), &(context->out[0]),
 					sizeof(int), &strideX,

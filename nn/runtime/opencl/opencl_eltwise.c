@@ -33,7 +33,7 @@ static int layer_cl_eltwise_init(const nn_t* nn, const layer_t* layer)
 	}
 
 	r = rte_cl_create_layer_common(nn, layer,
-				OPENCL_PATH "eltwise.cl", kernel,
+				OPENCL_PATH "eltwise.cl", kernel, NULL,
 				sizeof(layer_cl_eltwise_context_t));
 
 	return r;

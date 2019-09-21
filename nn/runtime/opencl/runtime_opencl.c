@@ -115,7 +115,8 @@ static void cl_show_build_errors(cl_program program, cl_device_id device)
 	}
 }
 
-static cl_program cl_create_program(cl_context context, cl_device_id device, const char* fileName)
+static cl_program cl_create_program(cl_context context, cl_device_id device,
+		const char* fileName, const char* option)
 {
 	cl_int errNum = CL_SUCCESS;
 	cl_program program = NULL;
@@ -140,7 +141,7 @@ static cl_program cl_create_program(cl_context context, cl_device_id device, con
 				&sz, &errNum);
 			if(CL_SUCCESS == errNum)
 			{
-				errNum = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
+				errNum = clBuildProgram(program, 1, &device, option, NULL, NULL);
 
 				if(CL_SUCCESS != errNum)
 				{
@@ -222,6 +223,7 @@ static int cl_deinit_layer(const nn_t* nn, const layer_t* layer)
 
 static int cl_create_kernel(const nn_t* nn,
 		const char* program, const char* kernel,
+		const char* option,
 		cl_program *clprogram,
 		cl_kernel *clkernel)
 {
@@ -231,7 +233,7 @@ static int cl_create_kernel(const nn_t* nn,
 
 	NNLOG(NN_DEBUG, ("CL load %s::%s\n", program, kernel));
 
-	*clprogram = cl_create_program(rt->context, rt->device, program);
+	*clprogram = cl_create_program(rt->context, rt->device, program, option);
 	if(NULL != (*clprogram))
 	{
 		*clkernel = clCreateKernel(*clprogram, kernel, &errNum);
@@ -612,7 +614,7 @@ int rte_cl_image2d_copy_in(const nn_t* nn, cl_mem img2d, const float* in, NHWC_t
 
 	if(NULL == rt->iknl)
 	{
-		r = cl_create_kernel(nn, OPENCL_PATH "input.cl", "input", &rt->iprg, &rt->iknl);
+		r = cl_create_kernel(nn, OPENCL_PATH "input.cl", "input", NULL, &rt->iprg, &rt->iknl);
 	}
 
 	if(0 == r)
@@ -651,7 +653,7 @@ int rte_cl_image2d_copy_out(const nn_t* nn, cl_mem img2d, float* out, NHWC_t* nh
 
 	if(NULL == rt->oknl)
 	{
-		r = cl_create_kernel(nn, OPENCL_PATH "output.cl", "output", &rt->oprg, &rt->oknl);
+		r = cl_create_kernel(nn, OPENCL_PATH "output.cl", "output", NULL, &rt->oprg, &rt->oknl);
 	}
 
 	if(0 == r)
@@ -725,6 +727,7 @@ void rte_cl_destory_memory(cl_mem mem)
 int rte_cl_create_layer_context(
 			const nn_t* nn, const layer_t* layer,
 			const char* program, const char* kernel,
+			const char* option,
 			size_t sz, size_t nout)
 {
 	int r = 0;
@@ -755,7 +758,7 @@ int rte_cl_create_layer_context(
 	{
 		if(program != NULL)
 		{
-			r = cl_create_kernel(nn, program, kernel, &context->program, &context->kernel);
+			r = cl_create_kernel(nn, program, kernel, option, &context->program, &context->kernel);
 		}
 		else
 		{
@@ -932,14 +935,14 @@ void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W)
 #endif /* ENABLE_CL_IMAGE_REUSE */
 
 int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
-		const char* program, const char* kernel, size_t ctx_sz)
+		const char* program, const char* kernel, const char* option, size_t ctx_sz)
 {
 	int r = 0;
 
 	layer_cl_context_t* context;
 
 	r = rte_cl_create_layer_context(nn, layer,
-				program, kernel, ctx_sz, 1);
+				program, kernel, option, ctx_sz, 1);
 
 	if(0 == r)
 	{

@@ -20,11 +20,23 @@ typedef struct {
 int layer_cl_CONV2D_init(const nn_t* nn, const layer_t* layer)
 {
 	int r;
-
+	const char* option = NULL;
 	layer_cl_conv2d_context_t* context;
+	layer_activation_type_t act = RTE_FETCH_INT32(layer->blobs[2]->blob, 6);
+
+	switch(act) {
+		case L_ACT_RELU:
+			option = "-DRELU";
+			break;
+		case L_ACT_LEAKY:
+			option = "-DLEAKY";
+			break;
+		default:
+			break;
+	}
 
 	r = rte_cl_create_layer_common(nn, layer,
-			OPENCL_PATH "conv2d.cl", "conv2d",
+			OPENCL_PATH "conv2d.cl", "conv2d", option,
 			sizeof(layer_cl_conv2d_context_t));
 
 	if(0 == r)

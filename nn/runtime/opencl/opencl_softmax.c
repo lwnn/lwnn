@@ -23,7 +23,7 @@ int layer_cl_SOFTMAX_init(const nn_t* nn, const layer_t* layer)
 	void* out = nn_get_output_data(nn, layer);
 
 	r = rte_cl_create_layer_common(nn, layer,
-					OPENCL_PATH "softmax.cl", "softmax",
+					OPENCL_PATH "softmax.cl", "softmax", NULL,
 					sizeof(layer_cl_softmax_context_t));
 
 	if(0 == r)

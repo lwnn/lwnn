@@ -18,7 +18,7 @@ typedef struct {
 int layer_cl_PAD_init(const nn_t* nn, const layer_t* layer)
 {
 	return rte_cl_create_layer_common(nn, layer,
-			OPENCL_PATH "pad.cl", "pad",
+			OPENCL_PATH "pad.cl", "pad", NULL,
 			sizeof(layer_cl_pad_context_t));
 }
 int layer_cl_PAD_execute(const nn_t* nn, const layer_t* layer)

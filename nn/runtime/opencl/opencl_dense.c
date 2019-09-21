@@ -24,7 +24,7 @@ int layer_cl_DENSE_init(const nn_t* nn, const layer_t* layer)
 	layer_cl_dense_context_t* context;
 
 	r = rte_cl_create_layer_common(nn, layer,
-			OPENCL_PATH "dense.cl", "dense",
+			OPENCL_PATH "dense.cl", "dense", NULL,
 			sizeof(layer_cl_dense_context_t));
 
 	if(0 == r)

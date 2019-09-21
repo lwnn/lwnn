@@ -8,9 +8,6 @@ __kernel void upsample2d(
 		__write_only image2d_t out,
 		const int strideX,
 		const int strideY,
-		const int N,
-		const int H,
-		const int W,
 		const int C)
 {
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
@@ -18,8 +15,8 @@ __kernel void upsample2d(
 
 	int x = get_global_id(0);
 	int y = get_global_id(1);
-	
-	int ix = x/channles/strideX + (x%channles);
+
+	int ix = (x/channles/strideX)*channles + (x%channles);
 	int iy = y/strideY;
 
 	float4 value = read_imagef(in, sampler, (int2)(ix,iy));

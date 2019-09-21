@@ -104,12 +104,11 @@ static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz)
 
 	if(g_InputImagePath != NULL)
 	{
+		printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
 		im = image_open(g_InputImagePath);
-		image_save(im, "tmp/debug1.png");
 		assert(im != NULL);
 		resized_im = image_letterbox(im, context->nhwc.W, context->nhwc.H);
 		assert(resized_im != NULL);
-		image_save(resized_im, "tmp/debug2.png");
 		float* input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
 
 		for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc); i++)
@@ -185,6 +184,61 @@ static int ssd_compare(nn_t* nn, int id, float* output, size_t szo, float* glode
 static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg)
 {
 	int r = 0;
+	image_t* im;
+	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
+
+	int netw = context->nhwc.W;
+	int neth = context->nhwc.H;
+
+	EXPECT_EQ(context->nhwc.C, 3);
+	if(g_InputImagePath != NULL)
+	{
+		im = image_open(g_InputImagePath);
+		assert(im != NULL);
+		int num_det = nn->network->outputs[0]->layer->C->context->nhwc.N;
+
+		for(int i=0; i<num_det; i++)
+		{
+			float batch = output[7*i];
+			int label = output[7*i+1];
+			float prop = output[7*i+2];
+
+			int new_w=0;
+			int new_h=0;
+			if (((float)netw/im->w) < ((float)neth/im->h)) {
+				new_w = netw;
+				new_h = (im->h * netw)/im->w;
+			} else {
+				new_h = neth;
+				new_w = (im->w * neth)/im->h;
+			}
+
+			float bx = output[7*i+3];
+			float by = output[7*i+4];
+			float bw = output[7*i+5];
+			float bh = output[7*i+6];
+			bx =  (bx - (netw - new_w)/2./netw) / ((float)new_w/netw);
+			by =  (by - (neth - new_h)/2./neth) / ((float)new_h/neth);
+			bw *= (float)netw/new_w;
+			bh *= (float)neth/new_h;
+
+			int x = bx*im->w;
+			int y = by*im->h;
+			int w = bw*im->w;
+			int h = bh*im->h;
+
+			x -= w/2;
+			y -= h/2;
+
+			printf("predict L=%d P=%f.2 @%d %d %d %d\n", label, prop, x, y, w, h);
+			image_draw_rectange(im, x, y, w, h, 0xFF0000);
+		}
+
+		image_save(im, "predictions.png");
+		printf("checking predictions.png for %s\n", g_InputImagePath);
+
+		image_close(im);
+	}
 
 	return r;
 }

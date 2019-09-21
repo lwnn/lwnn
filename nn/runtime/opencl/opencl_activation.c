@@ -30,7 +30,7 @@ static int layer_cl_activation_init(const nn_t* nn, const layer_t* layer)
 	}
 
 	r = rte_cl_create_layer_common(nn, layer,
-				OPENCL_PATH "activation.cl", kernel,
+				OPENCL_PATH "activation.cl", kernel, NULL,
 				sizeof(layer_cl_activation_context_t));
 
 	return r;
