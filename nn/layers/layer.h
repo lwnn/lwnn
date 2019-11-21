@@ -68,6 +68,7 @@ extern "C" {
 #define L_DWCONV2D(name, input)		L_LAYER_SI(name, input, DWCONV2D)
 #define L_UPSAMPLE(name, input)		L_LAYER_SI(name, input, UPSAMPLE)
 #define L_YOLO(name, input)			L_LAYER_SI(name, input, YOLO)
+#define L_DECONV2D(name, input)		L_LAYER_SI(name, input, DECONV2D)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\

@@ -109,6 +109,24 @@ class LWNNQFormatC(LWNNBaseC):
             raise Exception('convolution with group !=1 or !=C is not supported')
         self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
 
+    def gen_LayerConvTranspose(self, layer):
+        W = layer['weights']
+        B = layer['bias']
+
+        W,Wq = self.quantize(W)
+        B,Bq = self.quantize(B)
+
+        if('strides' not in layer):
+            strides = [1, 1]
+        else:
+            strides = list(layer['strides'])
+
+        M = np.asarray(list(layer['pads']) + strides + [Wq, Bq, self.get_activation(layer)], np.int32)
+        self.gen_layer_WBM(layer, W, B, M)
+
+        op = 'DECONV2D'
+        self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
+
     def convert_to_x4_weights(self, weights):
         if(self.T in ['q8', 's8']):
             return self.convert_to_x4_q7_weights(weights)

@@ -9,6 +9,7 @@ class LWNNBaseC():
         self.GENL = {
                 'Input': self.gen_LayerInput,
                 'Conv': self.gen_LayerConv,
+                'ConvTranspose': self.gen_LayerConvTranspose,
                 'Relu': self.gen_LayerRelu,
                 'MaxPool': self.gen_LayerMaxPool,
                 'AveragePool': self.gen_LayerAveragePool,
@@ -234,6 +235,8 @@ class LWNNBaseC():
         self.fpC.write('L_INPUT ({0}, L_DT_{1});\n\n'.format(layer['name'], T))
 
     def gen_LayerConv(self, layer):
+        raise NotImplementedError()
+    def gen_LayerConvTranspose(self, layer):
         raise NotImplementedError()
     def gen_LayerRelu(self, layer):
         self.gen_no_blobs(layer)

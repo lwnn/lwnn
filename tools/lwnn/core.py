@@ -17,6 +17,7 @@ class LWNNModel():
             (self.opt_IsLayerPooling1D, self.opt_LayerPooling1D, None),
             (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
             (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
+            (self.opt_IsLayerConvTranspose, self.opt_LayerConvTransposeWeightsReorder, None),
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
             (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, None),
             (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
@@ -24,6 +25,8 @@ class LWNNModel():
             (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
             (self.opt_IsLayerOutputWithOutput, self.opt_RemoveOutputWithOutput, None),
+            (self.opt_IsLayerClipRelu, self.opt_LayerClip2Relu, None),
+            (self.opt_IsLayerFlatten, self.opt_LayerFlatten2Reshape, None),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             (self.opt_IsLayerReLUConv, self.opt_MergeReLUConv, 'MergeReLUConv'),
@@ -202,9 +205,12 @@ class LWNNModel():
                 ((CHIA==False) and (PHOA==True))):
                 r = True
             elif(CHIA and PHOA and (len(layer['shape'])==4)):
-                 r = True
+                r = True
             elif(CHIA and PHOA and (len(layer['shape'])==3)):
-                 raise NotImplementedError("layer %s: don't know whether it was NHWC or not,"
+                if(layer['op'] in ['Clip','Relu', 'Output']):
+                    r = True
+                else:
+                    raise NotImplementedError("layer %s: don't know whether it was NHWC or not,"
                     " add the justfication here:\n%s"%(layer['name'], self))
         return r
 
@@ -309,7 +315,7 @@ class LWNNModel():
     def opt_IsLayerReshapeBeforeSoftmax(self, layer):
         r = False
         consumers = self.get_consumers(layer)
-        if((layer['op'] == 'Reshape') and
+        if((layer['op'] in ['Reshape', 'Flatten']) and
                (len(consumers) == 1) and
                (consumers[0]['op'] == 'Softmax')):
             r = True
@@ -450,11 +456,49 @@ class LWNNModel():
         layer['WeightsReordered'] = True
         return False
 
+    def opt_IsLayerConvTranspose(self, layer):
+        r = False
+        if(layer['op'] == 'ConvTranspose'):
+            r = True
+        return r
+
+    def opt_LayerConvTransposeWeightsReorder(self, layer):
+        # DeConv:  (C x M/group x kH x kW), -> [M/group x kH x kW x C]
+        if('WeightsReordered' in layer):
+            return False
+        W = layer['weights']
+        if(len(W.shape)==4):
+            W = W.transpose(1,2,3,0)
+            W = np.rot90(W, k=2, axes=(1, 2))
+        layer['weights'] = W
+        layer['WeightsReordered'] = True
+        return False
+
     def opt_IsLayerReshape(self, layer):
         r = False
         if(layer['op'] == 'Reshape'):
             r = True
         return r
+
+    def opt_IsLayerClipRelu(self, layer):
+        r = False
+        if((layer['op'] == 'Clip') and (layer['min']==0.0)):
+            r = True
+        return r
+
+    def opt_LayerClip2Relu(self, layer):
+        layer['op'] = 'Relu'
+        return False
+
+    def opt_IsLayerFlatten(self, layer):
+        r = False
+        if(layer['op'] == 'Flatten'):
+            r = True
+        return r
+
+    def opt_LayerFlatten2Reshape(self, layer):
+        layer['op'] = 'Reshape'
+        return False
 
     def opt_RemoveLayer(self, layer):
         consumers = self.get_consumers(layer)

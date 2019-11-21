@@ -74,7 +74,7 @@ def dense(name, row=8, units=1024):
 
 def softmax(name, units=32):
     input = Input(shape=[units], name=name+'_input')
-    output = Softmax(units, name=name+'_output')(input)
+    output = Softmax(-1, name=name+'_output')(input)
     model = Model(inputs=input, outputs=output)
     feeds = {input:np.array([float(i*i*i)/(units*units) for i in range(units)],dtype=np.float32).reshape(1,units)}
     keras2lwnn(model, name, feeds)
@@ -146,6 +146,16 @@ def transpose():
         output = data.transpose(0,3,1,2)
         data.tofile('%s/input%s.raw'%(O, i))
         output.tofile('%s/output%s_0.raw'%(O, i))
+
+def deconv2d(name, shape=[32,32,5], filters=24, kernel_size=(3,3), strides=(1,1), padding="same"):
+    input = Input(shape=shape, name=name+'_input')
+    weights = [np.random.uniform(low=-0.1,high=0.2,size=tuple(list(kernel_size)+[filters,shape[-1]])).astype(np.float32),
+               np.random.uniform(low=-0.1,high=0.2,size=tuple([filters])).astype(np.float32)]
+    output = Conv2DTranspose(filters, kernel_size=kernel_size, strides=strides, padding=padding,
+                    weights = weights, name=name+'_output')(input)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=2,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
 
 def mnist():
     from keras.datasets import mnist
@@ -250,3 +260,6 @@ if(__name__ == '__main__'):
     upsample2d('upsample2d_1')
     upsample2d('upsample2d_2', shape=[8,8,3], size=(2, 3))
     upsample2d('upsample2d_3', shape=[19,19,13], size=(3, 2))
+    deconv2d('deconv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), strides=(2,2), padding="same")
+    deconv2d('deconv2d_2')
+    deconv2d('deconv2d_3',shape=[45,17,23], filters=13, kernel_size=(2,3), strides=(3,2), padding="valid")

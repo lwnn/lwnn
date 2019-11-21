@@ -202,7 +202,7 @@ static int ssd_compare(nn_t* nn, int id, float* output, size_t szo, float* glode
 				name = voc_names_for_ssd[label];
 			}
 
-			printf("predict L=%s(%d) P=%f.2 @%d %d %d %d\n", name, label, prop, x, y, w, h);
+			printf("predict L=%s(%d) P=%.2f @%d %d %d %d\n", name, label, prop, x, y, w, h);
 			image_draw_rectange(im, x, y, w, h, 0x00FF00);
 
 			char text[128];
@@ -318,7 +318,7 @@ static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gl
 				name = coco_names_for_yolo[label];
 			}
 
-			printf("predict L=%s(%d) P=%f.2 @%d %d %d %d\n", name, label, prop, x, y, w, h);
+			printf("predict L=%s(%d) P=%.2f @%d %d %d %d\n", name, label, prop, x, y, w, h);
 			image_draw_rectange(im, x, y, w, h, 0x00FF00);
 
 			char text[128];

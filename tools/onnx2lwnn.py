@@ -12,6 +12,7 @@ class OnnxConverter():
     def __init__(self, onnx_model):
         self.TRANSLATOR = {
                 'Conv': self.to_LayerConv,
+                'ConvTranspose': self.to_LayerConvTranspose,
                 'BatchNormalization': self.to_LayerBatchNormalization,
                 'MatMul': self.to_LayerMatMul,
                 'Resize': self.to_LayerUpsample,
@@ -38,11 +39,15 @@ class OnnxConverter():
         for iname in node.input:
             for inp in self.onnx_model.graph.input:
                 if(inp.name == iname):
+                    print(' ', inp.name)
                     inputs.append(inp.name)
             for node2 in self.onnx_model.graph.node:
                 for out in node2.output:
                     if(out == iname):
-                        inputs.append(node2.name)
+                        if(node2.op_type == 'Identity'):
+                            inputs.append(node2.input[0]+'_identity')
+                        else:
+                            inputs.append(node2.name)
         return inputs
 
     def eval_node_output_type(self, output):
@@ -127,7 +132,11 @@ class OnnxConverter():
             layer[name] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
 
     def to_LayerCommon(self, node):
-        layer = {'name': node.name, 'op': node.op_type, 'inputs':self.get_inputs(node), 'outputs':node.output}
+        if(node.op_type == 'Identity'):
+            name = node.input[0]+'_identity'
+        else:
+            name = node.name
+        layer = {'name': name, 'op': node.op_type, 'inputs':self.get_inputs(node), 'outputs':node.output}
         layer['shape'] = self.get_shape(node)
         for attr in node.attribute:
             layer[attr.name] = onnx.helper.get_attribute_value(attr)
@@ -143,6 +152,9 @@ class OnnxConverter():
         layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
         layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
         return layer
+
+    def to_LayerConvTranspose(self, node):
+        return self.to_LayerConv(node)
 
     def to_LayerBatchNormalization(self, node):
         layer = self.to_LayerCommon(node)
@@ -196,7 +208,7 @@ class OnnxConverter():
                 if(out.name in ly['outputs']):
                     inp = ly
                     break
-            layer = {'name': out.name,
+            layer = {'name': out.name+'_output',
                      'op': 'Output',
                      'inputs': [inp['name']],
                      'outputs' : [out.name],

@@ -32,6 +32,21 @@ class LWNNFloatC(LWNNBaseC):
 
         self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
 
+    def gen_LayerConvTranspose(self, layer):
+        W = layer['weights']
+        B = layer['bias']
+
+        if('strides' not in layer):
+            strides = [1, 1]
+        else:
+            strides = list(layer['strides'])
+
+        M = np.asarray(list(layer['pads']) + strides + [self.get_activation(layer)], np.int32)
+        self.gen_layer_WBM(layer, W, B, M)
+
+        op = 'DECONV2D'
+        self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
+
     def gen_LayerDense(self, layer):
         W = layer['weights']
         W = W.transpose(1,0)
