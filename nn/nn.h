@@ -65,6 +65,10 @@ extern "C" {
 #define LAYER_Q(layer) RTE_FETCH_INT32((layer)->blobs[0]->blob, 0)
 #define LAYER_Z(layer) RTE_FETCH_INT32((layer)->blobs[0]->blob, 1)
 #define LAYER_S(layer) RTE_FETCH_INT32((layer)->blobs[0]->blob, 2)
+
+
+#define NN_MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define NN_MIN(a, b) (((a) < (b)) ? (a) : (b))
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
 {
