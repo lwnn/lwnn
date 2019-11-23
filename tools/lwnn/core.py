@@ -27,6 +27,7 @@ class LWNNModel():
             (self.opt_IsLayerOutputWithOutput, self.opt_RemoveOutputWithOutput, None),
             (self.opt_IsLayerClipRelu, self.opt_LayerClip2Relu, None),
             (self.opt_IsLayerFlatten, self.opt_LayerFlatten2Reshape, None),
+            (self.opt_IsLayerPad, self.opt_LayerPad, None),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             (self.opt_IsLayerReLUConv, self.opt_MergeReLUConv, 'MergeReLUConv'),
@@ -499,6 +500,26 @@ class LWNNModel():
 
     def opt_LayerFlatten2Reshape(self, layer):
         layer['op'] = 'Reshape'
+        return False
+
+    def opt_IsLayerPad(self, layer):
+        r = False
+        if(layer['op'] == 'Pad'):
+            r = True
+        return r
+
+    def opt_LayerPad(self, layer):
+        if('pads' not in layer):
+            padsL = []
+            padsR = []
+            inputs = self.get_layers(layer['inputs'])
+            ishape = inputs[0]['shape']
+            oshape = layer['shape']
+            for di, do in zip(ishape, oshape):
+                padding = int((do-di)/2)
+                padsL.append(padding)
+                padsR.append(padding)
+            layer['pads'] = padsL + padsR
         return False
 
     def opt_RemoveLayer(self, layer):
