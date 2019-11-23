@@ -482,7 +482,8 @@ class LWNNModel():
 
     def opt_IsLayerClipRelu(self, layer):
         r = False
-        if((layer['op'] == 'Clip') and (layer['min']==0.0)):
+        if((layer['op'] == 'Clip') and
+           (('min' not in layer) or (layer['min']==0.0))):
             r = True
         return r
 
