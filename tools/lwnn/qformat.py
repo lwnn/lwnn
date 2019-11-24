@@ -442,7 +442,7 @@ class LWNNQSFormatC(LWNNQFormatC):
 
         self.fpC.write('L_DENSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
-    def get_QSZ(self):
+    def get_QSZ(self, layer):
         Q = self.get_encoding(layer)
         Z = self.get_offset(layer)
         S = self.get_scale(layer)
