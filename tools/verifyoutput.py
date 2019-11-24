@@ -72,8 +72,10 @@ if(__name__ == '__main__'):
     parser = argparse.ArgumentParser(description='verify output with golden')
     parser.add_argument('-i', '--input', help='lwnn output', type=str, required=True)
     parser.add_argument('-g', '--golden', help='golden output', type=str, required=True)
-    parser.add_argument('-t', '--type', help='type: one of float, q8, q16', type=str, default='float', required=False)
+    parser.add_argument('-t', '--type', help='type: one of float, s8, q8, q16', type=str, default='float', required=False)
     parser.add_argument('-Q', '--Q', help='number of Q', type=int, default=None, required=False)
+    parser.add_argument('-S', '--S', help='value of Q Scale', type=int, default=None, required=False)
+    parser.add_argument('-Z', '--Z', help='value of Q Zero Point', type=int, default=None, required=False)
     args = parser.parse_args()
 
     if((args.type != 'float') and (args.Q == None)):
@@ -81,8 +83,16 @@ if(__name__ == '__main__'):
         parser.print_help()
         exit()
 
+    if((args.type == 's8') and ((args.S == None) or (args.Z == None))):
+        print('please give Scale/Zero Point parameter')
+        parser.print_help()
+        exit()
+
     if(args.type == 'float'):
         inp = np.fromfile(args.input, dtype=np.float32)
+    elif(args.type == 's8'):
+        inp = np.fromfile(args.input, dtype=np.int8).astype(np.float32)
+        inp = (args.S/(1<<16))*(inp+args.Z)*math.pow(2, -args.Q)
     elif(args.type == 'q8'):
         inp = np.fromfile(args.input, dtype=np.int8)*math.pow(2, -args.Q)
     elif(args.type == 'q16'):
@@ -93,6 +103,9 @@ if(__name__ == '__main__'):
     if(inp.shape != golden.shape):
         if(args.type == 'float'):
             golden = np.fromfile(args.golden, dtype=np.float32)
+        elif(args.type == 's8'):
+            golden = np.fromfile(args.golden, dtype=np.int8).astype(np.float32)
+            golden = (args.S/(1<<16))*(golden+args.Z)*math.pow(2, -args.Q)
         elif(args.type == 'q8'):
             golden = np.fromfile(args.golden, dtype=np.int8)*math.pow(2, -args.Q)
         elif(args.type == 'q16'):

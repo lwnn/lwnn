@@ -26,6 +26,17 @@ int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
 		size_t type_size);
 int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size);
 int alg_transpose(void* output, const void* input, const NHWC_t *nhwc, size_t type_size, alg_transpose_t transpose);
+
+int alg_deconv2d_calculate_position(
+		int pos,
+		int stride,
+		int padding,
+		int dim_kernel,
+		int dim_in,
+		int* in_start,
+		int* kernel_start,
+		int* kernel_end);
+int alg_deconv2d_calculate_padding(int dim_kernel, int stride, int dim_in, int dim_out);
 #ifdef __cplusplus
 }
 #endif

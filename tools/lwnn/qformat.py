@@ -124,8 +124,7 @@ class LWNNQFormatC(LWNNBaseC):
         M = np.asarray(list(layer['pads']) + strides + [Wq, Bq, self.get_activation(layer)], np.int32)
         self.gen_layer_WBM(layer, W, B, M)
 
-        op = 'DECONV2D'
-        self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
+        self.fpC.write('L_DECONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def convert_to_x4_weights(self, weights):
         if(self.T in ['q8', 's8']):
@@ -412,6 +411,48 @@ class LWNNQSFormatC(LWNNQFormatC):
         self.gen_blobs(layer, blobs)
 
         self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
+
+    def gen_LayerConvTranspose(self, layer):
+        W = layer['weights']
+        B = layer['bias']
+
+        inp = self.model.get_layers(layer['inputs'])[0]
+
+        Iq = self.get_encoding(inp)
+        Oq = self.get_encoding(layer)
+        Is = self.get_scale(inp)
+        Os = self.get_scale(layer)
+
+        filters = layer['shape'][1]
+        OMult = np.ones(filters, dtype=np.int32)
+        OShift = np.zeros(filters, dtype=np.int32)
+        for i in range(filters):
+            W[i], Wq = self.quantize(W[i])
+            OShift[i] = Wq+Iq-Oq
+            OMult[i] = self.scaleQ(Is/Os)
+            B[i] = B[i]*(2**(Iq+Wq))/Is
+
+        W = W.astype(np.int8)
+        B = B.astype(np.int32)
+
+        if('strides' not in layer):
+            strides = [1, 1]
+        else:
+            strides = list(layer['strides'])
+
+        omin = -128
+        if('activation' in layer):
+            if(layer['activation'] == 'Relu'):
+                omin = - self.get_offset(layer)
+
+        M = np.asarray(list(layer['pads']) + strides + [omin], np.int32)
+        n = layer['name']
+        blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), ('%s_M'%(n), M)]
+        blobs.append(('%s_output_mult'%(n), OMult))
+        blobs.append(('%s_output_shift'%(n), -OShift))
+        self.gen_blobs(layer, blobs)
+
+        self.fpC.write('L_DECONV2D ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerDense(self, layer):
         W = layer['weights']

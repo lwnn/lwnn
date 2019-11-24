@@ -193,3 +193,60 @@ int alg_transpose(void* output, const void* input, const NHWC_t *inhwc, size_t t
 	return r;
 }
 
+int alg_deconv2d_calculate_position(
+		int pos,
+		int stride,
+		int padding,
+		int dim_kernel,
+		int dim_in,
+		int* in_start,
+		int* kernel_start,
+		int* kernel_end)
+{
+	int is_zero = FALSE;
+	int of, adj;
+	is_zero = FALSE;
+	*in_start = pos/stride;
+	of = pos%stride;
+	*kernel_start = padding - of;
+	if(*kernel_start >= 0) {
+		adj = NN_MIN(*in_start, *kernel_start/stride);
+		*kernel_start -= adj*stride;
+		*in_start -= adj;
+	} else {
+		adj = -*kernel_start + dim_kernel;
+		if(adj<=stride) {
+			is_zero = TRUE;
+		} else {
+			adj = NN_MIN(dim_in-1-*in_start, adj/stride);
+			*kernel_start += adj*stride;
+			*in_start += adj;
+		}
+	}
+	of = dim_kernel - 1 - *kernel_start;
+	adj = NN_MIN(dim_in-1-*in_start, of/stride);
+	*kernel_end = *kernel_start + adj*stride;
+
+	return is_zero;
+}
+
+int alg_deconv2d_calculate_padding(int dim_kernel, int stride, int dim_in, int dim_out)
+{
+	int padding;
+
+	/* TODO: here is experience */
+	if(dim_in == dim_out) {
+		padding = 1;
+	} else {
+		if(dim_kernel < 5) {
+			padding = dim_kernel - 1;
+		} else {
+			if((dim_kernel - stride) >= 2) {
+				padding = dim_kernel - 2;
+			} else {
+				padding = dim_kernel - 1;
+			}
+		}
+	}
+	return padding;
+}
