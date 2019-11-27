@@ -10,7 +10,7 @@ So I decieded to do something meaningfull, do some study of OpenCL and at the me
 
 ## Architecture
 
-And for the purpose to support variant Deep Learning frameworks such as tensorflow/keras/caffe2, pytorch etc, the [onnx](https://onnx.ai/) will be supported by lwnn.
+And for the purpose to support variant Deep Learning frameworks such as tensorflow/keras/caffe2, pytorch etc, the [onnx](https://onnx.ai/) will be supported by lwnn, also for some old frameworks such as caffe/darknet that doesn't support onnx, they are supported by special handling.
 
 ![arch](docs/arch.png)
 
@@ -40,6 +40,11 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | YoloOutput | Y | N | N | N | F | |
 
 * F means fallback to others runtime that supported that layer.
+
+* s8/q8/q16: all are in Q Format
+* s8: 8 bit symmetric quantization with zero offset, very similar to [tflite quantization](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/g3doc/performance/quantization_spec.md)
+
+* q8/q16: 8/16 bit symmetric quantization, no zero offset.
 
 ## Supported Famous Models
 
