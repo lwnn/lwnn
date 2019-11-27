@@ -27,10 +27,16 @@ int layer_cpu_q16_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_q16_upsample_context_t* context = (layer_cpu_q16_upsample_context_t*)layer->C->context;
 	const layer_t* input = layer->inputs[0];
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;
+	uint8_t* pmask = NULL;
 
 	NNLOG(NN_DEBUG, ("execute %s:",layer->name));
 
-	r = alg_up_sampling(context->out[0], input_context->out[0], &context->nhwc, &input_context->nhwc, sizeof(int16_t));
+	if(2 == input_context->nout)
+	{
+		pmask = (uint8_t*) input_context->out[1];
+	}
+
+	r = alg_up_sampling(context->out[0], input_context->out[0], &context->nhwc, &input_context->nhwc, sizeof(int16_t), pmask);
 
 	return r;
 }

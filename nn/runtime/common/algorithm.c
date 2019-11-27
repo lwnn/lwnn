@@ -108,13 +108,14 @@ int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
 	return r;
 }
 
-int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size)
+int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size, uint8_t* pmask)
 {
 	int r = 0;
-	int x,y,n,i;
+	int x,y,c,n,i;
 	int strideX, strideY;
 	void* p_in;
 	void* p_out;
+	int offset,dx,dy;
 
 	NNLOG(NN_DEBUG, (" [%d %d %d %d] -> [%d %d %d %d]\n",
 			inNHWC->N, inNHWC->H, inNHWC->W, inNHWC->C,
@@ -134,20 +135,34 @@ int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size
 		{
 			for (x=0; x<inNHWC->W; x++)
 			{
-				/* copy all the channels together. */
-				p_in = APABO(pin, (y*inNHWC->W+x)*inNHWC->C*type_size);
-				p_out = APABO(pout, (y*strideY*outNHWC->W+x*strideX)*inNHWC->C*type_size);
-
-				/* copy along x axis */
-				for(i=0; i<strideX; i++)
+				if(NULL != pmask)
 				{
-					memcpy(APABO(p_out, i*inNHWC->C*type_size), p_in, inNHWC->C*type_size);
+					for(c=0; c<inNHWC->C; c++){
+						offset = pmask[(y*inNHWC->W+x)*inNHWC->C+c];
+						dy = offset/strideX;
+						dx = offset%strideX;
+						p_in = APABO(pin, ((y*inNHWC->W+x)*inNHWC->C+c)*type_size);
+						p_out = APABO(pout, (((y*strideY+dy)*outNHWC->W+(x*strideX+dx))*inNHWC->C+c)*type_size);
+						memcpy(p_out, p_in, type_size);
+					}
 				}
-
-				/* duplicate the copied x data into y axis. */
-				for(i=1; i<strideY; i++)
+				else
 				{
-					memcpy(APABO(p_out, i*inNHWC->C*outNHWC->W*type_size), p_out, inNHWC->C*strideX*type_size);
+					/* copy all the channels together. */
+					p_in = APABO(pin, (y*inNHWC->W+x)*inNHWC->C*type_size);
+					p_out = APABO(pout, (y*strideY*outNHWC->W+x*strideX)*inNHWC->C*type_size);
+
+					/* copy along x axis */
+					for(i=0; i<strideX; i++)
+					{
+						memcpy(APABO(p_out, i*inNHWC->C*type_size), p_in, inNHWC->C*type_size);
+					}
+
+					/* duplicate the copied x data into y axis. */
+					for(i=1; i<strideY; i++)
+					{
+						memcpy(APABO(p_out, i*inNHWC->C*outNHWC->W*type_size), p_out, inNHWC->C*strideX*type_size);
+					}
 				}
 			}
 		}

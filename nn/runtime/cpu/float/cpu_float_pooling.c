@@ -27,7 +27,8 @@ static void maxpooling(const float * Im_in,
 		const int stride_y,
 		float * Im_out,
 		const int dim_im_out_x,
-		const int dim_im_out_y)
+		const int dim_im_out_y,
+		uint8_t* Mask_out)
 {
 	int   i_ch_in, i_x, i_y;
 	int   k_x, k_y;
@@ -54,6 +55,11 @@ static void maxpooling(const float * Im_in,
 					}
 				}
 				Im_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = max;
+				if(Mask_out != NULL)
+				{
+					Mask_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = \
+							(k_y-(i_y * stride_y - padding_y))*stride_x + (k_x-(i_x * stride_x - padding_x));
+				}
 			}
 		}
 	}
@@ -71,7 +77,8 @@ static void avgpooling(const float * Im_in,
 		const int stride_y,
 		float * Im_out,
 		const int dim_im_out_x,
-		const int dim_im_out_y)
+		const int dim_im_out_y,
+		uint8_t* Mask_out)
 {
 	int   i_ch_in, i_x, i_y;
 	int   k_x, k_y;
@@ -95,6 +102,11 @@ static void avgpooling(const float * Im_in,
 					}
 				}
 				Im_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = sum/(dim_kernel_y*dim_kernel_x);
+				if(Mask_out != NULL)
+				{
+					Mask_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = \
+							(k_y-(i_y * stride_y - padding_y))*stride_x + (k_x-(i_x * stride_x - padding_x));
+				}
 			}
 		}
 	}
@@ -113,7 +125,8 @@ static int pooling(const float * Im_in,
 		float * Im_out,
 		const int dim_im_out_x,
 		const int dim_im_out_y,
-		layer_operation_t op)
+		layer_operation_t op,
+		uint8_t* Mask_out)
 {
 	int r = 0;
 
@@ -133,7 +146,8 @@ static int pooling(const float * Im_in,
 				stride_y,
 				Im_out,
 				dim_im_out_x,
-				dim_im_out_y);
+				dim_im_out_y,
+				Mask_out);
 			break;
 		case L_OP_AVGPOOL:
 			avgpooling(Im_in,
@@ -149,7 +163,8 @@ static int pooling(const float * Im_in,
 				stride_y,
 				Im_out,
 				dim_im_out_x,
-				dim_im_out_y);
+				dim_im_out_y,
+				Mask_out);
 			break;
 		default:
 			r = NN_E_INVALID_LAYER;
@@ -160,7 +175,49 @@ static int pooling(const float * Im_in,
 }
 static int layer_cpu_float_pool_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_pool_context_t), sizeof(float));
+	int r = 0;
+	layer_cpu_float_pool_context_t* context;
+	int* ints = (int*)layer->blobs[0]->blob;
+	int with_mask = ints[6];
+	int nout = 1;
+
+	if(with_mask)
+	{
+		nout = 2;
+	}
+
+	r = rte_cpu_create_layer_context(nn, layer, sizeof(layer_cpu_float_pool_context_t), nout);
+
+	if(0 == r)
+	{
+		context = (layer_cpu_float_pool_context_t*)layer->C->context;
+
+		context->out[0] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*sizeof(float));
+
+		if(NULL == context->out[0])
+		{
+			r = NN_E_NO_MEMORY;
+		}
+		else if(with_mask)
+		{
+			context->out[1] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*sizeof(uint8_t));
+			if(NULL == context->out[1])
+			{
+				r = NN_E_NO_MEMORY;
+			}
+		}
+		else
+		{
+			/* pass */
+		}
+
+		if(0 != r)
+		{
+			rte_cpu_destory_layer_context(nn, layer);
+		}
+	}
+
+	return r;
 }
 
 static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
@@ -171,6 +228,7 @@ static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;;
 	float* IN = (float*)input_context->out[0];
 	float *O = (float*)context->out[0];
+	uint8_t *M;
 
 	int* ints;
 	int knlX, knlY, padX, padY, strideX, strideY;
@@ -185,6 +243,11 @@ static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 	padX = ints[3];
 	strideY = ints[4];
 	strideX = ints[5];
+
+	if(2 == context->nout)
+	{
+		M = (uint8_t*)context->out[1];
+	}
 
 	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n", layer->name,
 					knlY, knlX, padY, padX, strideY, strideX));
@@ -203,8 +266,13 @@ static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 				O+batch_sizeO*batch,
 				context->nhwc.W,
 				context->nhwc.H,
-				layer->op
+				layer->op,
+				M
 				);
+		if(2 == context->nout)
+		{
+			M = M + batch_sizeO;
+		}
 	}
 	return r;
 }

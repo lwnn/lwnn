@@ -24,7 +24,7 @@ typedef enum
 int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
 		void* pout, void* (*fetch_input)(const nn_t* nn, const layer_t* layer),
 		size_t type_size);
-int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size);
+int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size, uint8_t* pmask);
 int alg_transpose(void* output, const void* input, const NHWC_t *nhwc, size_t type_size, alg_transpose_t transpose);
 
 int alg_deconv2d_calculate_position(

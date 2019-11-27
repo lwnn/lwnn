@@ -247,7 +247,10 @@ class LWNNBaseC():
             pads = [0,0]
         else:
             pads = list(layer['pads'])
-        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides']), np.int32)
+        with_mask = 0
+        if(len(layer['outputs']) == 2):
+            with_mask = 1
+        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides'] + [with_mask]), np.int32)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_MAXPOOL ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
@@ -256,7 +259,10 @@ class LWNNBaseC():
             pads = [0,0]
         else:
             pads = list(layer['pads'])
-        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides']), np.int32)
+        with_mask = 0
+        if(len(layer['outputs']) == 2):
+            with_mask = 1
+        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides'] + [with_mask]), np.int32)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_AVGPOOL ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
@@ -314,7 +320,12 @@ class LWNNBaseC():
 
     def gen_LayerUpsample(self, layer):
         self.gen_no_blobs(layer)
-        self.fpC.write('L_UPSAMPLE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+        if(len(layer['inputs']) == 2):
+            self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+            self.fpC.write('L_UPSAMPLE2 ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+        else:
+            self.fpC.write('L_UPSAMPLE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerYolo(self, layer):
         mask = np.asarray(layer['mask'], np.int32)
