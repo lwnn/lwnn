@@ -3,6 +3,7 @@
 
 from lwnn import *
 import os
+from _sqlite3 import NotSupportedError
 os.environ['GLOG_minloglevel'] = '2'
 import caffe
 from caffe.proto import caffe_pb2
@@ -16,7 +17,10 @@ class CaffeConverter():
     def __init__(self, caffe_model, caffe_weights):
         self.net = caffe_pb2.NetParameter()
         text_format.Merge(open(caffe_model,'r').read(),self.net)
-        self.model = caffe.Net(caffe_model,caffe_weights,caffe.TEST)
+        if(caffe_weights is None):
+            self.model = caffe.Net(caffe_model,caffe.TEST)
+        else:
+            self.model = caffe.Net(caffe_model,caffe_weights,caffe.TEST)
         if(len(self.net.layer)==0):    #some prototxts use "layer", some use "layers"
             self.layers = self.net.layers
         else:
@@ -28,6 +32,7 @@ class CaffeConverter():
             'DetectionOutput': self.to_LayerDetectionOutput,
             'Concat': self.to_LayerConcat,
             'Softmax': self.to_LayerSoftmax,
+            'Pooling': self.to_LayerPooling,
              }
         self.opMap = { 
             'ReLU': 'Relu', 
@@ -60,24 +65,25 @@ class CaffeConverter():
             v = default
         return v
 
+    def get_field_hw(self, param, sname, hname, wname, default):
+        s = self.get_field(param, sname, None)
+        if(s!=None):
+            v = [s,s]
+        else:
+            h = self.get_field(param, hname, default[0])
+            w = self.get_field(param, wname, default[1])
+            v = [h,w]
+        return v
+
     def to_LayerConv(self, cly):
         layer = self.to_LayerCommon(cly, 'Conv')
         name = layer['name']
         params = self.model.params[name]
         layer['weights'] = params[0].data
         layer['bias'] = params[1].data
-        stride = self.get_field(cly.convolution_param, 'stride', [1])
-        pad = self.get_field(cly.convolution_param, 'pad', [0])
-        if(len(stride)==1):
-            strideW  = strideH = stride[0]
-        else:
-            strideW  = strideH = 1
-        if(len(pad)==1):
-            padW  = padH = pad[0]
-        else:
-            padW  = padH = 1
-        layer['strides'] = [strideW,strideH]
+        padW,padH = self.get_field_hw(cly.pooling_param, 'pad', 'pad_h', 'pad_w', [0,0])
         layer['pads'] = [padW,padH,0,0]
+        layer['strides'] = self.get_field_hw(cly.pooling_param, 'stride', 'stride_h', 'stride_w', [1,1])
         layer['group'] = self.get_field(cly.convolution_param, 'group', 1)
         return layer
 
@@ -121,6 +127,19 @@ class CaffeConverter():
     def to_LayerSoftmax(self, cly):
         layer = self.to_LayerCommon(cly)
         layer['axis'] = cly.softmax_param.axis
+        return layer
+
+    def to_LayerPooling(self, cly):
+        layer = self.to_LayerCommon(cly)
+        if(caffe_pb2.PoolingParameter.PoolMethod.MAX == cly.pooling_param.pool):
+            layer['op'] = 'MaxPool'
+        elif(caffe_pb2.PoolingParameter.PoolMethod.AVE == cly.pooling_param.pool):
+            layer['op'] = 'AveragePool'
+        else:
+            raise NotImplementedError()
+        layer['kernel_shape'] = self.get_field_hw(cly.pooling_param, 'kernel_size', 'kernel_h', 'kernel_w', [None,None])
+        layer['pads'] = self.get_field_hw(cly.pooling_param, 'pad', 'pad_h', 'pad_w', [0,0])
+        layer['strides'] = self.get_field_hw(cly.pooling_param, 'stride', 'stride_h', 'stride_w', [None,None])
         return layer
 
     def save(self, path):
@@ -271,7 +290,7 @@ if(__name__ == '__main__'):
     import argparse
     parser = argparse.ArgumentParser(description='convert onnx to lwnn')
     parser.add_argument('-i', '--input', help='input caffe model', type=str, required=True)
-    parser.add_argument('-w', '--weights', help='input caffe weights', type=str, required=True)
+    parser.add_argument('-w', '--weights', help='input caffe weights', type=str, required=False)
     parser.add_argument('-o', '--output', help='output lwnn model', type=str, default=None, required=False)
     parser.add_argument('-r', '--raw', help='input raw directory', type=str, default=None, required=False)
     args = parser.parse_args()
