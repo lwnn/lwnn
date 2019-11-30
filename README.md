@@ -28,7 +28,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | Softmax | Y | Y | Y | Y | Y | |
 | Reshape | Y | Y | Y | Y | Y | |
 | Pad | Y | Y | Y | Y | Y | |
-| BatchNorm | Y | Y | Y | Y | Y | for s8/q8/q16, only support BatchNorm after Conv2D  |
+| BatchNorm | Y | Y | Y | Y | Y | |
 | Concat | Y | Y | Y | Y | Y | |
 | AvgPool1D | Y | Y | Y | Y | Y | based on AvgPool2D |
 | AvgPool2D | Y | Y | Y | Y | Y | |

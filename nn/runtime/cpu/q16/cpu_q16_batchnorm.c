@@ -4,56 +4,55 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
-#ifndef DISABLE_RUNTIME_CPU_FLOAT
+#ifndef DISABLE_RUNTIME_CPU_Q16
 #include "../runtime_cpu.h"
-#include <math.h>
+#include "arm_nnfunctions.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
-	LAYER_CPU_CONTEXT_MEMBER;
-} layer_cpu_float_batchnorm_context_t;
+	LAYER_CPU_Q16_CONTEXT_MEMBER;
+} layer_cpu_q16_batchnorm_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
-int layer_cpu_float_BATCHNORM_init(const nn_t* nn, const layer_t* layer)
+int layer_cpu_q16_BATCHNORM_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_batchnorm_context_t), sizeof(float));
+	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q16_batchnorm_context_t), sizeof(int16_t));
 }
-int layer_cpu_float_BATCHNORM_execute(const nn_t* nn, const layer_t* layer)
+int layer_cpu_q16_BATCHNORM_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cpu_context_t* context = (layer_cpu_context_t*)layer->C->context;
 	const layer_t* input = layer->inputs[0];
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;
-	float* scale = (float*)layer->blobs[0]->blob;
-	float* bias = (float*)layer->blobs[1]->blob;
-	float* var = (float*)layer->blobs[2]->blob;
-	float* mean = (float*)layer->blobs[3]->blob;
-	float *IN = (float*)input_context->out[0];
-	float *O = (float*)context->out[0];
-	float epsilon = RTE_FETCH_FLOAT(layer->blobs[4]->blob, 0);
+	int16_t* scale = (int16_t*)layer->blobs[1]->blob;
+	int16_t* bias = (int16_t*)layer->blobs[2]->blob;
+	int16_t *IN = (int16_t*)input_context->out[0];
+	int16_t *O = (int16_t*)context->out[0];
 	int nC = context->nhwc.N*context->nhwc.H*context->nhwc.W;
+	int Qs = RTE_FETCH_INT32(layer->blobs[3]->blob, 0);
+	int Qb = RTE_FETCH_INT32(layer->blobs[3]->blob, 1);
 	int i,c;
-	float X;
+	int32_t out;
 
 	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 
-	/* s * (x - mean) / np.sqrt(var + epsilon) + bias */
 	for(i=0; i<nC; i++)
 	{
 		for(c=0; c<context->nhwc.C; c++)
 		{
-			X = IN[i*context->nhwc.C+c];
-			O[i*context->nhwc.C+c] = scale[c]*(X-mean[c])/(sqrt(var[c]+epsilon)) + bias[c];
+			out = IN[i*context->nhwc.C+c];
+			out = ((((int32_t)scale[c]*out)<<Qb) + ((int32_t)bias[c]<<Qs))>>(Qs+Qb);
+			O[i*context->nhwc.C+c] = (uint16_t)__SSAT(out, 16);
 		}
 	}
 
 	return r;
 }
-void layer_cpu_float_BATCHNORM_deinit(const nn_t* nn, const layer_t* layer)
+void layer_cpu_q16_BATCHNORM_deinit(const nn_t* nn, const layer_t* layer)
 {
 	rte_cpu_destory_layer_context(nn, layer);
 }
 
-#endif /* DISABLE_RUNTIME_CPU_FLOAT */
+#endif /* DISABLE_RUNTIME_CPU_Q16 */

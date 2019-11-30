@@ -244,6 +244,33 @@ class LWNNQFormatC(LWNNBaseC):
         self.gen_blobs(layer, [('%s_CONST'%(layer['name']), const)])
         self.fpC.write('L_CONST ({0});\n\n'.format(layer['name']))
 
+    def gen_LayerBatchNormalization(self, layer):
+        if('epsilon' in layer):
+            epsilon = layer['epsilon']
+        else:
+            epsilon = 1e-05
+        scale = layer['scale']
+        var = layer['var']
+        mean = layer['mean']
+        bias = layer['bias']
+        # y = s * (x - mean) / np.sqrt(var + epsilon) + bias
+        # Y/2^Qy = s * (X/2^Qx - mean) / np.sqrt(var + epsilon) + bias
+        # Y = s*2^Qy/2^Qx/np.sqrt(var + epsilon)*X - s*mean*2^Qy/np.sqrt(var + epsilon) + bias*2^Qy
+        Qy = self.get_encoding(layer)
+        inp = self.model.get_layers(layer['inputs'])[0]
+        Qx = self.get_encoding(inp)
+        scaleQ = scale*(2**Qy)/(2**Qx)/np.sqrt(var + epsilon)
+        biasQ = -scale*mean*(2**Qy)/np.sqrt(var + epsilon) + bias*(2**Qy)
+        scaleQ,Qs = self.quantize(scaleQ)
+        biasQ,Qb = self.quantize(biasQ)
+        # Y = scaleQ*X/2^Qs + biasQ/2^Qb
+        M = np.asarray([Qs, Qb], dtype=np.int32)
+        blobs=[('%s_scale'%(layer['name']),scaleQ),
+               ('%s_bias'%(layer['name']),biasQ),
+               ('%s_M'%(layer['name']),M)]
+        self.gen_blobs(layer, blobs)
+        self.fpC.write('L_BATCHNORM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
 class LWNNQSFormatC(LWNNQFormatC):
     def __init__(self, model, feeds):
         try:
@@ -509,3 +536,32 @@ class LWNNQSFormatC(LWNNQFormatC):
             assert(constZ == Z)
         self.gen_blobs(layer, [('%s_CONST'%(layer['name']), const)])
         self.fpC.write('L_CONST ({0});\n\n'.format(layer['name']))
+
+    def gen_LayerBatchNormalization(self, layer):
+        if('epsilon' in layer):
+            epsilon = layer['epsilon']
+        else:
+            epsilon = 1e-05
+        scale = layer['scale']
+        var = layer['var']
+        mean = layer['mean']
+        bias = layer['bias']
+        # y = s * (x - mean) / np.sqrt(var + epsilon) + bias
+        # Sy*(Y+Zy)/2^Qy = s * (Sx*(X+Zx)/2^Qx - mean) / np.sqrt(var + epsilon) + bias
+        # Y = Sx/Sy*s*2^Qy/2^Qx/np.sqrt(var + epsilon)*X
+        #      + Sx/Sy*s*2^Qy/2^Qx/np.sqrt(var + epsilon)*Zx
+        #      - s*mean*2^Qy/Sy/np.sqrt(var + epsilon) + bias/Sy*2^Qy - Zy
+        Qy,Sy,Zy = self.get_QSZ(layer)
+        inp = self.model.get_layers(layer['inputs'])[0]
+        Qx,Sx,Zx = self.get_QSZ(inp)
+        scaleQ = Sx/Sy*scale*(2**Qy)/(2**Qx)/np.sqrt(var + epsilon)
+        biasQ = Sx/Sy*scale*(2**Qy)/(2**Qx)/np.sqrt(var + epsilon)*Zx - scale*mean*(2**Qy)/Sy/np.sqrt(var + epsilon) + bias/Sy*(2**Qy) - Zy
+        scaleQ,Qs = self.quantize(scaleQ)
+        biasQ,Qb = self.quantize(biasQ)
+        # Y = scaleQ*X/2^Qs + biasQ/2^Qb
+        M = np.asarray([Qs, Qb], dtype=np.int32)
+        blobs=[('%s_scale'%(layer['name']),scaleQ),
+               ('%s_bias'%(layer['name']),biasQ),
+               ('%s_M'%(layer['name']),M)]
+        self.gen_blobs(layer, blobs)
+        self.fpC.write('L_BATCHNORM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
