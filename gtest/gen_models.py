@@ -157,6 +157,18 @@ def deconv2d(name, shape=[32,32,5], filters=24, kernel_size=(3,3), strides=(1,1)
     feeds = {input:np.random.uniform(low=-1,high=2,size=tuple([10]+shape)).astype(np.float32)}
     keras2lwnn(model, name, feeds)
 
+def bn(name, shape=[16,16,32]):
+    C = shape[-1]
+    input = Input(shape=shape, name=name+'_input')
+    weights = [np.random.uniform(low=0.1,high=0.2,size=(C)).astype(np.float32),
+               np.random.uniform(low=0.1,high=0.2,size=(C)).astype(np.float32),
+               np.random.uniform(low=0.1,high=0.2,size=(C)).astype(np.float32),
+               np.random.uniform(low=0.1,high=0.2,size=(C)).astype(np.float32),]
+    output = BatchNormalization(name=name+'_output', weights = weights)(input)
+    model = Model(inputs=input, outputs=output)
+    feeds = {input:np.random.uniform(low=-1,high=2,size=tuple([10]+shape)).astype(np.float32)}
+    keras2lwnn(model, name, feeds)
+
 def mnist():
     from keras.datasets import mnist
     from keras.utils import to_categorical
@@ -263,3 +275,4 @@ if(__name__ == '__main__'):
     deconv2d('deconv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), strides=(2,2), padding="same")
     deconv2d('deconv2d_2')
     deconv2d('deconv2d_3',shape=[45,17,23], filters=13, kernel_size=(2,3), strides=(3,2), padding="valid")
+    bn('bn_1')

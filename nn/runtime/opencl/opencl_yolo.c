@@ -69,7 +69,7 @@ int layer_cl_YOLO_execute(const nn_t* nn, const layer_t* layer)
 void layer_cl_YOLO_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cl_yolo_context_t* context;
-	context = (layer_cl_context_t*) layer->C->context;
+	context = (layer_cl_yolo_context_t*) layer->C->context;
 	if(NULL != context)
 	{
 		free(context->pout);

@@ -20,6 +20,7 @@ class LWNNBaseC():
                 'Softmax': self.gen_LayerSoftmax,
                 'Add': self.gen_LayerAdd,
                 'Upsample': self.gen_LayerUpsample,
+                'BatchNormalization': self.gen_LayerBatchNormalization,
                 'Yolo': self.gen_LayerYolo,
                 'YoloOutput': self.gen_LayerYoloOutput,
                 'DetectionOutput': self.gen_LayerDetectionOutput,
@@ -326,6 +327,24 @@ class LWNNBaseC():
             self.fpC.write('L_UPSAMPLE2 ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
         else:
             self.fpC.write('L_UPSAMPLE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerBatchNormalization(self, layer):
+        if('momentum' in layer):
+            momentum = layer['momentum']
+        else:
+            momentum = 0.9
+        if('epsilon' in layer):
+            epsilon = layer['epsilon']
+        else:
+            epsilon = 1e-05
+        M = np.asarray([epsilon, momentum], dtype=np.float32)
+        blobs=[('%s_scale'%(layer['name']),layer['scale']),
+               ('%s_bias'%(layer['name']),layer['bias']),
+               ('%s_var'%(layer['name']),layer['var']),
+               ('%s_mean'%(layer['name']),layer['mean']),
+               ('%s_M'%(layer['name']),M)]
+        self.gen_blobs(layer, blobs)
+        self.fpC.write('L_BATCHNORM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerYolo(self, layer):
         mask = np.asarray(layer['mask'], np.int32)

@@ -33,10 +33,12 @@ class CaffeConverter():
             'Concat': self.to_LayerConcat,
             'Softmax': self.to_LayerSoftmax,
             'Pooling': self.to_LayerPooling,
+            'BN': self.to_LayerBN,
              }
         self.opMap = { 
             'ReLU': 'Relu', 
             'Flatten': 'Reshape',
+            'BN':'BatchNormalization',
             }
 
     def to_LayerCommon(self, cly, op=None):
@@ -140,6 +142,23 @@ class CaffeConverter():
         layer['kernel_shape'] = self.get_field_hw(cly.pooling_param, 'kernel_size', 'kernel_h', 'kernel_w', [None,None])
         layer['pads'] = self.get_field_hw(cly.pooling_param, 'pad', 'pad_h', 'pad_w', [0,0])
         layer['strides'] = self.get_field_hw(cly.pooling_param, 'stride', 'stride_h', 'stride_w', [None,None])
+        return layer
+
+    def to_LayerBN(self, cly):
+        layer = self.to_LayerCommon(cly)
+        name = layer['name']
+        params = self.model.params[name]
+        C = layer['shape'][1]
+        layer['scale'] = params[0].data.reshape(C)
+        layer['bias'] = params[1].data.reshape(C)
+        layer['var'] = np.ones((C),dtype=np.float32)
+        layer['mean'] = np.zeros((C),dtype=np.float32)
+        if(cly.bn_param.bn_mode == caffe_pb2.BNParameter.BNMode.INFERENCE):
+            layer['bn_mode'] = 'INFERENCE'
+        elif(cly.bn_param.bn_mode == caffe_pb2.BNParameter.BNMode.LEARN):
+            layer['bn_mode'] = 'LEARN'
+        else:
+            raise NotImplementedError()
         return layer
 
     def save(self, path):
@@ -290,7 +309,7 @@ if(__name__ == '__main__'):
     import argparse
     parser = argparse.ArgumentParser(description='convert onnx to lwnn')
     parser.add_argument('-i', '--input', help='input caffe model', type=str, required=True)
-    parser.add_argument('-w', '--weights', help='input caffe weights', type=str, required=False)
+    parser.add_argument('-w', '--weights', help='input caffe weights', type=str, required=True)
     parser.add_argument('-o', '--output', help='output lwnn model', type=str, default=None, required=False)
     parser.add_argument('-r', '--raw', help='input raw directory', type=str, default=None, required=False)
     args = parser.parse_args()

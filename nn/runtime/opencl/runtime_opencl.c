@@ -288,7 +288,7 @@ static int cl_set_kernel_args_v(cl_kernel kernel, uint32_t nhwcMask, NHWC_t* nhw
 
 	if(CL_SUCCESS != errNum)
 	{
-		NNLOG(NN_ERROR,("CL set args[%d] failed with %d\n", i, errNum));
+		NNLOG(NN_ERROR,("CL set args[%d] failed with %d\n", i-1, errNum));
 		r = NN_E_CL_SET_ARGS_FAILED;
 	}
 
@@ -740,6 +740,7 @@ int rte_cl_create_layer_context(
 
 	if(context != NULL)
 	{
+		memset(context, 0, sz);
 		context->dtype = L_DT_FLOAT;
 		context->out = (cl_mem*)(((unsigned long long)context)+sz);
 		context->nout = nout;

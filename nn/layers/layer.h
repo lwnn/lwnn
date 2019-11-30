@@ -69,6 +69,7 @@ extern "C" {
 #define L_UPSAMPLE(name, input)		L_LAYER_SI(name, input, UPSAMPLE)
 #define L_YOLO(name, input)			L_LAYER_SI(name, input, YOLO)
 #define L_DECONV2D(name, input)		L_LAYER_SI(name, input, DECONV2D)
+#define L_BATCHNORM(name, input)	L_LAYER_SI(name, input, BATCHNORM)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\
@@ -107,6 +108,11 @@ extern "C" {
 	static LCONST layer_t* l_inputs_##name[] = {		\
 			inputs, NULL };								\
 	L_LAYER_MI(name, YOLOOUTPUT)
+
+#define L_UPSAMPLE2(name, inputs)						\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, UPSAMPLE)
 
 #define L_REF(name) &l_layer_##name
 
