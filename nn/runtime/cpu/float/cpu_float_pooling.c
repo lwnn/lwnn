@@ -228,7 +228,7 @@ static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;;
 	float* IN = (float*)input_context->out[0];
 	float *O = (float*)context->out[0];
-	uint8_t *M;
+	uint8_t *M = NULL;
 
 	int* ints;
 	int knlX, knlY, padX, padY, strideX, strideY;

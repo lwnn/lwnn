@@ -187,6 +187,7 @@ def PrepareBuilding(env):
         )
     if(GetOption('android')):
         SelectCompilerAndroid(env)
+    env.Append(CCFLAGS=['-g', '-O0'])
 
 def SelectCompilerAndroid(env):
     HOME = os.getenv('HOME')
