@@ -63,7 +63,7 @@ int layer_cl_RESHAPE_execute(const nn_t* nn, const layer_t* layer)
 	}
 	else
 	{
-		data = nn->scratch.area;
+		data = (float*)nn->scratch.area;
 		r = rte_cl_image2d_copy_out(nn, input_context->out[0], data, &(input_context->nhwc));
 		if(0 == r)
 		{

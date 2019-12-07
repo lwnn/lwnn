@@ -17,9 +17,7 @@ extern "C" {
 					layer->C->context->nhwc.W, layer->C->context->nhwc.C))
 
 #define LAYER_CPU_CONTEXT_MEMBER		\
-		LAYER_CONTEXT_MEMBER;			\
-		size_t nout;					\
-		void** out
+		LAYER_CONTEXT_MEMBER
 
 #define LAYER_CPU_Q_CONTEXT_MEMBER		\
 		LAYER_CPU_CONTEXT_MEMBER
@@ -34,22 +32,6 @@ extern "C" {
 #define FLT_MAX  3.40282347e+38F
 #endif
 /* ============================ [ TYPES     ] ====================================================== */
-typedef enum {
-#ifndef DISABLE_RUNTIME_CPU_Q8
-	RTE_CPU_TYPE_Q8,
-#endif
-#ifndef DISABLE_RUNTIME_CPU_S8
-	RTE_CPU_TYPE_S8,
-#endif
-#ifndef DISABLE_RUNTIME_CPU_Q16
-	RTE_CPU_TYPE_Q16,
-#endif
-#ifndef DISABLE_RUNTIME_CPU_FLOAT
-	RTE_CPU_TYPE_FLOAT,
-#endif
-	RTE_CPU_TYPE_UNKNOWN
-} runtime_cpu_type_t;
-
 typedef struct
 {
 	LAYER_CPU_CONTEXT_MEMBER;

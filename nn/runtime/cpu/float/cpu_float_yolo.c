@@ -18,7 +18,26 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_float_YOLO_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_yolo_context_t), sizeof(float));
+	int r;
+	#ifndef DISABLE_RTE_FALLBACK
+	layer_context_t* input_context = (layer_context_t*)layer->inputs[0]->C->context;
+	size_t scratch_size;
+	#endif
+
+	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_yolo_context_t), sizeof(float));
+	#ifndef DISABLE_RTE_FALLBACK
+	if(0 == r)
+	{
+		if((nn->runtime_type != RUNTIME_CPU) ||
+			(nn->network->type != NETWORK_TYPE_FLOAT))
+		{
+			scratch_size = NHWC_SIZE(input_context->nhwc)*sizeof(float) + sizeof(float*);
+			nn_request_scratch(nn, scratch_size);
+		}
+	}
+	#endif
+
+	return r;
 }
 
 int layer_cpu_float_YOLO_execute(const nn_t* nn, const layer_t* layer)

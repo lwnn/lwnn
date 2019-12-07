@@ -70,10 +70,19 @@ class CaffeConverter():
     def get_field_hw(self, param, sname, hname, wname, default):
         s = self.get_field(param, sname, None)
         if(s!=None):
+            try:
+                s = s[0]
+            except:
+                pass
             v = [s,s]
         else:
             h = self.get_field(param, hname, default[0])
             w = self.get_field(param, wname, default[1])
+            try:
+                h = h[0]
+                w = w[0]
+            except:
+                pass
             v = [h,w]
         return v
 
@@ -83,9 +92,9 @@ class CaffeConverter():
         params = self.model.params[name]
         layer['weights'] = params[0].data
         layer['bias'] = params[1].data
-        padW,padH = self.get_field_hw(cly.pooling_param, 'pad', 'pad_h', 'pad_w', [0,0])
+        padW,padH = self.get_field_hw(cly.convolution_param, 'pad', 'pad_h', 'pad_w', [0,0])
         layer['pads'] = [padW,padH,0,0]
-        layer['strides'] = self.get_field_hw(cly.pooling_param, 'stride', 'stride_h', 'stride_w', [1,1])
+        layer['strides'] = self.get_field_hw(cly.convolution_param, 'stride', 'stride_h', 'stride_w', [1,1])
         layer['group'] = self.get_field(cly.convolution_param, 'group', 1)
         return layer
 

@@ -4,15 +4,9 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
-#if !defined(DISABLE_RUNTIME_CPU_FLOAT) || !defined(DISABLE_RUNTIME_OPENCL)
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 #include "runtime_cpu.h"
-#endif
-#ifndef DISABLE_RUNTIME_OPENCL
-#include "runtime_opencl.h"
-#endif
 #include "bbox_util.hpp"
-
 #include <boost/iterator/counting_iterator.hpp>
 
 namespace ssd {
@@ -1169,7 +1163,7 @@ extern "C" int detection_output_forward(
 
 	return r;
 }
-#ifndef DISABLE_RUNTIME_CPU_FLOAT
+
 extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 		const layer_t* layer) {
 	int r = 0;
@@ -1227,72 +1221,5 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 
 	return r;
 }
-#endif
-
-#ifndef DISABLE_RUNTIME_OPENCL
-extern "C" int layer_cl_DETECTIONOUTPUT_execute(const nn_t* nn,
-		const layer_t* layer) {
-	int r = 0;
-	layer_cl_context_t* context = (layer_cl_context_t*) layer->C->context;
-	layer_cl_context_t* mbox_loc_context =
-			(layer_cl_context_t*) layer->inputs[0]->C->context;
-	layer_cl_context_t* mbox_conf_context =
-			(layer_cl_context_t*) layer->inputs[1]->C->context;
-	float* loc_data = (float*)nn->scratch.area;
-	float* conf_data = loc_data + NHWC_SIZE(mbox_loc_context->nhwc);
-	float* top_data = (float*)nn_get_output_data(nn, layer);
-	const float* prior_data = (float*) layer->blobs[2]->blob;
-
-	r = rte_cl_image2d_copy_out(nn, mbox_loc_context->out[0], loc_data, &(mbox_loc_context->nhwc));
-	if(0 == r)
-	{
-		r = rte_cl_image2d_copy_out(nn, mbox_conf_context->out[0], conf_data, &(mbox_conf_context->nhwc));
-	}
-
-	int num_priors_ = RTE_FETCH_INT32(layer->blobs[2]->dims,2) / 4;
-	float nms_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
-	float confidence_threshold_ = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 1);
-	int num_classes_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 0);
-	int share_location_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 1);
-	int background_label_id_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 2);
-	int top_k_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 3);
-	int keep_top_k_ = RTE_FETCH_INT32(layer->blobs[1]->blob, 4);
-	CodeType code_type_ = (CodeType)RTE_FETCH_INT32(layer->blobs[1]->blob, 5);
-	int num_loc_classes_ = share_location_ ? 1 : num_classes_;
-	bool variance_encoded_in_target_ = false;
-	int eta_ = 1.0;
-
-	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
-
-	if(NULL == top_data)
-	{
-		r = NN_E_NO_OUTPUT_BUFFER_PROVIDED;
-	}
-	else
-	{
-		layer_get_NHWC(layer, &context->nhwc);
-
-		r = detection_output_forward(
-			loc_data,
-			conf_data,
-			prior_data,
-			top_data,
-			num_priors_,
-			nms_threshold_,
-			confidence_threshold_,
-			num_classes_,
-			share_location_,
-			background_label_id_,
-			top_k_,
-			keep_top_k_,
-			code_type_,
-			variance_encoded_in_target_,
-			eta_,
-			(layer_context_t*)context);
-	}
-
-	return r;
-}
-#endif
 } /* namespace ssd */
 #endif /* DISABLE_RUNTIME_CPU_FLOAT */

@@ -83,10 +83,19 @@ typedef struct
 } nn_output_t;
 
 typedef enum {
+#if !defined(DISABLE_RUNTIME_CPU_Q8)
 	NETWORK_TYPE_Q8,
+#endif
+#if !defined(DISABLE_RUNTIME_CPU_S8)
 	NETWORK_TYPE_S8,
+#endif
+#if !defined(DISABLE_RUNTIME_CPU_Q16)
 	NETWORK_TYPE_Q16,
+#endif
+#if !defined(DISABLE_RUNTIME_CPU_FLOAT) || \
+	!defined(DISABLE_RUNTIME_CL)
 	NETWORK_TYPE_FLOAT,
+#endif
 } network_type_t;
 
 typedef struct {
@@ -101,7 +110,8 @@ typedef struct nn {
 	runtime_t runtime;
 	const network_t* network;
 	runtime_type_t runtime_type;
-#ifndef DISABLE_NN_SCRATCH
+#if !defined(DISABLE_NN_SCRATCH) || \
+	!defined(DISABLE_RTE_FALLBACK) /* fallback will use scratch */
 	struct {
 		size_t size;
 		void* area;

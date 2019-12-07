@@ -21,7 +21,8 @@ nn_t* nn_create(const network_t* network, runtime_type_t runtime_type)
 	{
 		nn->runtime_type = runtime_type;
 		nn->network = network;
-		#ifndef DISABLE_NN_SCRATCH
+		#if !defined(DISABLE_NN_SCRATCH) || \
+			!defined(DISABLE_RTE_FALLBACK)
 		nn->scratch.size = 0;
 		nn->scratch.area = NULL;
 		#endif
@@ -124,7 +125,8 @@ void nn_destory(nn_t* nn)
 	}
 }
 
-#ifndef DISABLE_NN_SCRATCH
+#if !defined(DISABLE_NN_SCRATCH) || \
+	!defined(DISABLE_RTE_FALLBACK)
 void nn_request_scratch(const nn_t* nn, size_t sz)
 {
 	nn_t * pnn = (nn_t*)nn;

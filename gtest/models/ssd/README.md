@@ -12,13 +12,13 @@ def detect(imgfile):
     ...
     global id
     data = np.array(net.blobs['data'].data, np.float32).transpose(0,2,3,1)
-    data.tofile('models/mobilenet_ssd/golden/input%d.raw'%(id))
+    data.tofile('models/ssd/golden/input%d.raw'%(id))
     o = np.array(out['detection_out'], np.float32)
-    o.tofile('models/mobilenet_ssd/golden/output%d.raw'%(id))
+    o.tofile('models/ssd/golden/output%d.raw'%(id))
     id+=1
 ```
 
-then gen lwnn model by "python lwnn/tools/caffe2lwnn.py -i no_bn.prototxt  -w no_bn.caffemodel -o ssd -r models/mobilenet_ssd/golden"
+then gen lwnn model by "python lwnn/tools/caffe2lwnn.py -i no_bn.prototxt  -w no_bn.caffemodel -o ssd -r models/ssd/golden"
 
 
 then copy the lwnn source file and its goldens here.

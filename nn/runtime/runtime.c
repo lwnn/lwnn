@@ -213,7 +213,7 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 #ifndef DISABLE_RUNTIME_OPENCL
 	if(RUNTIME_OPENCL == nn->runtime_type)
 	{
-		int r;
+		int r = 0;
 		layer_cl_context_t* context;
 		void* data = malloc(sz);
 		if(NULL != data)
@@ -221,7 +221,14 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 			context = (layer_cl_context_t*)layer->C->context;
 			for(i=0; i<context->nout; i++)
 			{
-				r = rte_cl_image2d_copy_out(nn, context->out[i], (float*)data, &(context->nhwc));
+				if(L_OP_YOLO == layer->op)
+				{
+					memcpy(data, context->out[i], sz);
+				}
+				else
+				{
+					r = rte_cl_image2d_copy_out(nn, context->out[i], (float*)data, &(context->nhwc));
+				}
 				if(0 == r)
 				{
 					rte_ddo_save_raw(nn, layer, i, data, sz);

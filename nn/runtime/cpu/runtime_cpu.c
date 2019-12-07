@@ -10,7 +10,6 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
 {
-	runtime_cpu_type_t type;
 	STAILQ_HEAD(rte_cpu_buffer_head,rte_cpu_buffer) buffers;
 } rte_cpu_t;
 /* ============================ [ DECLARES  ] ====================================================== */
@@ -93,53 +92,16 @@ static int cpu_get_buffer_id(const nn_t* nn, rte_cpu_buffer_t* buffer)
 }
 #endif
 
-static int cpu_get_runtime_type(const nn_t* nn)
-{
-	int r = 0;
-	runtime_cpu_type_t type;
-	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
-
-	switch(nn->network->type)
-	{
-		#ifndef DISABLE_RUNTIME_CPU_Q8
-		case NETWORK_TYPE_Q8:
-			rt->type = RTE_CPU_TYPE_Q8;
-			break;
-		#endif
-		#ifndef DISABLE_RUNTIME_CPU_S8
-		case NETWORK_TYPE_S8:
-			rt->type = RTE_CPU_TYPE_S8;
-			break;
-		#endif
-		#ifndef DISABLE_RUNTIME_CPU_Q16
-		case NETWORK_TYPE_Q16:
-			rt->type = RTE_CPU_TYPE_Q16;
-			break;
-		#endif
-		#ifndef DISABLE_RUNTIME_CPU_FLOAT
-		case NETWORK_TYPE_FLOAT:
-			rt->type = RTE_CPU_TYPE_FLOAT;
-			break;
-		#endif
-		default:
-			rt->type = RTE_CPU_TYPE_UNKNOWN;
-			r = NN_E_NOT_SUPPORTED;
-			break;
-	}
-
-	return r;
-}
-
 static int cpu_init_layer(const nn_t* nn, const layer_t* layer)
 {
 	int r = NN_E_INVALID_LAYER;
 	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
 
-	if(rt->type < ARRAY_SIZE(cpu_lops))
+	if(nn->network->type < ARRAY_SIZE(cpu_lops))
 	{
-		if(layer->op < ARRAY_SIZE(cpu_lops[rt->type]))
+		if(layer->op < ARRAY_SIZE(cpu_lops[nn->network->type]))
 		{
-			r = cpu_lops[rt->type][layer->op].init(nn, layer);
+			r = cpu_lops[nn->network->type][layer->op].init(nn, layer);
 		}
 	}
 	else
@@ -155,11 +117,11 @@ static int cpu_execute_layer(const nn_t* nn, const layer_t* layer)
 	int r = NN_E_INVALID_LAYER;
 	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
 
-	if(rt->type < ARRAY_SIZE(cpu_lops))
+	if(nn->network->type < ARRAY_SIZE(cpu_lops))
 	{
-		if(layer->op < ARRAY_SIZE(cpu_lops[rt->type]))
+		if(layer->op < ARRAY_SIZE(cpu_lops[nn->network->type]))
 		{
-			r = cpu_lops[rt->type][layer->op].execute(nn, layer);
+			r = cpu_lops[nn->network->type][layer->op].execute(nn, layer);
 #ifndef DISABLE_NN_DDO
 			NNDDO(NN_DEBUG, rte_ddo_save(nn, layer));
 #endif
@@ -177,11 +139,11 @@ static int cpu_deinit_layer(const nn_t* nn, const layer_t* layer)
 {
 	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
 
-	if(rt->type < ARRAY_SIZE(cpu_lops))
+	if(nn->network->type < ARRAY_SIZE(cpu_lops))
 	{
-		if(layer->op < ARRAY_SIZE(cpu_lops[rt->type]))
+		if(layer->op < ARRAY_SIZE(cpu_lops[nn->network->type]))
 		{
-			cpu_lops[rt->type][layer->op].deinit(nn, layer);
+			cpu_lops[nn->network->type][layer->op].deinit(nn, layer);
 		}
 	}
 
@@ -247,12 +209,7 @@ int rte_CPU_init(const nn_t* nn)
 
 	STAILQ_INIT(&(rt->buffers));
 
-	r = cpu_get_runtime_type(nn);
-
-	if(0 == r)
-	{
-		r = rte_do_for_each_layer(nn, cpu_init_layer);
-	}
+	r = rte_do_for_each_layer(nn, cpu_init_layer);
 
 	if(0 == r)
 	{
@@ -302,25 +259,25 @@ int rte_cpu_create_layer_context(
 
 	if(context != NULL)
 	{
-		switch(rt->type)
+		switch(nn->network->type)
 		{
 			#ifndef DISABLE_RUNTIME_CPU_Q8
-			case RTE_CPU_TYPE_Q8:
+			case NETWORK_TYPE_Q8:
 				context->dtype = L_DT_INT8;
 				break;
 			#endif
 			#ifndef DISABLE_RUNTIME_CPU_S8
-			case RTE_CPU_TYPE_S8:
+			case NETWORK_TYPE_S8:
 				context->dtype = L_DT_INT8;
 				break;
 			#endif
 			#ifndef DISABLE_RUNTIME_CPU_Q16
-			case RTE_CPU_TYPE_Q16:
+			case NETWORK_TYPE_Q16:
 				context->dtype = L_DT_INT16;
 				break;
 			#endif
 			#ifndef DISABLE_RUNTIME_CPU_FLOAT
-			case RTE_CPU_TYPE_FLOAT:
+			case NETWORK_TYPE_FLOAT:
 				context->dtype = L_DT_FLOAT;
 				break;
 			#endif
@@ -330,7 +287,10 @@ int rte_cpu_create_layer_context(
 		}
 		context->out = (void**)(((unsigned long long)context)+sz);
 		context->nout = nout;
-		memset(context->out, 0, sizeof(void*)*nout);
+		if(nout > 0)
+		{
+			memset(context->out, 0, sizeof(void*)*nout);
+		}
 		r = layer_get_NHWC(layer, &context->nhwc);
 		if(0 != r)
 		{
@@ -449,6 +409,7 @@ void rte_cpu_release_buffer(rte_cpu_buffer_t* buffer)
 	assert(buffer != NULL);
 	buffer->owner = NULL;
 }
+
 
 void* rte_cpu_fetch_out0(const nn_t* nn, const layer_t* layer)
 {

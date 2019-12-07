@@ -448,7 +448,12 @@ void ModelTestMain(runtime_type_t runtime,
 			int y=-1;
 			float prob = 0;
 			float* out = (float*)outputs[0]->data;
-			if(network->type== NETWORK_TYPE_Q8)
+			if( (outputs[0]->layer->op == L_OP_DETECTIONOUTPUT) ||
+				(outputs[0]->layer->op == L_OP_YOLOOUTPUT))
+			{
+				/* already in float format */
+			}
+			else if(network->type== NETWORK_TYPE_Q8)
 			{
 				out = nnt_dequantize8((int8_t*)out, classes, LAYER_Q(outputs[0]->layer));
 			}

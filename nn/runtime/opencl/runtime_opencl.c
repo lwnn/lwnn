@@ -386,7 +386,7 @@ static int cl_adjust_layer_image(const nn_t* nn, const layer_t* layer)
 	rte_cl_image_t* image;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
 
-	if(layer->op != L_OP_OUTPUT)
+	if(layer->op != L_OP_YOLO)
 	{
 		for(i=0; i<context->nout; i++)
 		{
@@ -742,7 +742,7 @@ int rte_cl_create_layer_context(
 	{
 		memset(context, 0, sz);
 		context->dtype = L_DT_FLOAT;
-		context->out = (cl_mem*)(((unsigned long long)context)+sz);
+		context->out = (void*)(((unsigned long long)context)+sz);
 		context->nout = nout;
 		r = layer_get_NHWC(layer, &context->nhwc);
 		if(0 != r)
@@ -783,7 +783,7 @@ int rte_cl_create_layer_context(
 
 void rte_cl_destory_layer_context(const nn_t* nn, const layer_t* layer)
 {
-#ifdef ENABLE_CL_IMAGE_REUSE
+#ifndef ENABLE_CL_IMAGE_REUSE
 	size_t i;
 #endif
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
@@ -967,4 +967,44 @@ int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 
 	return r;
 }
+
+#ifndef DISABLE_RTE_FALLBACK
+int rte_cl_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer, size_t n)
+{
+	int r=0;
+	size_t i;
+	layer_cl_context_t* context;
+	void** cl_inputs = (void**)nn->scratch.area;
+	float* pf = (float*)&cl_inputs[n];
+
+	for(i=0; i<n; i++)
+	{
+		context = (layer_cl_context_t*) layer->inputs[i]->C->context;
+		cl_inputs[i] = context->out[0];
+	}
+
+	for(i=0; (i<n) && (0==r); i++)
+	{
+		context = (layer_cl_context_t*) layer->inputs[i]->C->context;
+		r = rte_cl_image2d_copy_out(nn, context->out[0], pf, &(context->nhwc));
+		context->out[0] = pf;
+		pf += NHWC_SIZE(context->nhwc);
+	}
+
+	return r;
+}
+void rte_cl_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer, size_t n)
+{
+	size_t i;
+	layer_cl_context_t* context;
+	void** cl_inputs = (void**)nn->scratch.area;
+
+	for(i=0; i<n; i++)
+	{
+		context = (layer_cl_context_t*) layer->inputs[i]->C->context;
+		context->out[0] = cl_inputs[i];
+	}
+
+}
+#endif /* DISABLE_RTE_FALLBACK */
 #endif /* DISABLE_RUNTIME_OPENCL */

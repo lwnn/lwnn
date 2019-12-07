@@ -42,11 +42,10 @@ static int entry_index(NHWC_t *inhwc, int classes, int batch, int location, int 
 	return batch*NHWC_BATCH_SIZE(*inhwc) + n*inhwc->W*inhwc->H*(4+classes+1) + entry*inhwc->W*inhwc->H + loc;
 }
 
-static int yolo_num_detections(const nn_t* nn, const layer_t* layer,
-		layer_fetch_t fetch, float thresh)
+static int yolo_num_detections(const nn_t* nn, const layer_t* layer, float thresh)
 {
 	int i, n;
-	float* output = (float*)fetch(nn, layer);
+	float* output = (float*)layer->C->context->out[0];
 	int count = 0;
 	int num = layer->blobs[0]->dims[0];
 	int classes = RTE_FETCH_FLOAT(layer->blobs[2]->blob, 0);
@@ -64,27 +63,25 @@ static int yolo_num_detections(const nn_t* nn, const layer_t* layer,
 
 	return count;
 }
-static int num_detections(const nn_t* nn, const layer_t* layer,
-		layer_fetch_t fetch, float thresh)
+static int num_detections(const nn_t* nn, const layer_t* layer, float thresh)
 {
 	const layer_t ** inputs = layer->inputs;
 	int s = 0;
 
 	while((*inputs) != NULL) {
-		s += yolo_num_detections(nn, *inputs, fetch, thresh);
+		s += yolo_num_detections(nn, *inputs, thresh);
 		inputs++;
 	}
 	return s;
 }
 
-static detection *make_network_boxes(const nn_t* nn, const layer_t* layer,
-		layer_fetch_t fetch, float thresh, int *num)
+static detection *make_network_boxes(const nn_t* nn, const layer_t* layer, float thresh, int *num)
 {
 	int i;
 	const layer_t* input = layer->inputs[0];
 	int classes = RTE_FETCH_FLOAT(input->blobs[2]->blob, 0);
 	int coords = 0; /* TODO: what is coords */
-	int nboxes = num_detections(nn, layer, fetch, thresh);
+	int nboxes = num_detections(nn, layer, thresh);
 	NNLOG(NN_DEBUG, ("  detected boxes number = %d\n", nboxes));
 	if(num) *num = nboxes;
 	detection *dets = calloc(nboxes, sizeof(detection));
@@ -97,11 +94,11 @@ static detection *make_network_boxes(const nn_t* nn, const layer_t* layer,
 	return dets;
 }
 
-static void avg_flipped_yolo(const nn_t* nn, const layer_t* layer, layer_fetch_t fetch)
+static void avg_flipped_yolo(const nn_t* nn, const layer_t* layer)
 {
 	int i,j,n,z;
 	layer_context_t* context = (layer_context_t*)layer->C->context;
-	float *output = (float*)fetch(nn, layer);
+	float *output = (float*)layer->C->context->out[0];
 	int num = layer->blobs[0]->dims[0];
 	int classes = RTE_FETCH_FLOAT(layer->blobs[2]->blob, 0);
 	float *flip = output + NHWC_BATCH_SIZE(context->nhwc);
@@ -137,17 +134,17 @@ static box get_yolo_box(float *x, const int *anchors, int n, int index, int i, i
 	return b;
 }
 
-static int get_yolo_detections(const nn_t* nn, const layer_t* layer, layer_fetch_t fetch,
+static int get_yolo_detections(const nn_t* nn, const layer_t* layer,
 			float thresh, int *map, int relative, detection *dets)
 {
 	int i,j,n;
-	float *predictions = (float*)fetch(nn, layer);
+	float *predictions = (float*)layer->C->context->out[0];
 	int num = layer->blobs[0]->dims[0];
 	const int* mask = (const int*)layer->blobs[0]->blob;
 	const int* anchors = (const int*)layer->blobs[1]->blob;
 	int classes = RTE_FETCH_FLOAT(layer->blobs[2]->blob, 0);
 	layer_context_t* context = (layer_context_t*)layer->C->context;
-	if (context->nhwc.N == 2) avg_flipped_yolo(nn, layer, fetch);
+	if (context->nhwc.N == 2) avg_flipped_yolo(nn, layer);
 	int count = 0;
 	layer_context_t* image_context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
 	int netw = image_context->nhwc.W;
@@ -176,23 +173,23 @@ static int get_yolo_detections(const nn_t* nn, const layer_t* layer, layer_fetch
 	return count;
 }
 
-static void fill_network_boxes(const nn_t* nn, const layer_t* layer, layer_fetch_t fetch,
+static void fill_network_boxes(const nn_t* nn, const layer_t* layer,
 			float thresh, float hier, int *map, int relative, detection *dets)
 {
 	const layer_t ** inputs = layer->inputs;
 
 	while((*inputs) != NULL) {
-		int count = get_yolo_detections(nn, *inputs, fetch, thresh, map, relative, dets);
+		int count = get_yolo_detections(nn, *inputs, thresh, map, relative, dets);
 		dets += count;
 		inputs++;
 	}
 }
 
-static detection *get_network_boxes(const nn_t* nn, const layer_t* layer, layer_fetch_t fetch,
+static detection *get_network_boxes(const nn_t* nn, const layer_t* layer,
 			float thresh, float hier, int *map, int relative, int *num)
 {
-	detection *dets = make_network_boxes(nn, layer, fetch, thresh, num);
-	fill_network_boxes(nn, layer, fetch, thresh, hier, map, relative, dets);
+	detection *dets = make_network_boxes(nn, layer, thresh, num);
+	fill_network_boxes(nn, layer, thresh, hier, map, relative, dets);
 	return dets;
 }
 
@@ -351,7 +348,7 @@ int yolo_forward(float* output, const float* input, NHWC_t *inhwc, int num, int 
 	return r;
 }
 
-int yolo_output_forward(const nn_t* nn, const layer_t* layer, layer_fetch_t fetch)
+int yolo_output_forward(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_context_t* context = (layer_context_t*)layer->C->context;
@@ -364,7 +361,7 @@ int yolo_output_forward(const nn_t* nn, const layer_t* layer, layer_fetch_t fetc
 	float hier_thresh = 0.5;
 	float nms = 0.45;
 
-	detection *dets = get_network_boxes(nn, layer, fetch, thresh, hier_thresh, 0, 1, &nboxes);
+	detection *dets = get_network_boxes(nn, layer, thresh, hier_thresh, 0, 1, &nboxes);
 	do_nms_sort(dets, nboxes, classes, 0.45);
 
 	layer_get_NHWC(layer, &context->nhwc);

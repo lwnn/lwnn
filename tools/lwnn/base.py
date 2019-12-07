@@ -99,7 +99,10 @@ class LWNNBaseC():
             raise Exception('quantization is not supported for %s model\n'%(self.T))
 
         if(only_needQ==False):
-            blobQ = np.clip(np.round(blob * 2 ** dec_bits), cmin, cmax).astype(dtype)
+            blob = blob * (2**dec_bits)
+            # Fix python2.7 numpy 'float' object has no attribute 'rint' issue
+            blob = blob.astype(np.float32)
+            blobQ = np.clip(np.round(blob), cmin, cmax).astype(dtype)
         else:
             blobQ = None
 
@@ -138,7 +141,7 @@ class LWNNBaseC():
 
     def gen_blobs(self, layer, blobs):
         if((self.T in ['q8', 's8', 'q16']) and
-           (layer['op'] not in ['DetectionOutput'])):
+           (layer['op'] not in ['DetectionOutput', 'YoloOutput'])):
             blobs = [self.get_Q_blob(layer)] + blobs
         for blob in blobs:
             self.gen_blob(*blob)
@@ -173,9 +176,11 @@ class LWNNBaseC():
             self.gen_layer_common(layer)
             self.GENL[layer['op']](layer)
 
-    def get_type(self):
+    def get_type(self, layer):
         t = 'float'
-        if(self.T == 'q8'):
+        if(layer['op'] in ['DetectionOutput', 'YoloOutput']):
+            pass # as only float version are supported
+        elif(self.T in ['q8', 's8']):
             t = 'int8_t'
         elif(self.T == 'q16'):
             t = 'int16_t'
@@ -190,7 +195,7 @@ class LWNNBaseC():
     def gen_models(self):
         for layer in self.model.lwnn_model:
             if(layer['op'] == 'Input'):
-                self.fpC.write('static %s %s_input_buffer[%s];\n'%(self.get_type(), layer['name'], self.get_size(layer)))
+                self.fpC.write('static %s %s_input_buffer[%s];\n'%(self.get_type(layer), layer['name'], self.get_size(layer)))
                 self.fpC.write('static const nn_input_t %s_input=\n{\n\tL_REF(%s), %s_input_buffer\n};\n'
                                %(layer['name'],layer['name'],layer['name']))
         self.fpC.write('static const nn_input_t* const %s_%s_inputs[] =\n{\n'%(self.name, self.T))
@@ -200,7 +205,7 @@ class LWNNBaseC():
         self.fpC.write('\tNULL\n};\n\n')
         for layer in self.model.lwnn_model:
             if((layer['op'] == 'Output') or ('Output' in layer)):
-                self.fpC.write('static %s %s_output_buffer[%s];\n'%(self.get_type(), layer['name'], self.get_size(layer)))
+                self.fpC.write('static %s %s_output_buffer[%s];\n'%(self.get_type(layer), layer['name'], self.get_size(layer)))
                 self.fpC.write('static const nn_output_t %s_output=\n{\n\tL_REF(%s), %s_output_buffer\n};\n'
                                %(layer['name'],layer['name'],layer['name']))
         self.fpC.write('static const nn_output_t* const %s_%s_outputs[] =\n{\n'%(self.name, self.T))

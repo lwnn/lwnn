@@ -20,9 +20,7 @@ extern "C" {
 #define LAYER_CL_CONTEXT_MEMBER		\
 	LAYER_CONTEXT_MEMBER;			\
 	cl_program program;				\
-	cl_kernel kernel;				\
-	size_t nout;					\
-	cl_mem* out
+	cl_kernel kernel
 
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
@@ -92,6 +90,10 @@ void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W);
 #endif
 int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 		const char* program, const char* kernel, const char* option, size_t ctx_sz);
+#ifndef DISABLE_RTE_FALLBACK
+int rte_cl_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer, size_t n);
+void rte_cl_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer, size_t n);
+#endif
 #ifdef __cplusplus
 }
 #endif
