@@ -41,7 +41,7 @@ static void convolve_HWC_q15_fast_nonsquare(const q15_t * Im_in,
 {
 	uint16_t  i, j, k, l, m, n;
 	int       conv_out;
-	signed char in_row, in_col;
+	int16_t in_row, in_col;
 
 	for (i = 0; i < ch_im_out; i++)
 	{

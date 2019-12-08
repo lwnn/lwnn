@@ -52,5 +52,36 @@ void layer_cpu_float_DETECTIONOUTPUT_deinit(const nn_t* nn, const layer_t* layer
 {
 	rte_cpu_destory_layer_context(nn, layer);
 }
-
+#ifndef DISABLE_RTE_FALLBACK
+#ifndef DISABLE_RUNTIME_CPU_Q8
+int layer_cpu_q8_to_cpu_float_DETECTIONOUTPUT_pre_execute(const nn_t* nn, const layer_t* layer)
+{
+	return rte_cpuq_to_cpu_float_pre_execute_common(nn, layer, 2);
+}
+void layer_cpu_q8_to_cpu_float_DETECTIONOUTPUT_post_execute(const nn_t* nn, const layer_t* layer)
+{
+	rte_cpuq_to_cpu_float_post_execute_common(nn, layer, 2);
+}
+#endif
+#ifndef DISABLE_RUNTIME_CPU_S8
+int layer_cpu_s8_to_cpu_float_DETECTIONOUTPUT_pre_execute(const nn_t* nn, const layer_t* layer)
+{
+	return rte_cpuq_to_cpu_float_pre_execute_common(nn, layer, 2);
+}
+void layer_cpu_s8_to_cpu_float_DETECTIONOUTPUT_post_execute(const nn_t* nn, const layer_t* layer)
+{
+	rte_cpuq_to_cpu_float_post_execute_common(nn, layer, 2);
+}
+#endif
+#ifndef DISABLE_RUNTIME_CPU_Q16
+int layer_cpu_q16_to_cpu_float_DETECTIONOUTPUT_pre_execute(const nn_t* nn, const layer_t* layer)
+{
+	return rte_cpuq_to_cpu_float_pre_execute_common(nn, layer, 2);
+}
+void layer_cpu_q16_to_cpu_float_DETECTIONOUTPUT_post_execute(const nn_t* nn, const layer_t* layer)
+{
+	rte_cpuq_to_cpu_float_post_execute_common(nn, layer, 2);
+}
+#endif
+#endif /* DISABLE_RTE_FALLBACK */
 #endif /* DISABLE_RUNTIME_CPU_FLOAT */

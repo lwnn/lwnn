@@ -6,6 +6,9 @@
 #include "nn.h"
 #ifndef DISABLE_RUNTIME_CPU
 #include "runtime_cpu.h"
+#ifndef DISABLE_RTE_FALLBACK
+#include "quantize.h"
+#endif
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
@@ -419,5 +422,69 @@ void* rte_cpu_fetch_out0(const nn_t* nn, const layer_t* layer)
 
 	return context->out[0];
 }
+
+#ifndef DISABLE_RTE_FALLBACK
+int rte_cpuq_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer, size_t n)
+{
+	int r=0;
+	size_t i;
+	layer_cpu_context_t* context;
+	void** cl_inputs = (void**)nn->scratch.area;
+	float* pf = (float*)&cl_inputs[n];
+
+	for(i=0; i<n; i++)
+	{
+		context = (layer_cpu_context_t*) layer->inputs[i]->C->context;
+		cl_inputs[i] = context->out[0];
+	}
+
+	for(i=0; (i<n) && (0==r); i++)
+	{
+		context = (layer_cpu_context_t*) layer->inputs[i]->C->context;
+		switch(nn->network->type)
+		{
+			#if !defined(DISABLE_RUNTIME_CPU_Q8)
+			case NETWORK_TYPE_Q8:
+				dequantize_q8(pf, (int8_t*)context->out[0], NHWC_SIZE(context->nhwc),
+						LAYER_Q(layer->inputs[i]));
+				break;
+			#endif
+			#if !defined(DISABLE_RUNTIME_CPU_S8)
+			case NETWORK_TYPE_S8:
+				dequantize_s8(pf, (int8_t*)context->out[0], NHWC_SIZE(context->nhwc),
+						LAYER_Q(layer->inputs[i]), LAYER_S(layer->inputs[i]),
+						LAYER_Z(layer->inputs[i]));
+				break;
+			#endif
+			#if !defined(DISABLE_RUNTIME_CPU_Q16)
+			case NETWORK_TYPE_Q16:
+				dequantize_q16(pf, (int16_t*)context->out[0], NHWC_SIZE(context->nhwc),
+						LAYER_Q(layer->inputs[i]));
+				break;
+			#endif
+			default:
+				r = NN_E_INVALID_RUNTIME;
+				break;
+		}
+		context->out[0] = pf;
+		pf += NHWC_SIZE(context->nhwc);
+	}
+
+	return r;
+}
+void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer, size_t n)
+{
+	size_t i;
+	layer_cpu_context_t* context;
+	void** cl_inputs = (void**)nn->scratch.area;
+
+	for(i=0; i<n; i++)
+	{
+		context = (layer_cpu_context_t*) layer->inputs[i]->C->context;
+		context->out[0] = cl_inputs[i];
+	}
+
+}
+#endif /* DISABLE_RTE_FALLBACK */
 #endif /* DISABLE_RUNTIME_CPU */
 

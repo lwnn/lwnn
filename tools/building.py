@@ -199,6 +199,7 @@ def SelectCompilerAndroid(env):
         exit()
     if(IsPlatformWindows()):
         host = 'windows'
+        NDK = NDK.replace(os.sep, '/')
     else:
         host = 'linux'
     env['ANDROID_NDK'] = NDK
