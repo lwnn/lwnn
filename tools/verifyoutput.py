@@ -38,7 +38,7 @@ def show(mts):
         fig.tight_layout()
     plt.show()
 
-def compare(a, b, name='', delayedShow=False):
+def compare(a, b, name='', delayedShow=False, onlyCompared=False):
     aL = a.reshape(-1).tolist()
     bL = b.reshape(-1).tolist()
     if(len(aL) != len(bL)):
@@ -46,24 +46,30 @@ def compare(a, b, name='', delayedShow=False):
     Z = list(zip(aL,bL))
     Z.sort(key=lambda x: x[0])
     aL1,bL1=zip(*Z)
-    plt.figure(figsize=(18, 3))
-    plt.subplot(131)
-    plt.plot(aL)
-    plt.plot(aL1,'r')
-    plt.grid()
-    plt.title('golden-%s'%(name))
-    plt.subplot(133)
+    if(onlyCompared==False):
+        plt.figure(figsize=(18, 3))
+        plt.subplot(131)
+        plt.plot(aL)
+        plt.plot(aL1,'r')
+        plt.grid()
+        plt.title('golden-%s'%(name))
+        plt.subplot(132)
+        bL1=list(bL1)
+        bL1.sort()
+        plt.plot(bL)
+        plt.plot(bL1,'g')
+        plt.grid()
+        plt.title('lwnn-%s'%(name))
+        plt.subplot(133)
+    else:
+        plt.figure()
     plt.plot(bL1,'g')
     plt.plot(aL1,'r')
     plt.grid()
-    plt.title('compare')
-    plt.subplot(132)
-    bL1=list(bL1)
-    bL1.sort()
-    plt.plot(bL)
-    plt.plot(bL1,'g')
-    plt.grid()
-    plt.title('lwnn-%s'%(name))
+    if(onlyCompared==False):
+        plt.title('compare')
+    else:
+        plt.title(name)
     if(not delayedShow):
         plt.show()
 

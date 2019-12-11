@@ -969,40 +969,59 @@ int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 }
 
 #ifndef DISABLE_RTE_FALLBACK
-int rte_cl_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer, size_t n)
+extern void rte_cpuq_to_cpu_float_init_common(const nn_t* nn, const layer_t* layer);
+extern void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer);
+void rte_cl_to_cpu_float_init_common(const nn_t* nn, const layer_t* layer)
 {
-	int r=0;
-	size_t i;
-	layer_cl_context_t* context;
-	void** cl_inputs = (void**)nn->scratch.area;
-	float* pf = (float*)&cl_inputs[n];
-
-	for(i=0; i<n; i++)
+	if(L_OP_YOLOOUTPUT != layer->op)
 	{
-		context = (layer_cl_context_t*) layer->inputs[i]->C->context;
-		cl_inputs[i] = context->out[0];
+		rte_cpuq_to_cpu_float_init_common(nn, layer);
 	}
 
-	for(i=0; (i<n) && (0==r); i++)
+}
+int rte_cl_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer)
+{
+	int r=0;
+	layer_cl_context_t* context;
+	const layer_t* const* inputs;
+	const layer_t* inp;
+	void** cl_inputs = (void**)nn->scratch.area;
+	float* pf;
+
+	if(L_OP_YOLOOUTPUT == layer->op)
 	{
-		context = (layer_cl_context_t*) layer->inputs[i]->C->context;
+		return 0;
+	}
+
+	inputs = layer->inputs;
+	inp = *inputs++;
+	while(NULL != inp)
+	{
+		context = (layer_cl_context_t*)inp->C->context;
+		*cl_inputs++ = context->out[0];
+		inp = *inputs++;
+	}
+
+	pf = (float*)cl_inputs;
+
+	inputs = layer->inputs;
+	inp = *inputs++;
+	while((NULL != inp) && (0 == r))
+	{
+		context = (layer_cl_context_t*) inp->C->context;
 		r = rte_cl_image2d_copy_out(nn, context->out[0], pf, &(context->nhwc));
 		context->out[0] = pf;
 		pf += NHWC_SIZE(context->nhwc);
+		inp = *inputs++;
 	}
 
 	return r;
 }
-void rte_cl_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer, size_t n)
+void rte_cl_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer)
 {
-	size_t i;
-	layer_cl_context_t* context;
-	void** cl_inputs = (void**)nn->scratch.area;
-
-	for(i=0; i<n; i++)
+	if(L_OP_YOLOOUTPUT != layer->op)
 	{
-		context = (layer_cl_context_t*) layer->inputs[i]->C->context;
-		context->out[0] = cl_inputs[i];
+		rte_cpuq_to_cpu_float_post_execute_common(nn, layer);
 	}
 
 }

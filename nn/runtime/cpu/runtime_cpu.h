@@ -71,10 +71,6 @@ void rte_cpu_release_buffer(rte_cpu_buffer_t* buffer);
 
 int rte_cpu_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx_sz, size_t type_sz);
 void* rte_cpu_fetch_out0(const nn_t* nn, const layer_t* layer);
-#ifndef DISABLE_RTE_FALLBACK
-int rte_cpuq_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer, size_t n);
-void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer, size_t n);
-#endif
 #ifdef __cplusplus
 }
 #endif

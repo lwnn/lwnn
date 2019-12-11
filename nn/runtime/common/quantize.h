@@ -6,6 +6,7 @@
 #define NN_RUNTIME_COMMON_QUANTIZE_H_
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include <stdint.h>
+#include <stdlib.h>
 /* ============================ [ MACROS    ] ====================================================== */
 #ifdef __cplusplus
 extern "C" {

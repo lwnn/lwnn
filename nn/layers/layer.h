@@ -154,23 +154,29 @@ void layer_##runtime##_##op##_deinit(const nn_t* nn, const layer_t* layer)	\
 
 #ifndef DISABLE_RTE_FALLBACK
 #define FALLBACK_LAYER_OPS(runtime, op, fb)									\
-extern int layer_##runtime##_to_##fb##_##op##_pre_execute(const nn_t*,const layer_t*);	\
-extern void layer_##runtime##_to_##fb##_##op##_post_execute(const nn_t*,const layer_t*);	\
+extern void layer_##runtime##_to_##fb##_init_common(const nn_t*,const layer_t*);			\
+extern int layer_##runtime##_to_##fb##_pre_execute_common(const nn_t*,const layer_t*);		\
+extern void layer_##runtime##_to_##fb##_post_execute_common(const nn_t*,const layer_t*);	\
 extern int layer_##fb##_##op##_init(const nn_t*, const layer_t*);			\
 extern int layer_##fb##_##op##_execute(const nn_t*, const layer_t*);		\
 extern void layer_##fb##_##op##_deinit(const nn_t*, const layer_t*);		\
 int layer_##runtime##_##op##_init(const nn_t* nn, const layer_t* layer)		\
 {																			\
-	return layer_##fb##_##op##_init(nn, layer);								\
+	int r = layer_##fb##_##op##_init(nn, layer);							\
+	if(0 == r)																\
+	{																		\
+		layer_##runtime##_to_##fb##_init_common(nn, layer);					\
+	}																		\
+	return r;																\
 }																			\
 int layer_##runtime##_##op##_execute(const nn_t* nn, const layer_t* layer)	\
 {																			\
-	int r = layer_##runtime##_to_##fb##_##op##_pre_execute(nn, layer);		\
+	int r = layer_##runtime##_to_##fb##_pre_execute_common(nn, layer);		\
 	if(0 == r)																\
 	{																		\
 		r = layer_##fb##_##op##_execute(nn, layer);							\
 	}																		\
-	layer_##runtime##_to_##fb##_##op##_post_execute(nn, layer);				\
+	layer_##runtime##_to_##fb##_post_execute_common(nn, layer);				\
 	return r;																\
 }																			\
 void layer_##runtime##_##op##_deinit(const nn_t* nn, const layer_t* layer)	\

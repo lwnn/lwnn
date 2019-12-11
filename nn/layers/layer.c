@@ -5,7 +5,26 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
 /* ============================ [ MACROS    ] ====================================================== */
-
+#ifndef DISABLE_RTE_FALLBACK
+#define FALLBACK_TEMPLATE(from, to, gf)													\
+extern void rte_##gf##_to_##to##_init_common(const nn_t*, const layer_t*);				\
+extern int rte_##gf##_to_##to##_pre_execute_common(const nn_t*, const layer_t*);		\
+extern void rte_##gf##_to_##to##_post_execute_common(const nn_t*, const layer_t*);		\
+void layer_##from##_to_##to##_init_common(const nn_t* nn, const layer_t* layer)			\
+{																						\
+	rte_##gf##_to_##to##_init_common(nn, layer);										\
+}																						\
+int layer_##from##_to_##to##_pre_execute_common(const nn_t* nn, const layer_t* layer)	\
+{																						\
+	return rte_##gf##_to_##to##_pre_execute_common(nn, layer);							\
+}																						\
+void layer_##from##_to_##to##_post_execute_common(const nn_t* nn, const layer_t* layer)	\
+{																						\
+	rte_##gf##_to_##to##_post_execute_common(nn, layer);								\
+}
+#else
+#define FALLBACK_TEMPLATE(from, to, gf)
+#endif
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -130,7 +149,7 @@ size_t layer_get_size(const layer_t* layer)
 	return sz;
 }
 
-/* ============================ [ UNSUPPORTED ] ==================================================== */
+/* ============================ [ UNSUPPORTED/FALLBACK ] =========================================== */
 UNSUPPORTED_LAYER_OPS(cpu_s8, CONST)
 UNSUPPORTED_LAYER_OPS(cpu_q8, CONST)
 UNSUPPORTED_LAYER_OPS(cpu_q16, CONST)
@@ -150,3 +169,10 @@ UNSUPPORTED_LAYER_OPS(cpu_s8, YOLOOUTPUT)
 UNSUPPORTED_LAYER_OPS(cpu_q8, YOLOOUTPUT)
 UNSUPPORTED_LAYER_OPS(cpu_q16, YOLOOUTPUT)
 FALLBACK_LAYER_OPS(cl, YOLOOUTPUT, cpu_float)
+
+
+FALLBACK_TEMPLATE(cpu_s8, cpu_float, cpuq)
+FALLBACK_TEMPLATE(cpu_q8, cpu_float, cpuq)
+FALLBACK_TEMPLATE(cpu_q16, cpu_float, cpuq)
+FALLBACK_TEMPLATE(cl, cpu_float, cl)
+
