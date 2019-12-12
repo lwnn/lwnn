@@ -111,7 +111,6 @@ int rte_is_layer_consumed_from(const nn_t* nn, const layer_t* layer, const layer
 	const layer_t** inputs;
 
 	layers = nn->network->layers;
-
 	while((NULL != (*layers)) && ((*layers) != from))
 	{
 		layers++;

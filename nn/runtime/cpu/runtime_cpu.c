@@ -338,9 +338,18 @@ int rte_cpu_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx
 	if(0 == r)
 	{
 		context = (layer_cpu_context_t*)layer->C->context;
-
-		context->out[0] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*type_sz);
-
+		#ifndef DISABLE_RTE_FALLBACK
+		if(RUNTIME_CPU != nn->runtime_type)
+		{
+			context->out[0] = malloc(NHWC_SIZE(context->nhwc)*type_sz);
+		}
+		else
+		{
+		#endif
+			context->out[0] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*type_sz);
+		#ifndef DISABLE_RTE_FALLBACK
+		}
+		#endif
 		if(NULL == context->out[0])
 		{
 			r = NN_E_NO_MEMORY;
@@ -426,20 +435,16 @@ void* rte_cpu_fetch_out0(const nn_t* nn, const layer_t* layer)
 #ifndef DISABLE_RTE_FALLBACK
 void rte_cpuq_to_cpu_float_init_common(const nn_t* nn, const layer_t* layer)
 {
-	size_t scratch_size;
+	size_t scratch_size=0;
 	layer_cpu_context_t* context;
-
 	const layer_t* const* inputs;
-	const layer_t* inp;
 
 	inputs = layer->inputs;
-
-	inp = *inputs++;
-	while(NULL != inp)
+	while(NULL != (*inputs))
 	{
-		context = (layer_cpu_context_t*)inp->C->context;
+		context = (layer_cpu_context_t*)(*inputs)->C->context;
 		scratch_size += sizeof(float)*NHWC_SIZE(context->nhwc) + sizeof(void*);
-		inp = *inputs++;
+		inputs++;
 	}
 
 	nn_request_scratch(nn, scratch_size);
@@ -450,44 +455,41 @@ int rte_cpuq_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* laye
 	int r=0;
 	layer_cpu_context_t* context;
 	const layer_t* const* inputs;
-	const layer_t* inp;
 	void** cl_inputs = (void**)nn->scratch.area;
 	float* pf;
 
 	inputs = layer->inputs;
-	inp = *inputs++;
-	while(NULL != inp)
+	while(NULL != (*inputs))
 	{
-		context = (layer_cpu_context_t*)inp->C->context;
+		context = (layer_cpu_context_t*)(*inputs)->C->context;
 		*cl_inputs++ = context->out[0];
-		inp = *inputs++;
+		inputs++;
 	}
 
 	pf = (float*)cl_inputs;
 
 	inputs = layer->inputs;
-	inp = *inputs++;
-	while((NULL != inp) && (0 == r))
+	while((NULL != (*inputs)) && (0 == r))
 	{
-		context = (layer_cpu_context_t*) inp->C->context;
+		context = (layer_cpu_context_t*) (*inputs)->C->context;
 		switch(nn->network->type)
 		{
 			#if !defined(DISABLE_RUNTIME_CPU_Q8)
 			case NETWORK_TYPE_Q8:
 				dequantize_q8(pf, (int8_t*)context->out[0], NHWC_SIZE(context->nhwc),
-						LAYER_Q(inp));
+						LAYER_Q((*inputs)));
 				break;
 			#endif
 			#if !defined(DISABLE_RUNTIME_CPU_S8)
 			case NETWORK_TYPE_S8:
 				dequantize_s8(pf, (int8_t*)context->out[0], NHWC_SIZE(context->nhwc),
-						LAYER_Q(inp), LAYER_S(inp), LAYER_Z(inp));
+						LAYER_Q((*inputs)), LAYER_S((*inputs)), LAYER_Z((*inputs)));
 				break;
 			#endif
 			#if !defined(DISABLE_RUNTIME_CPU_Q16)
 			case NETWORK_TYPE_Q16:
 				dequantize_q16(pf, (int16_t*)context->out[0], NHWC_SIZE(context->nhwc),
-						LAYER_Q(inp));
+						LAYER_Q((*inputs)));
 				break;
 			#endif
 			default:
@@ -496,7 +498,7 @@ int rte_cpuq_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* laye
 		}
 		context->out[0] = pf;
 		pf += NHWC_SIZE(context->nhwc);
-		inp = *inputs++;
+		inputs++;
 	}
 
 	return r;
@@ -506,17 +508,15 @@ void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* la
 {
 	layer_cpu_context_t* context;
 	const layer_t* const* inputs;
-	const layer_t* inp;
 	void** cl_inputs = (void**)nn->scratch.area;
 	float* pf;
 
 	inputs = layer->inputs;
-	inp = *inputs++;
-	while(NULL != inp)
+	while(NULL != (*inputs))
 	{
-		context = (layer_cpu_context_t*)inp->C->context;
+		context = (layer_cpu_context_t*)(*inputs)->C->context;
 		context->out[0] = *cl_inputs++;
-		inp = *inputs++;
+		inputs++;
 	}
 }
 #endif /* DISABLE_RTE_FALLBACK */

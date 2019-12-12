@@ -29,6 +29,8 @@ int layer_cl_CONST_init(const nn_t* nn, const layer_t* layer)
 
 		context->C = rte_cl_create_image2d_from_blob(nn, layer->blobs[0]);
 	}
+
+	return r;
 }
 
 int layer_cl_CONST_execute(const nn_t* nn, const layer_t* layer)

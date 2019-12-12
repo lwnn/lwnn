@@ -385,8 +385,9 @@ static int cl_adjust_layer_image(const nn_t* nn, const layer_t* layer)
 	int i;
 	rte_cl_image_t* image;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
-
+	#ifndef DISABLE_RTE_FALLBACK
 	if(layer->op != L_OP_YOLO)
+	#endif
 	{
 		for(i=0; i<context->nout; i++)
 		{
@@ -984,7 +985,6 @@ int rte_cl_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer)
 	int r=0;
 	layer_cl_context_t* context;
 	const layer_t* const* inputs;
-	const layer_t* inp;
 	void** cl_inputs = (void**)nn->scratch.area;
 	float* pf;
 
@@ -994,25 +994,23 @@ int rte_cl_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer)
 	}
 
 	inputs = layer->inputs;
-	inp = *inputs++;
-	while(NULL != inp)
+	while(NULL != (*inputs))
 	{
-		context = (layer_cl_context_t*)inp->C->context;
+		context = (layer_cl_context_t*)(*inputs)->C->context;
 		*cl_inputs++ = context->out[0];
-		inp = *inputs++;
+		inputs++;
 	}
 
 	pf = (float*)cl_inputs;
 
 	inputs = layer->inputs;
-	inp = *inputs++;
-	while((NULL != inp) && (0 == r))
+	while((NULL != (*inputs)) && (0 == r))
 	{
-		context = (layer_cl_context_t*) inp->C->context;
+		context = (layer_cl_context_t*)(*inputs)->C->context;
 		r = rte_cl_image2d_copy_out(nn, context->out[0], pf, &(context->nhwc));
 		context->out[0] = pf;
 		pf += NHWC_SIZE(context->nhwc);
-		inp = *inputs++;
+		inputs++;
 	}
 
 	return r;

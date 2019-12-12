@@ -12,7 +12,7 @@ asenv.Append(CPPDEFINES=['__ARM_ARCH_8M_BASE__'])
 
 if(GetOption('android')):
     cmd = 'sh ./build-android.sh %s --arch=arm64-v8a'%(asenv['ANDROID_NDK'])
-    boost = Package('https://github.com/moritz-wundke/Boost-for-Android.git',cmd=cmd)
+    #boost = Package('https://github.com/moritz-wundke/Boost-for-Android.git',cmd=cmd)
 objs = asenv.Library('cmsisnn', objs)
 
 objs += SConscript('image/SConscript')

@@ -7,7 +7,9 @@
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 #include "runtime_cpu.h"
 #include "bbox_util.hpp"
+#ifndef __ANDROID__
 #include <boost/iterator/counting_iterator.hpp>
+#endif
 
 namespace ssd {
 /* ============================ [ MACROS    ] ====================================================== */
@@ -808,7 +810,7 @@ template
 void GetMaxScoreIndex(const double* scores, const int num,
 		const float threshold, const int top_k,
 		vector<pair<double, int> >* score_index_vec);
-
+#ifndef __ANDROID__
 void ApplyNMS(const vector<NormalizedBBox>& bboxes, const vector<float>& scores,
 		const float threshold, const int top_k, const bool reuse_overlaps,
 		map<int, map<int, float> >* overlaps, vector<int>* indices) {
@@ -916,7 +918,7 @@ void ApplyNMS(const bool* overlapped, const int num, vector<int>* indices) {
 		}
 	}
 }
-
+#endif /* __ANDROID__ */
 void ApplyNMSFast(const vector<NormalizedBBox>& bboxes,
 		const vector<float>& scores, const float score_threshold,
 		const float nms_threshold, const float eta, const int top_k,
