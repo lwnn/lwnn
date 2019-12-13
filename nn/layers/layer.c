@@ -5,6 +5,27 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
 /* ============================ [ MACROS    ] ====================================================== */
+#ifndef DISABLE_RUNTIME_CPU_Q8
+#define FALLBACK_LAYER_OPS_CPU_Q8(op, to) FALLBACK_LAYER_OPS(cpu_q8, op, to)
+#else
+#define FALLBACK_LAYER_OPS_CPU_Q8(op, to)
+#endif
+#ifndef DISABLE_RUNTIME_CPU_Q16
+#define FALLBACK_LAYER_OPS_CPU_Q16(op, to) FALLBACK_LAYER_OPS(cpu_q16, op, to)
+#else
+#define FALLBACK_LAYER_OPS_CPU_Q16(op, to)
+#endif
+#ifndef DISABLE_RUNTIME_CPU_S8
+#define FALLBACK_LAYER_OPS_CPU_S8(op, to) FALLBACK_LAYER_OPS(cpu_s8, op, to)
+#else
+#define FALLBACK_LAYER_OPS_CPU_S8(op, to)
+#endif
+#ifndef DISABLE_RUNTIME_OPENCL
+#define FALLBACK_LAYER_OPS_CL(op, to) FALLBACK_LAYER_OPS(cl, op, to)
+#else
+#define FALLBACK_LAYER_OPS_CL(op, to)
+#endif
+
 #ifndef DISABLE_RTE_FALLBACK
 #define FALLBACK_TEMPLATE(from, to, gf)													\
 extern void rte_##gf##_to_##to##_init_common(const nn_t*, const layer_t*);				\
@@ -24,6 +45,27 @@ void layer_##from##_to_##to##_post_execute_common(const nn_t* nn, const layer_t*
 }
 #else
 #define FALLBACK_TEMPLATE(from, to, gf)
+#endif
+
+#ifndef DISABLE_RUNTIME_CPU_Q8
+#define FALLBACK_RTE_CPU_Q8(op, to) FALLBACK_TEMPLATE(cpu_q8, op, to)
+#else
+#define FALLBACK_RTE_CPU_Q8(op, to)
+#endif
+#ifndef DISABLE_RUNTIME_CPU_Q16
+#define FALLBACK_RTE_CPU_Q16(op, to) FALLBACK_TEMPLATE(cpu_q16, op, to)
+#else
+#define FALLBACK_RTE_CPU_Q16(op, to)
+#endif
+#ifndef DISABLE_RUNTIME_CPU_S8
+#define FALLBACK_RTE_CPU_S8(op, to) FALLBACK_TEMPLATE(cpu_s8, op, to)
+#else
+#define FALLBACK_RTE_CPU_S8(op, to)
+#endif
+#ifndef DISABLE_RUNTIME_OPENCL
+#define FALLBACK_RTE_CL(op, to) FALLBACK_TEMPLATE(cl, op, to)
+#else
+#define FALLBACK_RTE_CL(op, to)
 #endif
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
@@ -154,25 +196,23 @@ UNSUPPORTED_LAYER_OPS(cpu_s8, CONST)
 UNSUPPORTED_LAYER_OPS(cpu_q8, CONST)
 UNSUPPORTED_LAYER_OPS(cpu_q16, CONST)
 
-FALLBACK_LAYER_OPS(cpu_s8, DETECTIONOUTPUT, cpu_float)
-FALLBACK_LAYER_OPS(cpu_q8, DETECTIONOUTPUT, cpu_float)
-FALLBACK_LAYER_OPS(cpu_q16, DETECTIONOUTPUT, cpu_float)
-FALLBACK_LAYER_OPS(cl, DETECTIONOUTPUT, cpu_float)
-
+FALLBACK_LAYER_OPS_CPU_S8(DETECTIONOUTPUT, cpu_float)
+FALLBACK_LAYER_OPS_CPU_Q8(DETECTIONOUTPUT, cpu_float)
+FALLBACK_LAYER_OPS_CPU_Q16(DETECTIONOUTPUT, cpu_float)
+FALLBACK_LAYER_OPS_CL(DETECTIONOUTPUT, cpu_float)
 
 UNSUPPORTED_LAYER_OPS(cpu_s8, YOLO)
 UNSUPPORTED_LAYER_OPS(cpu_q8, YOLO)
 UNSUPPORTED_LAYER_OPS(cpu_q16, YOLO)
-FALLBACK_LAYER_OPS(cl, YOLO, cpu_float)
+FALLBACK_LAYER_OPS_CL(YOLO, cpu_float)
 
 UNSUPPORTED_LAYER_OPS(cpu_s8, YOLOOUTPUT)
 UNSUPPORTED_LAYER_OPS(cpu_q8, YOLOOUTPUT)
 UNSUPPORTED_LAYER_OPS(cpu_q16, YOLOOUTPUT)
-FALLBACK_LAYER_OPS(cl, YOLOOUTPUT, cpu_float)
+FALLBACK_LAYER_OPS_CL(YOLOOUTPUT, cpu_float)
 
-
-FALLBACK_TEMPLATE(cpu_s8, cpu_float, cpuq)
-FALLBACK_TEMPLATE(cpu_q8, cpu_float, cpuq)
-FALLBACK_TEMPLATE(cpu_q16, cpu_float, cpuq)
-FALLBACK_TEMPLATE(cl, cpu_float, cl)
+FALLBACK_RTE_CPU_S8(cpu_float, cpuq)
+FALLBACK_RTE_CPU_Q8(cpu_float, cpuq)
+FALLBACK_RTE_CPU_Q16(cpu_float, cpuq)
+FALLBACK_RTE_CL(cpu_float, cl)
 

@@ -385,9 +385,12 @@ static int cl_adjust_layer_image(const nn_t* nn, const layer_t* layer)
 	int i;
 	rte_cl_image_t* image;
 	layer_cl_context_t* context = (layer_cl_context_t*)layer->C->context;
+
+	if( (layer->op != L_OP_OUTPUT)
 	#ifndef DISABLE_RTE_FALLBACK
-	if(layer->op != L_OP_YOLO)
+	 && (layer->op != L_OP_YOLO)
 	#endif
+	  )
 	{
 		for(i=0; i<context->nout; i++)
 		{
