@@ -289,7 +289,7 @@ class LWNNQSFormatC(LWNNQFormatC):
             middle = (min_value+max_value)/2
             min_value = min_value - middle
             max_value = max_value - middle
-            scale = max_value
+            scale = max_value/(127.0/(2**7))
             int_bits = 0
         vq = 7 - int_bits
         cmax = 0x7F
@@ -301,7 +301,7 @@ class LWNNQSFormatC(LWNNQFormatC):
             Z = 0
         else:
             Z = np.round((maxq+minq)/2)
-        VQ = (VQ-Z).astype(np.int8)
+        VQ = np.clip(VQ-Z, cmin, cmax).astype(np.int8)
         return VQ, scale, vq, Z
 
     def calculate_output_encoding(self, feeds):

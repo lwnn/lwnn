@@ -3,6 +3,7 @@
 
 from .float import *
 from .qformat import *
+import pickle
 
 class LWNNModel():
     def __init__(self, converter, name):
@@ -43,6 +44,7 @@ class LWNNModel():
         self.omodel = self.clone()
         self.optimize(['RemoveIdentity'])
         self.omodel = self.clone()
+        pickle.dump(self.omodel, open('%s.pkl'%(self.path), 'wb'), True)
         self.optimize()
         self.check()
         print(self)
