@@ -4,6 +4,8 @@
 import pickle
 import numpy as np
 import glob
+import torch
+# ref https://pytorch.org/docs/stable/_modules/torch/nn/quantized/functional.html
 
 __all__ = ['lwnn2torch']
 

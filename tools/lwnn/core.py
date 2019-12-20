@@ -43,11 +43,17 @@ class LWNNModel():
         self.prepare()
         self.omodel = self.clone()
         self.optimize(['RemoveIdentity'])
+        self.save()
         self.omodel = self.clone()
-        pickle.dump(self.omodel, open('%s.pkl'%(self.path), 'wb'), True)
         self.optimize()
         self.check()
         print(self)
+
+    def save(self):
+        try:
+            pickle.dump(self.lwnn_model, open('%s.pkl'%(self.path), 'wb'), True)
+        except Exception as e:
+            print(e)
 
     @property
     def input(self):
