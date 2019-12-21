@@ -1,6 +1,7 @@
 # LWNN - Lightweight Neural Network
 # Copyright (C) 2019  Parai Wang <parai@foxmail.com>
 
+import os
 import pickle
 import numpy as np
 import glob
@@ -10,9 +11,24 @@ import torch
 __all__ = ['lwnn2torch']
 
 class Lwnn2Torch():
-    def __init__(self, p):
-        self.lwnn_model = self.load(p)
-        self.torch_model = self.convert()
+    def __init__(self, p, **kargs):
+        if('debug' in kargs):
+            self._debug = kargs['debug']
+        else:
+            self._debug = False
+        self.RUNL = {
+            'Input': self.run_LayerInput,
+            'Conv': self.run_LayerConv,
+            'Relu': self.run_LayerRelu,
+            'Reshape': self.run_LayerReshape,
+            'Concat': self.run_LayerConcat,
+            'Softmax': self.run_LayerSoftmax,
+            'DetectionOutput': self.run_LayerDetectionOutput,
+            'Output': self.run_LayerOutput }
+        if(type(p) == str):
+            self.lwnn_model = self.load(p)
+        else:
+            self.lwnn_model = p
 
     def load(self, p):
         try:
@@ -22,18 +38,114 @@ class Lwnn2Torch():
             model=pickle.load(open(p,'rb'), fix_imports=True, encoding="latin1")
         return model
 
-    def convert(self):
+    @property
+    def inputs(self):
+        inps = {}
         for ly in self.lwnn_model:
-            print(ly['name'], ly['op'], ly['shape'])
+            if(ly['op'] == 'Input'):
+                inps[ly['name']] = ly['shape']
+        return inps
 
-def lwnn2torch(model, **kargs):
-    if('feeds' in kargs):
-        feeds = kargs['feeds']
-    else:
-        feeds = None
+    def get_layers(self, names):
+        layers = []
+        for layer in self.lwnn_model:
+            if(layer['name'] in names):
+                layers.append(layer)
+        return layers
+
+    def run_LayerInput(self, layer):
+        name = layer['name']
+        feed = self.feeds[name]
+        layer['top'] = [feed]
+
+    def run_LayerConv(self, layer):
+        inp = self.get_layers(layer['inputs'])[0]
+        bottom = inp['top'][0]
+        W = layer['weights']
+        if(layer['group'] == 1):
+            W = W.transpose(0,3,1,2)
+        else:
+            W = W.transpose(3,0,1,2)
+        B = layer['bias']
+        _,Cin,_,_ = inp['shape']
+        _,Cout,_,_ = layer['shape']
+        if('strides' not in layer):
+            strides = [1, 1]
+        else:
+            strides = list(layer['strides'])
+        conv = torch.nn.Conv2d(in_channels=Cin,
+                 out_channels=Cout,
+                 kernel_size=list(W.shape)[2:],
+                 stride=strides,
+                 padding=layer['pads'][:2],
+                 groups=layer['group'],
+                 bias=True)
+        conv.weight = torch.nn.Parameter(torch.from_numpy(W))
+        conv.bias = torch.nn.Parameter(torch.from_numpy(B))
+        top = conv(torch.from_numpy(bottom))
+        layer['top'] = [top.detach().numpy()]
+
+    def run_LayerRelu(self, layer):
+        inp = self.get_layers(layer['inputs'])[0]
+        bottom = inp['top'][0]
+        relu = torch.nn.ReLU()
+        top = relu(torch.from_numpy(bottom))
+        layer['top'] = [top.detach().numpy()]
+
+    def run_LayerReshape(self, layer):
+        inp = self.get_layers(layer['inputs'])[0]
+        bottom = inp['top'][0]
+        top = bottom.reshape([-1]+list(layer['shape'])[1:])
+        layer['top'] = [top]
+
+    def run_LayerConcat(self, layer):
+        inps = self.get_layers(layer['inputs'])
+        inp = inps[0]
+        top = np.copy(inp['top'][0])
+        for inp in inps[1:]:
+            bottom = inp['top'][0]
+            top = np.concatenate((top,bottom), axis=layer['axis'])
+        layer['top'] = [top]
+
+    def run_LayerSoftmax(self, layer):
+        raise NotImplementedError()
+
+    def run_LayerDetectionOutput(self, layer):
+        raise NotImplementedError()
+
+    def run_LayerOutput(self, layer):
+        raise NotImplementedError()
+
+    def debug(self, layer):
+        try:
+            os.makedirs('./tmp/torch')
+        except:
+            pass
+        name = layer['name']
+        top = layer['top']
+        for id, v in enumerate(top):
+            if(len(v.shape) == 4):
+                v = v.transpose(0,2,3,1)
+            for batch in range(v.shape[0]):
+                oname = './tmp/torch/torch-%s-O%s-B%s.raw'%(name, id, batch)
+                B = v[batch]
+                B.tofile(oname)
+
+    def run(self, feeds):
+        self.feeds = feeds
+        self.outputs = {}
+        for ly in self.lwnn_model:
+            print('execute %s %s: %s'%(ly['op'], ly['name'], tuple(ly['shape'])))
+            self.RUNL[ly['op']](ly)
+            if(self._debug):
+                self.debug(ly)
+        return self.outputs
+
+def lwnn2torch(model, feeds, **kargs):
+    model = Lwnn2Torch(model, **kargs)
 
     if(type(feeds) == str):
-        inputs = model.converter.inputs
+        inputs = model.inputs
         feeds_ = {}
         for rawF in glob.glob('%s/*.raw'%(feeds)):
             raw = np.fromfile(rawF, np.float32)
@@ -55,12 +167,13 @@ def lwnn2torch(model, **kargs):
             if(len(v.shape) == 4):
                 v = np.transpose(v, (0,3,1,2))
             feeds[n] = v
-    tmodel = Lwnn2Torch(model)
+    model.run(feeds)
 
 if(__name__ == '__main__'):
     import argparse
     parser = argparse.ArgumentParser(description='convert lwnn to pytorch model')
     parser.add_argument('-i', '--input', help='input lwnn model', type=str, required=True)
-    parser.add_argument('-r', '--raw', help='input raw directory', type=str, default=None, required=False)
+    parser.add_argument('-r', '--raw', help='input raw directory', type=str, default=None, required=True)
+    parser.add_argument('-d', '--debug', help='debup outputs of each layer', action='store_true', default=False, required=False)
     args = parser.parse_args()
-    lwnn2torch(args.input, feeds=args.raw)
+    lwnn2torch(args.input, args.raw, debug=args.debug)

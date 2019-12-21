@@ -413,7 +413,6 @@ class LWNNQSFormatC(LWNNQFormatC):
                 W[i], Wq = self.quantize(W[i])
             else:
                 W[:,:,:,i], Wq = self.quantize(W[:,:,:,i])
-            print('Wq is', i, Wq)
             OShift[i] = Wq+Iq-Oq
             OMult[i] = self.scaleQ(Is/Os)
             B[i] = B[i]*(2**(Iq+Wq))/Is

@@ -142,11 +142,17 @@ int layer_cpu_s8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	int out_offset = LAYER_Z(layer);
 
 	const int32_t *output_shift = (const int32_t*)layer->blobs[5]->blob;
-	const int32_t *output_mult = (const int32_t*)layer->blobs[4]->blob;
 
 	size_t batch;
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
+
+	uint16_t output_ch = context->nhwc.C;
+	uint16_t output_y = context->nhwc.H;
+	uint16_t output_x = context->nhwc.W;
+	uint16_t input_ch = input_context->nhwc.C;
+	uint16_t input_y = input_context->nhwc.H;
+	uint16_t input_x = input_context->nhwc.W;
 
 	ints = (int*)layer->blobs[1]->dims;
 	kernel_y = ints[1];
@@ -172,12 +178,6 @@ int layer_cpu_s8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 		uint16_t i, j, k, l, m, n;
 		float conv_out;
 		int16_t in_row, in_col;
-		uint16_t output_ch = context->nhwc.C;
-		uint16_t output_y = context->nhwc.H;
-		uint16_t output_x = context->nhwc.W;
-		uint16_t input_ch = input_context->nhwc.C;
-		uint16_t input_y = input_context->nhwc.H;
-		uint16_t input_x = input_context->nhwc.W;
 
 		for (i = 0; i < output_ch; i++)
 		{

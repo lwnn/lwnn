@@ -43,11 +43,11 @@ class LWNNModel():
         self.prepare()
         self.omodel = self.clone()
         self.optimize(['RemoveIdentity'])
-        self.save()
         self.omodel = self.clone()
         self.optimize()
         self.check()
         print(self)
+        self.save()
 
     def save(self):
         try:
