@@ -111,7 +111,7 @@ static void avgpooling(const float * Im_in,
 		}
 	}
 }
-static int pooling(const float * Im_in,
+int pooling(const float * Im_in,
 		const int dim_im_in_x,
 		const int dim_im_in_y,
 		const int ch_im_in,

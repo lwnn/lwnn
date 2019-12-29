@@ -18,5 +18,6 @@ lwnn_gtest
 *.so
 *.png
 *.jpg
+*.pyd
 
 

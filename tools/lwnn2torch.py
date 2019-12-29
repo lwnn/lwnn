@@ -5,17 +5,24 @@ import os
 import pickle
 import numpy as np
 import glob
-import torch
+import liblwnn as lwnn
 # ref https://pytorch.org/docs/stable/_modules/torch/nn/quantized/functional.html
+import torch
 
 __all__ = ['lwnn2torch']
+
+def LI(a):
+    return np.asarray(a, dtype=np.int32)
 
 class Lwnn2Torch():
     def __init__(self, p, **kargs):
         if('debug' in kargs):
             self._debug = kargs['debug']
         else:
-            self._debug = False
+            if('YES' == os.getenv('LWNN_DEBUG')):
+                self._debug = True
+            else:
+                self._debug = False
         self.RUNL = {
             'Input': self.run_LayerInput,
             'Conv': self.run_LayerConv,
@@ -23,7 +30,10 @@ class Lwnn2Torch():
             'Reshape': self.run_LayerReshape,
             'Concat': self.run_LayerConcat,
             'Softmax': self.run_LayerSoftmax,
-            'DetectionOutput': self.run_LayerDetectionOutput,
+            'MaxPool': self.run_LayerMaxPool,
+            'Upsample': self.run_LayerUpsample,
+            'DetectionOutput': self.run_LayerUnknown,
+            'Yolo': self.run_LayerUnknown,
             'Output': self.run_LayerOutput }
         if(type(p) == str):
             self.lwnn_model = self.load(p)
@@ -57,6 +67,19 @@ class Lwnn2Torch():
         name = layer['name']
         feed = self.feeds[name]
         layer['top'] = [feed]
+
+    def activation(self, layer):
+        if('activation' in layer):
+            activation = layer['activation']
+            bottom = layer['top'][0]
+            if(activation == 'leaky'):
+                act = torch.nn.LeakyReLU(negative_slope=0.1)
+            elif(activation == 'Relu'):
+                act = torch.nn.ReLU()
+            elif(activation == 'linear'):
+                return
+            top = act(torch.from_numpy(bottom))
+            layer['top'] = [top.detach().numpy()]
 
     def run_LayerConv(self, layer):
         inp = self.get_layers(layer['inputs'])[0]
@@ -99,22 +122,58 @@ class Lwnn2Torch():
         layer['top'] = [top]
 
     def run_LayerConcat(self, layer):
+        print(layer)
         inps = self.get_layers(layer['inputs'])
         inp = inps[0]
         top = np.copy(inp['top'][0])
         for inp in inps[1:]:
             bottom = inp['top'][0]
+            print(top.shape, bottom.shape, layer['axis'])
             top = np.concatenate((top,bottom), axis=layer['axis'])
         layer['top'] = [top]
 
     def run_LayerSoftmax(self, layer):
-        raise NotImplementedError()
+        inp = self.get_layers(layer['inputs'])[0]
+        bottom = inp['top'][0]
+        if('axis' in layer):
+            axis = layer['axis'] # axis is not handled by lwnn
+        else:
+            axis = -1
+        if('permute' in layer):
+            if(len(bottom.shape) == 3):
+                bottom = bottom.reshape([bottom.shape[i] for i in [0,2,1]])
+        softmax = torch.nn.Softmax(axis)
+        top = softmax(torch.from_numpy(bottom))
+        layer['top'] = [top.detach().numpy()]
 
-    def run_LayerDetectionOutput(self, layer):
-        raise NotImplementedError()
+    def run_LayerMaxPool(self, layer):
+        inp = self.get_layers(layer['inputs'])[0]
+        bottom = inp['top'][0]
+        top = lwnn.MaxPool2d(bottom,
+            kernel_size=LI(layer['kernel_shape']),
+            stride=LI(layer['strides']), 
+            padding=LI(layer['pads'] if 'pads' in layer else [0,0]),
+            output_shape=LI(layer['shape']))
+        print(top.shape)
+        exit()
+        layer['top'] = [top]
+
+    def run_LayerUpsample(self, layer):
+        inp = self.get_layers(layer['inputs'])[0]
+        bottom = inp['top'][0]
+        _,_,Hin,Win = inp['shape']
+        _,_,Hout,Wout = layer['shape']
+        upsample = torch.nn.Upsample(size=(int(Hout/Hin), int(Wout/Win)))
+        top = upsample(torch.from_numpy(bottom))
+        layer['top'] = [top.detach().numpy()]
+
+    def run_LayerUnknown(self, layer):
+        layer['top'] = [None]
 
     def run_LayerOutput(self, layer):
-        raise NotImplementedError()
+        inp = self.get_layers(layer['inputs'])[0]
+        bottom = inp['top'][0]
+        layer['top'] = [bottom]
 
     def debug(self, layer):
         try:
@@ -124,6 +183,8 @@ class Lwnn2Torch():
         name = layer['name']
         top = layer['top']
         for id, v in enumerate(top):
+            if(v is None):
+                continue
             if(len(v.shape) == 4):
                 v = v.transpose(0,2,3,1)
             for batch in range(v.shape[0]):
@@ -133,13 +194,15 @@ class Lwnn2Torch():
 
     def run(self, feeds):
         self.feeds = feeds
-        self.outputs = {}
+        outputs = {}
         for ly in self.lwnn_model:
             print('execute %s %s: %s'%(ly['op'], ly['name'], tuple(ly['shape'])))
             self.RUNL[ly['op']](ly)
+            self.activation(ly)
             if(self._debug):
                 self.debug(ly)
-        return self.outputs
+            outputs[ly['name']] = ly['top']
+        return outputs
 
 def lwnn2torch(model, feeds, **kargs):
     model = Lwnn2Torch(model, **kargs)
@@ -167,7 +230,7 @@ def lwnn2torch(model, feeds, **kargs):
             if(len(v.shape) == 4):
                 v = np.transpose(v, (0,3,1,2))
             feeds[n] = v
-    model.run(feeds)
+    return model.run(feeds)
 
 if(__name__ == '__main__'):
     import argparse

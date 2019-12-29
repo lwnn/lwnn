@@ -7,6 +7,7 @@ import configparser
 import io
 from collections import defaultdict
 import numpy as np
+from lwnn2torch import lwnn2torch
 #import struct
 
 __all__ = ['dartnet2lwnn']
@@ -286,6 +287,16 @@ class DarknetConverter():
         self.weights.close()
         return self.lwnn_model
 
+    def set_opt_model(self, model):
+        self.opt_lwnn_model = model
+
+    def run(self, feeds):
+        outputs = lwnn2torch(self.opt_lwnn_model, feeds)
+        for n,v in outputs:
+            if((type(v) == list) and (len(v) == 1)):
+                outputs[n] = v[0]
+        return outputs
+
 def dartnet2lwnn(cfg, name, **kargs):
     if('weights' in kargs):
         weights = kargs['weights']
@@ -297,6 +308,9 @@ def dartnet2lwnn(cfg, name, **kargs):
     else:
         feeds = None
     model.gen_float_c(feeds)
+    if(feeds != None):
+        model.converter.set_opt_model(model.lwnn_model)
+        model.gen_quantized_c(feeds)
 
 
 if(__name__ == '__main__'):

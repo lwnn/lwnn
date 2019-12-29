@@ -1,5 +1,5 @@
 from building import *
-Import('asenv')
+Import('gtenv')
 
 cwd = GetCurrentDir()
 tgt = '%s/models/date.o'%(cwd)
@@ -15,15 +15,15 @@ MKObject(src, tgt, cmd)
 objs = Glob('*.cpp')
 
 if(not GetOption('android')):
-    asenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++', 'dl', 'm'])
+    gtenv.Append(LIBS=['gtest','gtest_main','pthread','stdc++', 'dl', 'm'])
 else:
-    asenv.Append(LIBS=['stdc++', 'dl', 'm'])
-    NDK = asenv['ANDROID_NDK']
+    gtenv.Append(LIBS=['stdc++', 'dl', 'm'])
+    NDK = gtenv['ANDROID_NDK']
     gtest = NDK+'/sources/third_party/googletest'
-    asenv.Append(CPPPATH=['%s/include'%(gtest), gtest])
+    gtenv.Append(CPPPATH=['%s/include'%(gtest), gtest])
     gobjs = Glob('%s/src/*.cc'%(gtest))
     SrcRemove(gobjs, ['gtest-all.cc','gtest_main.cc'])
-    objs += asenv.Library('gtest', gobjs)
+    objs += gtenv.Library('gtest', gobjs)
     if('push' in COMMAND_LINE_TARGETS):
         if(IsPlatformWindows()):
             dllfix = '.dll'
@@ -65,5 +65,5 @@ else:
 
 objsM = Glob('models/*/*.c')
 for obj in objsM:
-    asenv.SharedLibrary(obj)
+    gtenv.SharedLibrary(obj)
 Return('objs')

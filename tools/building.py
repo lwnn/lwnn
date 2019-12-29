@@ -139,6 +139,27 @@ def PrepareEnv():
         Export('asenv')
     return asenv
 
+def ForkEnv(father=None, attr={}):
+    if(father is None):
+        father = Env
+    child = Environment()
+    for key,v in father.items():
+        if(key == 'PACKAGES'):
+            continue
+        if(type(v) is list):
+            child[key] = list(v)
+        elif(type(v) is str):
+            child[key] = str(v)
+        elif(type(v) is dict):
+            child[key] = dict(v)
+        elif(type(v) is SCons.Util.CLVar):
+            child[key] = SCons.Util.CLVar(v)
+        else:
+            child[key] = v
+    for key,v in attr.items():
+        child[key] = v
+    return child
+
 def PrepareBuilding(env):
     env['mingw64'] = False
     if(IsPlatformWindows()):
@@ -161,6 +182,8 @@ def PrepareBuilding(env):
         win32_spawn = Win32Spawn()
         env['SPAWN'] = win32_spawn.spawn
     env['CXX'] = env['CC']
+    env['STATIC_AND_SHARED_OBJECTS_ARE_THE_SAME']=True
+    env.Append(CCFLAGS=['-fPIC'])
     # add comstr option
     AddOption('--verbose',
             dest='verbose',
@@ -368,9 +391,4 @@ def scons(script):
         base += '/android'
     bdir = '%s/%s'%(base,os.path.dirname(script))
     return SConscript(script, variant_dir=bdir, duplicate=0)
-
-def Building(target, objs, env=None):
-    if(env is None):
-        env = Env
-    env.Program(target, objs)
 
