@@ -279,6 +279,8 @@ class LWNNQSFormatC(LWNNQFormatC):
             LWNNQFormatC.__init__(self, model, 's8', feeds)
 
     def quantize_QSZ(self, v):
+        if(v is None): # layer fallback to float
+            return None, 1, 7, 0
         min_value = np.min(v)
         max_value = np.max(v)
         if((min_value==0.0) and (max_value==0.0)):

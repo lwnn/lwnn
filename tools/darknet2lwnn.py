@@ -292,7 +292,7 @@ class DarknetConverter():
 
     def run(self, feeds):
         outputs = lwnn2torch(self.opt_lwnn_model, feeds)
-        for n,v in outputs:
+        for n,v in outputs.items():
             if((type(v) == list) and (len(v) == 1)):
                 outputs[n] = v[0]
         return outputs

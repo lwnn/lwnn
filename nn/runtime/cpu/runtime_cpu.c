@@ -207,7 +207,7 @@ int rte_CPU_init(const nn_t* nn)
 	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
 #ifndef DISABLE_NN_LOG
 	size_t sum = 0;
-	size_t bufferId = -1;
+	int bufferId = -1;
 #endif
 
 	STAILQ_INIT(&(rt->buffers));
@@ -230,9 +230,9 @@ int rte_CPU_init(const nn_t* nn)
 			sum += b->sz;
 			bufferId ++;
 			#endif
-			NNLOG(NN_DEBUG, (" buffer%d: %d\n", bufferId, b->sz));
+			NNLOG(NN_DEBUG, (" buffer%d: %d\n", bufferId, (int)b->sz));
 		}
-		NNLOG(NN_DEBUG, (" summary: %d\n", sum));
+		NNLOG(NN_DEBUG, (" summary: %d\n", (int)sum));
 	}
 
 	if(0 == r)

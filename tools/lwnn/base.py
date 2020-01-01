@@ -77,6 +77,8 @@ class LWNNBaseC():
                 v.tofile('%s/%s.raw'%(p, n))
 
     def quantize(self, blob, only_needQ=False):
+        if((blob is None) and (only_needQ==True)): # layer fallback to float
+            return None,7
         min_value = np.min(blob)
         max_value = np.max(blob)
         if((min_value==0.0) and (max_value==0.0)):

@@ -36,6 +36,7 @@ class Lwnn2Torch():
             'Upsample': self.run_LayerUpsample,
             'DetectionOutput': self.run_LayerUnknown,
             'Yolo': self.run_LayerUnknown,
+            'YoloOutput': self.run_LayerUnknown,
             'Output': self.run_LayerOutput }
         if(type(p) == str):
             self.lwnn_model = self.load(p)
@@ -124,7 +125,6 @@ class Lwnn2Torch():
         layer['top'] = [top]
 
     def run_LayerConcat(self, layer):
-        print(layer)
         inps = self.get_layers(layer['inputs'])
         inp = inps[0]
         top = np.copy(inp['top'][0])
@@ -162,7 +162,7 @@ class Lwnn2Torch():
         bottom = inp['top'][0]
         _,_,Hin,Win = inp['shape']
         _,_,Hout,Wout = layer['shape']
-        upsample = torch.nn.Upsample(size=(int(Hout/Hin), int(Wout/Win)))
+        upsample = torch.nn.Upsample(scale_factor=(int(Hout/Hin), int(Wout/Win)))
         top = upsample(torch.from_numpy(bottom))
         layer['top'] = [top.detach().numpy()]
 
@@ -199,7 +199,8 @@ class Lwnn2Torch():
         self.feeds = feeds
         outputs = {}
         for ly in self.lwnn_model:
-            print('execute %s %s: %s'%(ly['op'], ly['name'], tuple(ly['shape'])))
+            if(self._debug):
+                print('execute %s %s: %s'%(ly['op'], ly['name'], tuple(ly['shape'])))
             self.RUNL[ly['op']](ly)
             self.activation(ly)
             if(self._debug):
