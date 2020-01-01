@@ -38,9 +38,41 @@ static void alg_transpose_from_nhwc_to_nchw_##DTYPE(					\
 	}																	\
 }
 
+#define TEMPLATE_ALG_TRANSPOSE_FROM_NCHW_TO_NHWC(DTYPE)					\
+static void alg_transpose_from_nchw_to_nhwc_##DTYPE(					\
+		void* output,													\
+		const void* input,												\
+		const NHWC_t *inhwc)											\
+{																		\
+	int n,h,w,c;														\
+	size_t indexI;														\
+	const DTYPE##_t* pin = (const DTYPE##_t*)input;						\
+	DTYPE##_t* pout = (DTYPE##_t*)output;								\
+																		\
+	for(n=0; n<inhwc->N; n++)											\
+	{																	\
+		for(h=0; h<inhwc->H; h++)										\
+		{																\
+			for(w=0; w<inhwc->W; w++)									\
+			{															\
+				for(c=0; c<inhwc->C; c++)								\
+				{														\
+					indexI = ((n*inhwc->C+c)*inhwc->H+h)*inhwc->W+w;	\
+					*pout = pin[indexI];								\
+					pout++;												\
+				}														\
+			}															\
+		}																\
+	}																	\
+}
+
 TEMPLATE_ALG_TRANSPOSE_FROM_NHWC_TO_NCHW(int8)
 TEMPLATE_ALG_TRANSPOSE_FROM_NHWC_TO_NCHW(int16)
 TEMPLATE_ALG_TRANSPOSE_FROM_NHWC_TO_NCHW(int32)
+
+TEMPLATE_ALG_TRANSPOSE_FROM_NCHW_TO_NHWC(int8)
+TEMPLATE_ALG_TRANSPOSE_FROM_NCHW_TO_NHWC(int16)
+TEMPLATE_ALG_TRANSPOSE_FROM_NCHW_TO_NHWC(int32)
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
 		void* pout, void* (*fetch_input)(const nn_t* nn, const layer_t* layer),
@@ -71,7 +103,7 @@ int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
 	NNLOG(NN_DEBUG, ("execute %s[%d %d %d %d]: axis=%d, n_block=%d, out stride=%d\n",
 			layer->name,
 			context->nhwc.N, context->nhwc.H, context->nhwc.W, context->nhwc.C,
-			axis, n_block, out_stride));
+			axis, (int)n_block, (int)out_stride));
 
 	while((*input) != NULL)
 	{	/* concat all input layers */
@@ -94,7 +126,7 @@ int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
 				(*input)->name,
 				input_context->nhwc.N, input_context->nhwc.H,
 				input_context->nhwc.W, input_context->nhwc.C,
-				in_stride));
+				(int)in_stride));
 
 		for(i=0; i<n_block; i++)
 		{
@@ -176,7 +208,7 @@ int alg_transpose(void* output, const void* input, const NHWC_t *inhwc, size_t t
 	int r = 0;
 	void (*transpose_func)(void*, const void*, const NHWC_t*) = NULL;
 
-	switch(type_size)
+	switch(type_size|transpose)
 	{
 		case 1:
 			transpose_func = alg_transpose_from_nhwc_to_nchw_int8;
@@ -187,6 +219,15 @@ int alg_transpose(void* output, const void* input, const NHWC_t *inhwc, size_t t
 		case 4:
 			transpose_func = alg_transpose_from_nhwc_to_nchw_int32;
 			break;
+		case 0x8001:
+			transpose_func = alg_transpose_from_nchw_to_nhwc_int8;
+			break;
+		case 0x8002:
+			transpose_func = alg_transpose_from_nchw_to_nhwc_int16;
+			break;
+		case 0x8004:
+			transpose_func = alg_transpose_from_nchw_to_nhwc_int32;
+			break;
 		default:
 			r = NN_E_INVALID_PARAMETER;
 			break;
@@ -194,15 +235,7 @@ int alg_transpose(void* output, const void* input, const NHWC_t *inhwc, size_t t
 
 	if(0 == r)
 	{
-		switch(transpose)
-		{
-			case ALG_TRANSPOSE_FROM_NHWC_TO_NCHW:
-				transpose_func(output, input, inhwc);
-				break;
-			default:
-				r = NN_E_INVALID_PARAMETER;
-				break;
-		}
+		transpose_func(output, input, inhwc);
 	}
 
 	return r;

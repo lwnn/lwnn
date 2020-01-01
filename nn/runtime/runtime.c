@@ -134,6 +134,8 @@ int rte_is_layer_consumed_from(const nn_t* nn, const layer_t* layer, const layer
 	return r;
 }
 
+
+
 #ifndef DISABLE_NN_DDO
 #include <sys/stat.h>
 #ifndef DISABLE_RUNTIME_CPU
@@ -142,10 +144,56 @@ int rte_is_layer_consumed_from(const nn_t* nn, const layer_t* layer, const layer
 #ifndef DISABLE_RUNTIME_OPENCL
 #include "opencl/runtime_opencl.h"
 #endif
+int rte_load_raw(const char* name, void* data, size_t sz)
+{
+	int r = 0;
+	FILE* fp;
+	size_t fsz;
+	fp = fopen(name, "rb");
+
+	if(fp != NULL)
+	{
+		fseek(fp, 0, SEEK_END);
+		fsz = ftell(fp);
+		fseek(fp, 0, SEEK_SET);
+
+		if(fsz != sz)
+		{
+			printf("invalid raw %s: file size %d != %d\n", name, (int)fsz, (int)sz);
+		}
+		else
+		{
+			fread(data, 1, sz, fp);
+		}
+		fclose(fp);
+	}
+	else
+	{
+		printf("failed to load raw %s\n", name);
+	}
+
+	return r;
+}
+
+void rte_save_raw(const char* name, void* data, size_t sz)
+{
+	FILE* fp;
+	fp = fopen(name, "wb");
+
+	if(fp != NULL)
+	{
+		fwrite(data, sz, 1, fp);
+		fclose(fp);
+	}
+	else
+	{
+		printf("failed to save raw %s\n", name);
+	}
+}
 static void rte_ddo_save_raw(const nn_t* nn, const layer_t* layer, int i, void* data, size_t sz)
 {
 	char name[128];
-	FILE* fp;
+
 	int offset;
 	offset = snprintf(name, sizeof(name), "tmp/%s-%s-%d", nn->network->name, layer->name, i);
 
@@ -164,17 +212,8 @@ static void rte_ddo_save_raw(const nn_t* nn, const layer_t* layer, int i, void* 
 	#else
 	mkdir("tmp", S_IRWXU);
 	#endif
-	fp = fopen(name, "wb");
 
-	if(fp != NULL)
-	{
-		fwrite(data, sz, 1, fp);
-		fclose(fp);
-	}
-	else
-	{
-		printf("failed to create debug output %s\n", name);
-	}
+	rte_save_raw(name, data, sz);
 }
 
 void rte_ddo_save(const nn_t* nn, const layer_t* layer)

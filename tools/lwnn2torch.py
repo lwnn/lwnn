@@ -8,6 +8,7 @@ import glob
 import liblwnn as lwnn
 # ref https://pytorch.org/docs/stable/_modules/torch/nn/quantized/functional.html
 import torch
+from verifyoutput import *
 
 __all__ = ['lwnn2torch']
 
@@ -21,6 +22,7 @@ class Lwnn2Torch():
         else:
             if('YES' == os.getenv('LWNN_DEBUG')):
                 self._debug = True
+                lwnn.set_log_level(0)
             else:
                 self._debug = False
         self.RUNL = {
@@ -128,7 +130,6 @@ class Lwnn2Torch():
         top = np.copy(inp['top'][0])
         for inp in inps[1:]:
             bottom = inp['top'][0]
-            print(top.shape, bottom.shape, layer['axis'])
             top = np.concatenate((top,bottom), axis=layer['axis'])
         layer['top'] = [top]
 
@@ -154,8 +155,6 @@ class Lwnn2Torch():
             stride=LI(layer['strides']), 
             padding=LI(layer['pads'] if 'pads' in layer else [0,0]),
             output_shape=LI(layer['shape']))
-        print(top.shape)
-        exit()
         layer['top'] = [top]
 
     def run_LayerUpsample(self, layer):
@@ -185,11 +184,15 @@ class Lwnn2Torch():
         for id, v in enumerate(top):
             if(v is None):
                 continue
-            if(len(v.shape) == 4):
-                v = v.transpose(0,2,3,1)
+            print('  saving %s[%s]: %s'%(name, id, v.shape))
             for batch in range(v.shape[0]):
                 oname = './tmp/torch/torch-%s-O%s-B%s.raw'%(name, id, batch)
                 B = v[batch]
+#                 if(os.path.exists('./tmp/%s.raw'%(name)) and (id == 0) and (batch == 0)):
+#                     G = np.fromfile('./tmp/%s.raw'%(name), np.float32)
+#                     compare(G, B, name)
+                if(len(B.shape) == 3):
+                    B = B.transpose(1,2,0)
                 B.tofile(oname)
 
     def run(self, feeds):
