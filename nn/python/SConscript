@@ -20,7 +20,10 @@ if(IsPlatformWindows()):
     pyenv.Append(LIBPATH=['%s/libs'%(pyp)])
 else:
     pyp = os.sep.join(pyp.split(os.sep)[:-2])
-    pylib = 'python'+sys.version[0:3]+'m'
+    if(sys.version[0:3] == '2.7'):
+        pylib = 'python'+sys.version[0:3]
+    else:
+        pylib = 'python'+sys.version[0:3]+'m'
     pyenv.Append(CPPPATH=['%s/include/%s'%(pyp,pylib)])
     pyenv.Append(LIBPATH=['%s/lib'%(pyp)])
 pyenv.Append(LIBS=[pylib, 'stdc++', 'dl', 'm'])

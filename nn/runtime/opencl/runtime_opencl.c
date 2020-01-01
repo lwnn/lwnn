@@ -500,7 +500,7 @@ int rte_OPENCL_init(const nn_t* nn)
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 #ifndef DISABLE_NN_LOG
 	size_t sum = 0;
-	size_t imageId = -1;
+	int imageId = -1;
 #endif
 
 	STAILQ_INIT(&(rt->images));
@@ -527,7 +527,7 @@ int rte_OPENCL_init(const nn_t* nn)
 			#endif
 			NNLOG(NN_DEBUG, (" image%d: %dx%d=%d\n", imageId, i->H, i->W, i->H*i->W));
 		}
-		NNLOG(NN_DEBUG, (" summary: %d\n", sum));
+		NNLOG(NN_DEBUG, (" summary: %d\n", (int)sum));
 	}
 
 	if(0 == r)
@@ -571,7 +571,7 @@ cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, const float* init_value)
 					sizeof(float) * sz, (void*)init_value, &errNum);
 	if(errNum != CL_SUCCESS)
 	{
-		NNLOG(NN_ERROR,("CL create buffer(%d) failed with %d\n", sz, errNum));
+		NNLOG(NN_ERROR,("CL create buffer(%d) failed with %d\n", (int)sz, errNum));
 		buffer = NULL;
 	}
 
