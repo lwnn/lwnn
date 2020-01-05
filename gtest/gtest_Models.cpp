@@ -394,7 +394,7 @@ void ModelTestMain(runtime_type_t runtime,
 		}
 		float* in;
 		size_t sz_in;
-		float* golden;
+		float* golden = NULL;
 		size_t sz_golden;
 
 		if(NULL == args)
@@ -495,7 +495,7 @@ void ModelTestMain(runtime_type_t runtime,
 				}
 
 				free(in);
-				free(golden);
+				if(NULL != golden) free(golden);
 			}
 
 			if(out != outputs[0]->data)

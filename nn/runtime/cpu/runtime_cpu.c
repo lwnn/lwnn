@@ -439,6 +439,11 @@ void rte_cpuq_to_cpu_float_init_common(const nn_t* nn, const layer_t* layer)
 	layer_cpu_context_t* context;
 	const layer_t* const* inputs;
 
+	if(L_OP_YOLOOUTPUT == layer->op)
+	{
+		return;
+	}
+
 	inputs = layer->inputs;
 	while(NULL != (*inputs))
 	{
@@ -457,6 +462,11 @@ int rte_cpuq_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* laye
 	const layer_t* const* inputs;
 	void** cl_inputs = (void**)nn->scratch.area;
 	float* pf;
+
+	if(L_OP_YOLOOUTPUT == layer->op)
+	{
+		return r;
+	}
 
 	inputs = layer->inputs;
 	while(NULL != (*inputs))
@@ -510,6 +520,11 @@ void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* la
 	const layer_t* const* inputs;
 	void** cl_inputs = (void**)nn->scratch.area;
 	float* pf;
+
+	if(L_OP_YOLOOUTPUT == layer->op)
+	{
+		return;
+	}
 
 	inputs = layer->inputs;
 	while(NULL != (*inputs))

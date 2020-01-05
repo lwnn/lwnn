@@ -284,16 +284,13 @@ class LWNNQSFormatC(LWNNQFormatC):
         min_value = np.min(v)
         max_value = np.max(v)
         if((min_value==0.0) and (max_value==0.0)):
-            int_bits = 0
             scale = 1
         else:
-            # TODO: adjust min/max to make sure Z is an integer
             middle = (min_value+max_value)/2
             min_value = min_value - middle
             max_value = max_value - middle
             scale = max_value/(127.0/(2**7))
-            int_bits = 0
-        vq = 7 - int_bits
+        vq = 7 # always 7 fraction bits for lwnn
         cmax = 0x7F
         cmin = -0x80
         VQ = np.round(v/scale*(2**vq)).astype(np.int32)
