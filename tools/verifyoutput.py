@@ -38,7 +38,7 @@ def show(mts):
         fig.tight_layout()
     plt.show()
 
-def compare(a, b, name='', delayedShow=False, onlyCompared=False):
+def compare(a, b, name='', delayedShow=False, onlyCompared=False, gn='golden', tn='lwnn'):
     aL = a.reshape(-1).tolist()
     bL = b.reshape(-1).tolist()
     if(len(aL) != len(bL)):
@@ -52,14 +52,14 @@ def compare(a, b, name='', delayedShow=False, onlyCompared=False):
         plt.plot(aL)
         plt.plot(aL1,'r')
         plt.grid()
-        plt.title('golden-%s'%(name))
+        plt.title('%s-%s'%(gn,name))
         plt.subplot(132)
         bL2=list(bL)
         bL2.sort()
         plt.plot(bL)
         plt.plot(bL2,'g')
         plt.grid()
-        plt.title('lwnn-%s'%(name))
+        plt.title('%s-%s'%(tn,name))
         plt.subplot(133)
     else:
         plt.figure()

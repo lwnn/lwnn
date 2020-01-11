@@ -25,6 +25,7 @@ class Lwnn2Torch():
                 lwnn.set_log_level(0)
             else:
                 self._debug = False
+        self._debugQ = True if 'YES' == os.getenv('LWNN_DEBUGQ') else False
         self.RUNL = {
             'Input': self.run_LayerInput,
             'Conv': self.run_LayerConv,
@@ -41,15 +42,15 @@ class Lwnn2Torch():
         self.RUNQL = {
             'Input': self.run_QLayerInput,
             'Conv': self.run_QLayerConv,
-            'Relu': self.run_LayerUnknown,
-            'Reshape': self.run_LayerUnknown,
-            'Concat': self.run_LayerUnknown,
-            'Softmax': self.run_LayerUnknown,
-            'MaxPool': self.run_LayerUnknown,
-            'Upsample': self.run_LayerUnknown,
-            'DetectionOutput': self.run_LayerUnknown,
-            'Yolo': self.run_LayerUnknown,
-            'YoloOutput': self.run_LayerUnknown,
+            'Relu': self.run_LayerQUnknown,
+            'Reshape': self.run_LayerQUnknown,
+            'Concat': self.run_LayerQUnknown,
+            'Softmax': self.run_LayerQUnknown,
+            'MaxPool': self.run_LayerQUnknown,
+            'Upsample': self.run_LayerQUnknown,
+            'DetectionOutput': self.run_LayerQUnknown,
+            'Yolo': self.run_LayerQUnknown,
+            'YoloOutput': self.run_LayerQUnknown,
             'Output': self.run_QLayerOutput }
         if(type(p) == str):
             self.lwnn_model = self.load(p)
@@ -90,7 +91,7 @@ class Lwnn2Torch():
             scale = max/(127.0/(2**7))
         S = scale/(2**7)  # always 7 fraction bits for lwnn
         Z = -np.round(middle/S).astype(np.int32)
-        return S,Z
+        return S,int(Z)
 
     def __calc_SZ_quint8(self, min, max):
         if((min==0.0) and (max==0.0)):
@@ -115,10 +116,11 @@ class Lwnn2Torch():
                 min = -zi/(255.0-zi)*max
             Z = zi
             S = (max-min)/255.0
-        return S,Z
+        return S,int(Z)
 
     def calc_SZ(self, bottom, dtype=torch.quint8):
-        # TODO: lwnn is using qint8, but for now torch conv2d only support quint8, shit
+        # TODO: lwnn is using qint8 for both input/weights, 
+        # but for now torch conv2d only support quint8 input and qint8 weights
         min = np.min(bottom)
         max = np.max(bottom)
         if(dtype == torch.qint8):
@@ -129,9 +131,9 @@ class Lwnn2Torch():
             raise NotImplementedError('dtype <%s> is not supported'%(dtype))
         return S,Z
 
-    def quantize_per_tensor(self, bottom):
-        S,Z = self.calc_SZ(bottom)
-        top = torch.nn.quantized.Quantize(S, Z, torch.quint8)(torch.from_numpy(bottom))
+    def quantize_per_tensor(self, bottom, dtype=torch.quint8):
+        S,Z = self.calc_SZ(bottom, dtype)
+        top = torch.nn.quantized.Quantize(S, Z, dtype)(torch.from_numpy(bottom))
         return top
 
     def run_LayerInput(self, layer):
@@ -174,12 +176,13 @@ class Lwnn2Torch():
         if(Q==True):
             bottom = inp['topq'][0]
             if(bottom is None):
+                layer['topq'] = [None]
                 return
             # using the float output to inference the scale,zero_point
             S,Z = self.calc_SZ(layer['top'][0])
             top = torch.nn.quantized.functional.conv2d(
                      bottom,
-                     weight=self.quantize_per_tensor(W),
+                     weight=self.quantize_per_tensor(W, torch.qint8),
                      bias=torch.from_numpy(B),
                      stride=strides,
                      padding=layer['pads'][:2],
@@ -262,6 +265,8 @@ class Lwnn2Torch():
 
     def run_LayerUnknown(self, layer):
         layer['top'] = [None]
+
+    def run_LayerQUnknown(self, layer):
         layer['topq'] = [None]
 
     def run_LayerOutput(self, layer):
@@ -282,7 +287,7 @@ class Lwnn2Torch():
         name = layer['name']
         top = layer['top']
         op = layer['op']
-        if(op in self.RUNQL):
+        if((True == self._debugQ) and (op in self.RUNQL)):
             self.RUNQL[op](layer)
         for id, v in enumerate(top):
             if(v is None):
@@ -297,10 +302,11 @@ class Lwnn2Torch():
                 if(len(B.shape) == 3):
                     B = B.transpose(1,2,0)
                 B.tofile(oname)
-            if(op in self.RUNQL):
+            if((True == self._debugQ) and(op in self.RUNQL)):
                 vq = layer['topq'][id]
-                vfq = torch.nn.quantized.DeQuantize()(vq).detach().numpy()
-                compare(v, vfq, name)
+                if(vq is not None):
+                    vfq = torch.nn.quantized.DeQuantize()(vq).detach().numpy()
+                    compare(v, vfq, name, tn='torch.q')
 
     def run(self, feeds):
         self.feeds = feeds
