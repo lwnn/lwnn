@@ -14,7 +14,7 @@ typedef struct {
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-static void convolve_HWC_ref_nonsquare(const float * Im_in,  /* input image */
+void __weak convolve_HWC_ref_nonsquare(const float * Im_in,  /* input image */
 		const int dim_im_in_x,  /* input image dimension x */
 		const int dim_im_in_y,  /* input image dimension y */
 		const int ch_im_in, /* number of input image channels */

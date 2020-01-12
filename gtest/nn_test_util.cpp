@@ -98,7 +98,7 @@ int nnt_is_equal(const float* A, const float* B, size_t sz, const float max_diff
 		{
 			if(equal < 8)
 			{
-				printf("@%d %f != %f\n", i, A[i], B[i]);
+				printf("@%d %f != %f\n", (int)i, A[i], B[i]);
 			}
 			equal++;
 		}

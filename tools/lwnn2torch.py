@@ -10,6 +10,8 @@ import liblwnn as lwnn
 import torch
 from verifyoutput import *
 
+# https://docs.nvidia.com/deeplearning/sdk/tensorrt-sample-support-guide/index.html#int8_sample
+
 __all__ = ['lwnn2torch']
 
 def LI(a):

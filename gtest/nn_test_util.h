@@ -22,19 +22,21 @@
 #define RAW_P "gtest/models/"
 
 #ifdef _WIN32
+#define BUILD_DIR "build/nt/"
 #define DLLFIX ".dll"
 #define LIBFIX ""
 #else
+#define BUILD_DIR "build/posix/"
 #define DLLFIX ".so"
 #define LIBFIX "lib"
 #endif
 
 #define NNT_CASE_DESC(name)											\
 	{																\
-		"build/" RAW_P #name "/" LIBFIX #name "_q8" DLLFIX ,		\
-		"build/" RAW_P #name "/" LIBFIX #name "_s8" DLLFIX ,		\
-		"build/" RAW_P #name "/" LIBFIX #name "_q16" DLLFIX ,		\
-		"build/" RAW_P #name "/" LIBFIX #name "_float" DLLFIX ,		\
+		BUILD_DIR RAW_P #name "/" LIBFIX #name "_q8" DLLFIX ,		\
+		BUILD_DIR RAW_P #name "/" LIBFIX #name "_s8" DLLFIX ,		\
+		BUILD_DIR RAW_P #name "/" LIBFIX #name "_q16" DLLFIX ,		\
+		BUILD_DIR RAW_P #name "/" LIBFIX #name "_float" DLLFIX ,		\
 		RAW_P #name "/golden/input.raw",							\
 		RAW_P #name "/golden/output.raw",							\
 		NULL														\
@@ -42,10 +44,10 @@
 
 #define NNT_CASE_DESC_ARGS(name)									\
 	{																\
-		"build/" RAW_P #name "/" LIBFIX #name "_q8" DLLFIX ,		\
-		"build/" RAW_P #name "/" LIBFIX #name "_s8" DLLFIX ,		\
-		"build/" RAW_P #name "/" LIBFIX #name "_q16" DLLFIX ,		\
-		"build/" RAW_P #name "/" LIBFIX #name "_float" DLLFIX ,		\
+		BUILD_DIR RAW_P #name "/" LIBFIX #name "_q8" DLLFIX ,		\
+		BUILD_DIR RAW_P #name "/" LIBFIX #name "_s8" DLLFIX ,		\
+		BUILD_DIR RAW_P #name "/" LIBFIX #name "_q16" DLLFIX ,		\
+		BUILD_DIR RAW_P #name "/" LIBFIX #name "_float" DLLFIX ,		\
 		RAW_P #name "/golden/",										\
 		RAW_P #name "/golden/",										\
 		&nnt_##name##_args											\

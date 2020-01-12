@@ -22,7 +22,7 @@ script:
   - mkdir -p gtest/models
   - wget https://github.com/lwnn/lwnn/releases/download/v0.1/mnist.h5 -O gtest/models/mnist.h5
   - scons
-  - ./lwnn_gtest
+  - LD_LIBRARY_PATH=./nn/third_party/mkl-dnn/build/src ./lwnn_gtest
 
 env:
   - DISABLE_OPENCL=True

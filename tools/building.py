@@ -389,6 +389,8 @@ def scons(script):
     base = 'build'
     if(GetOption('android')):
         base += '/android'
+    else:
+        base += '/'+os.name
     bdir = '%s/%s'%(base,os.path.dirname(script))
     return SConscript(script, variant_dir=bdir, duplicate=0)
 

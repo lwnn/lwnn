@@ -69,6 +69,13 @@ extern "C" {
 
 #define NN_MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define NN_MIN(a, b) (((a) < (b)) ? (a) : (b))
+
+#if !defined(__GNUC__)
+#define __weak
+#endif
+#ifndef __weak
+#define __weak __attribute__((weak))
+#endif
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
 {
