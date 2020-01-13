@@ -3,6 +3,7 @@
 
 from .float import *
 from .qformat import *
+from lwnn2onnx import *
 import pickle
 
 class LWNNModel():
@@ -50,6 +51,10 @@ class LWNNModel():
         self.save()
 
     def save(self):
+        try:
+            lwnn2onnx(self.lwnn_model, '%s.lwnn.onnx'%(self.path))
+        except:
+            pass
         try:
             pickle.dump(self.lwnn_model, open('%s.pkl'%(self.path), 'wb'), True)
         except Exception as e:

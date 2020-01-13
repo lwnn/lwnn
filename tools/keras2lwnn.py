@@ -4,7 +4,8 @@ import os
 __all__ = ['keras2lwnn']
 
 def keras2lwnn(model, name, feeds=None):
-    onnx_model = keras2onnx.convert_keras(model, model.name)
+    onnx_model = keras2onnx.convert_keras(model, model.name,
+                        channel_first_inputs=[model.input])
     onnx_feeds = {}
     if(feeds != None):
         for inp, v in feeds.items():
