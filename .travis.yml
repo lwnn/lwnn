@@ -25,5 +25,5 @@ script:
   - LD_LIBRARY_PATH=./nn/third_party/mkl-dnn/build/src ./lwnn_gtest
 
 env:
-  - DISABLE_OPENCL=True
+  - DISABLE_OPENCL=True DISABLE_MKLDNN=True
 
