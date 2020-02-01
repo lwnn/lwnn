@@ -21,5 +21,6 @@ lwnn_gtest
 *.jpg
 *.pyd
 *.dll
+*.asc
 
 
