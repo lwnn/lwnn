@@ -57,7 +57,7 @@ int layer_cpu_float_SOFTMAX_init(const nn_t* nn, const layer_t* layer)
 	}
 	else
 	{
-		r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_softmax_context_t), sizeof(int8_t));
+		r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_softmax_context_t), sizeof(float));
 	}
 
 	if(0 == r)

@@ -27,6 +27,7 @@ class LWNNModel():
             (self.opt_IsLayerConcatWithOneOnly, self.opt_RemoveLayer, None),
             (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
+            (self.opt_IsLayerSoftmaxWithoutConsumers, self.opt_LayerSoftmaxWithoutConsumers, None),
             (self.opt_IsLayerOutputWithOutput, self.opt_RemoveOutputWithOutput, None),
             (self.opt_IsLayerClipRelu, self.opt_LayerClip2Relu, None),
             (self.opt_IsLayerFlatten, self.opt_LayerFlatten2Reshape, None),
@@ -504,6 +505,18 @@ class LWNNModel():
 
     def opt_LayerClip2Relu(self, layer):
         layer['op'] = 'Relu'
+        return False
+
+    def opt_IsLayerSoftmaxWithoutConsumers(self, layer):
+        r = False
+        consumers = self.get_consumers(layer)
+        if((layer['op'] == 'Softmax') and
+           (len(consumers) == 0)):
+            r = True
+        return r
+
+    def opt_LayerSoftmaxWithoutConsumers(self, layer):
+        layer['Output'] = True
         return False
 
     def opt_IsLayerFlatten(self, layer):
