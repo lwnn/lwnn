@@ -2,6 +2,8 @@
 # Copyright (C) 2020  Parai Wang <parai@foxmail.com>
 
 import onnx
+import onnx.helper
+import onnx.numpy_helper
 import numpy as np
 
 __all__ = ['lwnn2onnx', 'Lwnn2Onnx']
@@ -24,6 +26,7 @@ class Lwnn2Onnx():
             'Add': self.to_LayerCommon,
             'Upsample': self.to_LayerCommon,
             'BatchNormalization': self.to_LayerBatchNormalization,
+            'Scale': self.to_LayerScale,
             'Output': self.to_LayerOutput
             }
 
@@ -141,6 +144,20 @@ class Lwnn2Onnx():
             outputs=[name],
             epsilon=self.get_attr(layer, 'epsilon', 1e-05),
             momentum =self.get_attr(layer, 'momentum ', 0.9),
+            shape = layer['shape'])
+        self._nodes.append(x)
+
+    def to_LayerScale(self, layer):
+        name = layer['name']
+        inputs = layer['inputs']
+        for i in ['weights', 'bias']:
+            self._initializer.append(onnx.numpy_helper.from_array(layer[i], '%s_%s'%(name, i)))
+            inputs.append('%s_%s'%(name, i))
+        x = onnx.helper.make_node(
+            layer['op'],
+            name = name,
+            inputs=inputs,
+            outputs=[name],
             shape = layer['shape'])
         self._nodes.append(x)
 

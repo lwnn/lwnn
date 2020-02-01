@@ -5,6 +5,7 @@ from .float import *
 from .qformat import *
 from lwnn2onnx import *
 import pickle
+import traceback
 
 class LWNNModel():
     def __init__(self, converter, name):
@@ -54,7 +55,7 @@ class LWNNModel():
         try:
             lwnn2onnx(self.lwnn_model, '%s.lwnn.onnx'%(self.path))
         except:
-            pass
+            traceback.print_exc()
         try:
             pickle.dump(self.lwnn_model, open('%s.pkl'%(self.path), 'wb'), True)
         except Exception as e:
@@ -553,7 +554,7 @@ class LWNNModel():
         r = False
         consumers = self.get_consumers(layer)
         if((len(consumers) == 0) and
-           ((layer['op'] != 'Output') and ('Output' not in layer))):
+           ((layer['op'] not in ['Output', 'Softmax']) and ('Output' not in layer))):
             r = True
         return r
 

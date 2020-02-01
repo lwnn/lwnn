@@ -3,6 +3,7 @@
 
 from lwnn import *
 import os
+import numpy as np
 #from openvino import inference_engine as IE
 
 try:
@@ -24,6 +25,15 @@ class VinoLayer():
             break
         return shape
 
+    def ishapes(self):
+        shapes = []
+        for port in self.xml.find('input'):
+            shape = []
+            for s in port:
+                shape.append(eval(s.text))
+            shapes.append(shape)
+        return shapes
+
     def outputs(self):
         outputs = []
         for port in self.xml.find('output'):
@@ -37,43 +47,131 @@ class VinoLayer():
                 inputs.append(port.attrib['id'])
         return inputs
 
+    def blobs(self):
+        blobs = []
+        if(None != self.xml.find('blobs')):
+            for blob in self.xml.find('blobs'):
+                blobs.append((blob.tag, eval(blob.attrib['offset']), eval(blob.attrib['size'])))
+        return blobs
+
+    def datas(self):
+        datas = {}
+        data =self.xml.find('data')
+        if(None != data):
+            for k,v in data.attrib.items():
+                try:
+                    V = eval(v)
+                    if(type(V) not in [list, tuple, int, float]):
+                        V = v
+                except:
+                    V = v
+                datas[k] = V
+        return datas
+
     def __getattr__(self, n):
         return self.xml.attrib[n]
 
 class VinoConverter():
     def __init__(self, vino_model, vino_weights):
+        self.vino_model = vino_model
         tree = ET.parse(vino_model)
         self.ir = tree.getroot()
         self.vino_weights = vino_weights
         self.TRANSLATOR = {
             'Input': self.to_LayerInput,
+            'ScaleShift': self.to_LayerScaleShift,
             'Convolution': self.to_LayerConv,
+            'Pooling': self.to_LayerPooling,
+            'Eltwise': self.to_LayerEltwise,
              }
         self.opMap = {
             'ReLU': 'Relu',
+            'SoftMax': 'Softmax',
             }
+
+    def read(self, offset, num, type='f'):
+        sz = 4
+        tM = { 'f':np.float32, 'i':np.int32, 'q':np.int64, 'd':np.float64 }
+        if(type in ['q','d']): # long long or double
+            sz = 8
+        num = int(num/sz)
+        assert(self.weights.tell() == offset)
+        #self.weights.seek(offset, 0)
+        #v = np.array(struct.unpack('<'+str(num)+type, self.weights.read(sz*num)))
+        v = np.ndarray(
+                shape=(num,),
+                dtype=tM[type],
+                buffer=self.weights.read(num*sz))
+        if(type == 'f'):
+            v = v.astype(np.float32)
+        return v
 
     def to_LayerCommon(self, vly, op=None):
         name = str(vly.name)
         layer = { 'name':name,
                   'outputs': vly.outputs(),
                   'inputs': vly.inputs(),
-                  'shape': vly.shape()
+                  'shape': vly.shape(),
+                  'precision': vly.precision,
+                  'id': vly.id
                 }
         if(op == None):
             op = str(vly.type)
         if(op in self.opMap):
             op = self.opMap[op]
         layer['op'] = op
-        print(layer)
+        for bn, of, sz in vly.blobs():
+            if(bn == 'biases'):
+                bn = 'bias'
+            layer[bn] = self.read(of, sz)
+        for dn, dv in vly.datas().items():
+            layer[dn] = dv
         return layer
 
     def to_LayerInput(self, vly):
-        layer = self.to_LayerCommon(vly, 'Input')
+        layer = self.to_LayerCommon(vly)
+        return layer
+
+    def to_LayerScaleShift(self, vly):
+        layer = self.to_LayerCommon(vly, 'Scale')
         return layer
 
     def to_LayerConv(self, vly):
         layer = self.to_LayerCommon(vly, 'Conv')
+        layer['pads'] = list(layer['pads_begin']) + list(layer['pads_end'])
+        group = layer['group']
+        C = vly.ishapes()[0][1]
+        M = layer['shape'][1]
+        kernel_shape = [M, int(C/group)] + list(layer['kernel'])
+        W = layer['weights']
+        W = W.reshape(kernel_shape)
+        layer['weights'] = W
+        if('bias' not in layer):
+            layer['bias'] = np.zeros((M), np.float32)
+        return layer
+
+    def to_LayerPooling(self, vly):
+        layer = self.to_LayerCommon(vly)
+        op = layer['pool-method']
+        if(op == 'max'):
+            op = 'MaxPool'
+        elif(op == 'avg'):
+            op = 'AveragePool'
+        else:
+            raise Exception('Not Supported Pooling type %s'%(op))
+        layer['op'] = op
+        layer['kernel_shape'] = layer['kernel']
+        layer['pads'] = list(layer['pads_begin']) + list(layer['pads_end'])
+        return layer
+
+    def to_LayerEltwise(self, vly):
+        layer = self.to_LayerCommon(vly)
+        op = layer['operation']
+        if(op == 'sum'):
+            op = 'Add'
+        else:
+            raise Exception('Not Supported Eltwise type %s'%(op))
+        layer['op'] = op
         return layer
 
     def save(self, path):
@@ -83,9 +181,27 @@ class VinoConverter():
         outputs = {}
         return outputs
 
+    def get_layer(self, id):
+        for node in self.ir:
+            if(node.tag == 'layers'):
+                for layer in node:
+                    layer = VinoLayer(layer)
+                    if(layer.id == id):
+                        return layer.name
+        raise Exception('layer with ID=%s not found'%(id))
+
+    def get_inputs(self, layer, edges):
+        inputs = []
+        tl = layer['id']
+        for tp in layer['inputs']:
+            fl, _ = edges[tl][tp]
+            inputs.append(self.get_layer(fl))
+        return inputs
+
     def convert(self):
         lwnn_model = []
-        self.bin = open(self.vino_weights, 'rb')
+        edges  = {}
+        self.weights = open(self.vino_weights, 'rb')
         print(self.ir.attrib['name'])
         for node in self.ir:
             if(node.tag == 'layers'):
@@ -98,9 +214,26 @@ class VinoConverter():
                         translator = self.to_LayerCommon
                     layer = translator(layer)
                     lwnn_model.append(layer)
+            elif(node.tag == 'edges'):
+                for edge in node:
+                    fl, fp, tl, tp = \
+                        edge.attrib['from-layer'], edge.attrib['from-port'], \
+                        edge.attrib['to-layer'], edge.attrib['to-port']
+                    if(tl in edges):
+                        edges[tl][tp] = (fl, fp)
+                    else:
+                        edges[tl] = {tp:(fl, fp)}
             else:
                 print('TODO: %s'%(node.tag))
-        self.bin.close()
+        anymore = self.weights.read()
+        if(len(anymore) != 0):
+            raise Exception('weights %s mismatched with the model %s'%(self.vino_weights, self.vino_model))
+        self.weights.close()
+        for ly in lwnn_model:
+            if(ly['op'] == 'Input'):
+                continue
+            inputs = self.get_inputs(ly, edges)
+            ly['inputs'] = inputs
         return lwnn_model
 
     @property
