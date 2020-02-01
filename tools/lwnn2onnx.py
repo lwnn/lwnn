@@ -27,14 +27,26 @@ class Lwnn2Onnx():
             'Upsample': self.to_LayerCommon,
             'BatchNormalization': self.to_LayerBatchNormalization,
             'Scale': self.to_LayerScale,
+            'Normalize': self.to_LayerNormalize,
+            'Transpose': self.to_LayerCommon,
+            'Const': self.to_LayerConst,
+            'Gather': self.to_LayerCommon,
+            'Squeeze': self.to_LayerCommon,
+            'Unsqueeze': self.to_LayerCommon,
+            'PriorBox': self.to_LayerCommon,
+            'DetectionOutput': self.to_LayerCommon,
             'Output': self.to_LayerOutput
             }
 
-    def to_LayerCommon(self, layer, **kwargs):
+    def to_LayerCommon(self, layer, initializer=[], **kwargs):
         name = layer['name']
         attr = {}
+        inputs = layer['inputs']
+        for i in initializer:
+            self._initializer.append(onnx.numpy_helper.from_array(layer[i], '%s_%s'%(name, i)))
+            inputs.append('%s_%s'%(name, i))
         for k,v in layer.items():
-            if(k not in ['name', 'outputs', 'op']):
+            if(k not in ['name', 'outputs', 'inputs', 'op']+initializer):
                 attr[k] = v
         for k,v in kwargs.items(): # handle default attr
             if(k not in layer):
@@ -43,6 +55,7 @@ class Lwnn2Onnx():
             layer['op'],
             name = name,
             outputs=[name],
+            inputs=inputs,
             **attr)
         self._nodes.append(x)
 
@@ -132,34 +145,18 @@ class Lwnn2Onnx():
             self._nodes.append(x)
 
     def to_LayerBatchNormalization(self, layer):
-        name = layer['name']
-        inputs = layer['inputs']
-        for i in ['scale', 'bias', 'mean', 'var']:
-            self._initializer.append(onnx.numpy_helper.from_array(layer[i], '%s_%s'%(name, i)))
-            inputs.append('%s_%s'%(name, i))
-        x = onnx.helper.make_node(
-            layer['op'],
-            name = name,
-            inputs=inputs,
-            outputs=[name],
+        self.to_LayerCommon(layer, ['scale', 'bias', 'mean', 'var'],
             epsilon=self.get_attr(layer, 'epsilon', 1e-05),
-            momentum =self.get_attr(layer, 'momentum ', 0.9),
-            shape = layer['shape'])
-        self._nodes.append(x)
+            momentum =self.get_attr(layer, 'momentum ', 0.9))
 
     def to_LayerScale(self, layer):
-        name = layer['name']
-        inputs = layer['inputs']
-        for i in ['weights', 'bias']:
-            self._initializer.append(onnx.numpy_helper.from_array(layer[i], '%s_%s'%(name, i)))
-            inputs.append('%s_%s'%(name, i))
-        x = onnx.helper.make_node(
-            layer['op'],
-            name = name,
-            inputs=inputs,
-            outputs=[name],
-            shape = layer['shape'])
-        self._nodes.append(x)
+        self.to_LayerCommon(layer, ['weights', 'bias'])
+
+    def to_LayerNormalize(self, layer):
+        self.to_LayerCommon(layer, ['weights'])
+
+    def to_LayerConst(self, layer):
+        self.to_LayerCommon(layer, ['const'])
 
     def to_LayerDense(self, layer):
         name = layer['name']

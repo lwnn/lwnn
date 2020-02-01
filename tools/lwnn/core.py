@@ -14,6 +14,8 @@ class LWNNModel():
             (self.nchw_IsInputAdjustLayer, self.nchw_ActionInputAdjustLayer, None),
             (self.nchw_IsOutputAdjustLayer, self.opt_RemoveLayer, None),
             (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
+            (self.opt_IsLayerFakeQuantize, self.opt_LayerFakeQuantize, None),
+            (self.opt_IsLayerHasInitializer, self.opt_LayerHasInitializer, None),
             (self.opt_IsLayerBeforeReshape, self.opt_LayerBeforeReshape, None),
             (self.opt_IsLayerDense, self.opt_LayerDense, None),
             (self.opt_IsLayerConv1D, self.opt_LayerConv1D, None),
@@ -24,10 +26,10 @@ class LWNNModel():
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
             (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, None),
             (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
-            (self.opt_IsLayerConcatWithOneOnly, self.opt_RemoveLayer, None),
+            (self.opt_IsLayerConcatWithOneOnly, self.opt_LayerConcatWithOneOnly, None),
             (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
-            (self.opt_IsLayerSoftmaxWithoutConsumers, self.opt_LayerSoftmaxWithoutConsumers, None),
+            (self.opt_IsLayerOutputWithoutConsumers, self.opt_LayerOutputWithoutConsumers, None),
             (self.opt_IsLayerOutputWithOutput, self.opt_RemoveOutputWithOutput, None),
             (self.opt_IsLayerClipRelu, self.opt_LayerClip2Relu, None),
             (self.opt_IsLayerFlatten, self.opt_LayerFlatten2Reshape, None),
@@ -39,7 +41,7 @@ class LWNNModel():
             ]
         self.is_model_channel_first_cached=None
         self.converter = converter
-        self.name = name
+        self.name = self.toCstr(name)
         self.converter.save(self.path)
         self.lwnn_model = self.converter.convert()
         # optimization and convert to NCHW if origin model is NHWC
@@ -507,15 +509,15 @@ class LWNNModel():
         layer['op'] = 'Relu'
         return False
 
-    def opt_IsLayerSoftmaxWithoutConsumers(self, layer):
+    def opt_IsLayerOutputWithoutConsumers(self, layer):
         r = False
         consumers = self.get_consumers(layer)
-        if((layer['op'] == 'Softmax') and
+        if((layer['op'] in ['Softmax', 'DetectionOutput', 'YoloOutput']) and
            (len(consumers) == 0)):
             r = True
         return r
 
-    def opt_LayerSoftmaxWithoutConsumers(self, layer):
+    def opt_LayerOutputWithoutConsumers(self, layer):
         layer['Output'] = True
         return False
 
@@ -567,7 +569,20 @@ class LWNNModel():
         r = False
         consumers = self.get_consumers(layer)
         if((len(consumers) == 0) and
-           ((layer['op'] not in ['Output', 'Softmax']) and ('Output' not in layer))):
+           ((layer['op'] not in ['Output', 'Softmax', 'DetectionOutput', 'YoloOutput']) 
+            and ('Output' not in layer))):
+            r = True
+        return r
+
+    def opt_IsLayerFakeQuantize(self, layer):
+        r = False
+        if(layer['op'] == 'FakeQuantize'):
+            r = True
+        return r
+
+    def opt_IsLayerHasInitializer(self, layer):
+        r = False
+        if((layer['op'] == 'Conv') and (len(layer['inputs']) > 1)):
             r = True
         return r
 
@@ -591,14 +606,23 @@ class LWNNModel():
 
     def opt_ReplaceAsConstant(self, layer):
         outputs = self.run()
+        oname = layer['outputs'][0]
+        if(oname not in outputs):
+            return False
         if(self.opt_IsLayerConcatOnPriorBox(layer)):
             layer['ConcatOnPriorBox'] = True
-        const = outputs[layer['outputs'][0]]
+        const = outputs[oname]
         const = np.array(const, np.float32)
         layer['op'] = 'Const'
         layer['inputs'] = []
         layer['const'] = const
         return True
+
+    def opt_LayerConcatWithOneOnly(self, layer):
+        inp = self.get_layers(layer['inputs'])[0]
+        if(inp['op'] == 'Split'):
+            self.opt_RemoveLayer(inp)
+        return self.opt_RemoveLayer(layer)
 
     def opt_IsLayerConcatWithOneOnly(self, layer):
         r = False
@@ -634,6 +658,23 @@ class LWNNModel():
         self.lwnn_model.remove(layer)
         return True
 
+    def opt_LayerFakeQuantize(self, layer):
+        r = self.opt_RemoveLayer(layer)
+        return r
+
+    def opt_LayerHasInitializer(self, layer):
+        op = layer['op']
+        inputs = self.get_layers(layer['inputs'])
+        if(op == 'Conv'):
+            layer['inputs'] = [inputs[0]['name']]
+            layer['weights'] = inputs[1]['const']
+            if(len(inputs) == 3):
+                layer['bias'] = inputs[2]['const']
+            else:
+                M = layer['weights'].shape[0]
+                layer['bias'] = np.zeros((M), np.float32)
+        return True
+
     def opt_IsTrainingOperators(self, layer):
         r = False
         if(layer['op'] in ['Dropout']):
@@ -647,9 +688,8 @@ class LWNNModel():
             id += 1
             layer = self.lwnn_model[id]
             for isopt, optact, oname in self.OPTIMIER:
-                if(isopt(layer) and
-                   (((oname == None) and (len(additions) == 0)) 
-                    or (oname in additions))):
+                if((((oname == None) and (len(additions) == 0)) 
+                    or (oname in additions)) and isopt(layer)):
                     r = optact(layer)
                     if(True == r): # if there is remove action, restart optimization
                         id = -1
@@ -657,7 +697,7 @@ class LWNNModel():
                         break
 
     def toCstr(self, name):
-        for s in ['/',':', '-']:
+        for s in ['/',':', '-', '.']:
             name = name.replace(s, '_')
         return name
 

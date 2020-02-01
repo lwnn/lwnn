@@ -21,6 +21,9 @@
 
 #define NNT_YOLOV3TINY_NOT_FOUND_OKAY TRUE
 #define NNT_YOLOV3TINY_TOP1 0.9
+
+#define NNT_VEHICLE_ATTR_NOT_FOUND_OKAY TRUE
+#define NNT_VEHICLE_ATTR_TOP1 0.9
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	void* (*load_input)(nn_t* nn, const char* path, int id, size_t* sz);
@@ -32,9 +35,11 @@ typedef struct {
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_ssd_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz);
+static void* load_vehicle_attributes_recognition_barrier_0039_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
 static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
+static int vehicle_attributes_recognition_barrier_0039_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
 const char* g_InputImagePath = NULL;
 
@@ -88,6 +93,19 @@ NNT_CASE_DEF(YOLOV3) =
 NNT_CASE_DEF(YOLOV3TINY) =
 {
 	NNT_CASE_DESC_ARGS(yolov3_tiny),
+};
+
+static const nnt_model_args_t nnt_vehicle_attributes_recognition_barrier_0039_args =
+{
+	load_vehicle_attributes_recognition_barrier_0039_input,
+	load_output,
+	vehicle_attributes_recognition_barrier_0039_compare,
+	1
+};
+
+NNT_CASE_DEF(VEHICLE_ATTR) =
+{
+	NNT_CASE_DESC_ARGS(vehicle_attributes_recognition_barrier_0039),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz)
@@ -162,6 +180,34 @@ static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz)
 	{
 		return load_input(nn, path, id, sz);
 	}
+}
+
+static void* load_vehicle_attributes_recognition_barrier_0039_input(nn_t* nn, const char* path, int id, size_t* sz)
+{
+	image_t* im;
+	image_t* resized_im;
+	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
+
+	EXPECT_EQ(context->nhwc.C, 3);
+
+	assert(g_InputImagePath != NULL);
+
+	printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
+	im = image_open(g_InputImagePath);
+	assert(im != NULL);
+	resized_im = image_resize(im, context->nhwc.W, context->nhwc.H);
+	assert(resized_im != NULL);
+	float* input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
+
+	for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc); i++)
+	{
+		input[i] = resized_im->data[i];
+	}
+	image_close(im);
+	image_close(resized_im);
+
+	*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);
+	return (void*) input;
 }
 
 static void* load_output(const char* path, int id, size_t* sz)
@@ -338,6 +384,29 @@ static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gl
 	}
 
 	return r;
+}
+
+static int vehicle_attributes_recognition_barrier_0039_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg)
+{
+	static const char* types[] = { "car", "bus", "truck", "van" };
+	static const char* colors[] = { "white", "gray", "yellow", "red", "green", "blue", "black" };
+
+	printf("type: ");
+	for(int i=0; i<szo; i++)
+	{
+		printf("%s: %.3f, ", types[i], output[i]);
+	}
+	printf("\n");
+
+	float* out = (float*)nn->network->outputs[1]->data;
+
+	printf("color: ");
+	for(int i=0; i<7; i++)
+	{
+		printf("%s: %.3f, ", colors[i], out[i]);
+	}
+	printf("\n");
+	return 0;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
 void ModelTestMain(runtime_type_t runtime,
@@ -574,4 +643,6 @@ NNT_MODEL_TEST_ALL(SSD)
 NNT_MODEL_TEST_ALL(YOLOV3)
 
 NNT_MODEL_TEST_ALL(YOLOV3TINY)
+
+NNT_MODEL_TEST_ALL(VEHICLE_ATTR)
 

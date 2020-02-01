@@ -83,6 +83,9 @@ class VinoConverter():
             'Convolution': self.to_LayerConv,
             'Pooling': self.to_LayerPooling,
             'Eltwise': self.to_LayerEltwise,
+            'Const': self.to_LayerConst,
+            'Permute': self.to_LayerPermute,
+            'Reshape': self.to_LayerReshape,
              }
         self.opMap = {
             'ReLU': 'Relu',
@@ -95,8 +98,8 @@ class VinoConverter():
         if(type in ['q','d']): # long long or double
             sz = 8
         num = int(num/sz)
-        assert(self.weights.tell() == offset)
-        #self.weights.seek(offset, 0)
+        #assert(self.weights.tell() == offset)
+        self.weights.seek(offset, 0)
         #v = np.array(struct.unpack('<'+str(num)+type, self.weights.read(sz*num)))
         v = np.ndarray(
                 shape=(num,),
@@ -112,7 +115,6 @@ class VinoConverter():
                   'outputs': vly.outputs(),
                   'inputs': vly.inputs(),
                   'shape': vly.shape(),
-                  'precision': vly.precision,
                   'id': vly.id
                 }
         if(op == None):
@@ -144,15 +146,18 @@ class VinoConverter():
     def to_LayerConv(self, vly):
         layer = self.to_LayerCommon(vly, 'Conv')
         layer['pads'] = list(layer['pads_begin']) + list(layer['pads_end'])
-        group = layer['group']
-        C = vly.ishapes()[0][1]
-        M = layer['shape'][1]
-        kernel_shape = [M, int(C/group)] + list(layer['kernel'])
-        W = layer['weights']
-        W = W.reshape(kernel_shape)
-        layer['weights'] = W
-        if('bias' not in layer):
-            layer['bias'] = np.zeros((M), np.float32)
+        if(len(layer['inputs']) > 1):
+            pass # ONNX format
+        else:
+            group = layer['group']
+            C = vly.ishapes()[0][1]
+            M = layer['shape'][1]
+            kernel_shape = [M, int(C/group)] + list(layer['kernel'])
+            W = layer['weights']
+            W = W.reshape(kernel_shape)
+            layer['weights'] = W
+            if('bias' not in layer):
+                layer['bias'] = np.zeros((M), np.float32)
         return layer
 
     def to_LayerPooling(self, vly):
@@ -177,6 +182,23 @@ class VinoConverter():
         else:
             raise Exception('Not Supported Eltwise type %s'%(op))
         layer['op'] = op
+        return layer
+
+    def to_LayerConst(self, vly):
+        layer = self.to_LayerCommon(vly)
+        layer['const'] = layer['custom'].reshape(layer['shape'])
+        del layer['custom']
+        return layer
+
+    def to_LayerPermute(self, vly):
+        layer = self.to_LayerCommon(vly, 'Transpose')
+        layer['perm'] = layer['order']
+        del layer['order']
+        return layer
+
+    def to_LayerReshape(self, vly):
+        layer = self.to_LayerCommon(vly)
+        layer['inputs'] = layer['inputs'][:1]
         return layer
 
     def save(self, path):
@@ -239,6 +261,10 @@ class VinoConverter():
                 continue
             inputs = self.get_inputs(ly, edges)
             ly['inputs'] = inputs
+            if(len(ly['outputs']) == 1):
+                ly['outputs'] = [ly['name']]
+            else:
+                ly['outputs'] = [ly['name']+o for o in ly['outputs']]
         return lwnn_model
 
     @property

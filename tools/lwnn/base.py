@@ -254,7 +254,7 @@ class LWNNBaseC():
         if('pads' not in layer):
             pads = [0,0]
         else:
-            pads = list(layer['pads'])
+            pads = list(layer['pads'])[:2]
         with_mask = 0
         if(len(layer['outputs']) == 2):
             with_mask = 1
@@ -266,7 +266,7 @@ class LWNNBaseC():
         if('pads' not in layer):
             pads = [0,0]
         else:
-            pads = list(layer['pads'])
+            pads = list(layer['pads'])[:2]
         with_mask = 0
         if(len(layer['outputs']) == 2):
             with_mask = 1
