@@ -209,6 +209,7 @@ class VinoConverter():
         layer['scale'] = layer['weights']
         shape = layer['scale'].shape
         del layer['weights']
+        layer['epsilon'] = layer['eps']
         layer['var'] = np.ones(shape, np.float32)
         layer['mean'] = np.zeros(shape, np.float32)
         layer['bias'] = np.zeros(shape, np.float32)

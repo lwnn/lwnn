@@ -1,6 +1,7 @@
 # LWNN - Lightweight Neural Network
 # Copyright (C) 2019  Parai Wang <parai@foxmail.com>
 
+from . import Layer2Str
 from .float import *
 from .qformat import *
 from lwnn2onnx import *
@@ -734,18 +735,6 @@ class LWNNModel():
         if(model == None):
             model = self.lwnn_model
         cstr = 'LWNN Model %s:\n'%(self.name)
-        order = ['name', 'op', 'shape','inputs', 'outputs', 'weights','bias']
         for layer in model:
-            cstr += ' {'
-            for k in order:
-                if(k in layer):
-                    v = layer[k]
-                    try:
-                        cstr += '%s: %s, '%(k, v.shape)
-                    except:
-                        cstr += '%s: %s, '%(k,v)
-            for k,v in layer.items():
-                if(k not in order):
-                    cstr += '%s: %s, '%(k,v)
-            cstr += '}\n'
+            cstr += ' ' + Layer2Str(layer)
         return cstr
