@@ -24,9 +24,8 @@ class LWNNModel():
             (self.opt_IsLayerConv, self.opt_LayerConvWeightsReorder, None),
             (self.opt_IsLayerConvTranspose, self.opt_LayerConvTransposeWeightsReorder, None),
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
-            (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, None),
-            (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
             (self.opt_IsLayerConcatWithOneOnly, self.opt_LayerConcatWithOneOnly, None),
+            (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
             (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
             (self.opt_IsLayerOutputWithoutConsumers, self.opt_LayerOutputWithoutConsumers, None),
@@ -34,6 +33,7 @@ class LWNNModel():
             (self.opt_IsLayerClipRelu, self.opt_LayerClip2Relu, None),
             (self.opt_IsLayerFlatten, self.opt_LayerFlatten2Reshape, None),
             (self.opt_IsLayerPad, self.opt_LayerPad, None),
+            (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, 'RemoveTranspose'),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             (self.opt_IsLayerReLUConv, self.opt_MergeReLUConv, 'MergeReLUConv'),
@@ -50,13 +50,15 @@ class LWNNModel():
         self.optimize(['RemoveIdentity'])
         self.omodel = self.clone()
         self.optimize()
+        self.omodel = self.clone()
+        self.save()
+        self.optimize(['RemoveTranspose'])
         self.check()
         print(self)
-        self.save()
 
     def save(self):
         try:
-            lwnn2onnx(self.lwnn_model, '%s.lwnn.onnx'%(self.path))
+            lwnn2onnx(self.omodel, '%s.lwnn.onnx'%(self.path))
         except:
             traceback.print_exc()
         try:
@@ -71,11 +73,22 @@ class LWNNModel():
     def output(self):
         return self.converter.output
 
-    def run(self, feed=None):
-        return self.converter.run(feed)
+    def run(self, feed=None, model=None):
+        if(model == None):
+            model = self.omodel
+        return self.converter.run(feed, model=model)
 
     def clone(self):
-        return [dict(ly) for ly in self.lwnn_model]
+        model = []
+        for ly in self.lwnn_model:
+            L = {}
+            for k,v in ly.items():
+                if(type(v) in [list, tuple]):
+                    L[k] = list(v)
+                else:
+                    L[k] = v
+            model.append(L)
+        return model
 
     def set(self, model):
         self.lwnn_model = model
@@ -589,7 +602,7 @@ class LWNNModel():
     def opt_IsLayerTransposeCanBeRemoved(self, layer):
         r = False
         if((layer['op'] == 'Transpose') and
-           (layer['perm'] == [0 , 2 , 3 , 1])):
+           (list(layer['perm']) == [0 , 2 , 3 , 1])):
             # LWNN is already NHWC
             r = True
         return r
@@ -605,7 +618,7 @@ class LWNNModel():
         return r
 
     def opt_ReplaceAsConstant(self, layer):
-        outputs = self.run()
+        outputs = self.run(model=self.clone())
         oname = layer['outputs'][0]
         if(oname not in outputs):
             return False
@@ -721,16 +734,15 @@ class LWNNModel():
         if(model == None):
             model = self.lwnn_model
         cstr = 'LWNN Model %s:\n'%(self.name)
-        WL = ['weights','bias', 'const', 'scales', 'rolling_mean', 'rolling_variance']
-        order = ['name', 'op', 'shape','inputs', 'outputs'] + WL
+        order = ['name', 'op', 'shape','inputs', 'outputs', 'weights','bias']
         for layer in model:
             cstr += ' {'
             for k in order:
                 if(k in layer):
                     v = layer[k]
-                    if(k in WL):
+                    try:
                         cstr += '%s: %s, '%(k, v.shape)
-                    else:
+                    except:
                         cstr += '%s: %s, '%(k,v)
             for k,v in layer.items():
                 if(k not in order):

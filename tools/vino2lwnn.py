@@ -4,6 +4,7 @@
 from lwnn import *
 import os
 import numpy as np
+from lwnn2torch import lwnn2torch
 #from openvino import inference_engine as IE
 
 try:
@@ -61,7 +62,7 @@ class VinoLayer():
             for k,v in data.attrib.items():
                 try:
                     V = eval(v)
-                    if(type(V) not in [list, tuple, int, float]):
+                    if(type(V) not in [list, tuple, int, float, bool]):
                         V = v
                 except:
                     V = v
@@ -86,11 +87,13 @@ class VinoConverter():
             'Const': self.to_LayerConst,
             'Permute': self.to_LayerPermute,
             'Reshape': self.to_LayerReshape,
+            'Normalize': self.to_LayerNormalize,
              }
         self.opMap = {
             'ReLU': 'Relu',
             'SoftMax': 'Softmax',
             }
+        self.opt_lwnn_model = None
 
     def read(self, offset, num, type='f'):
         sz = 4
@@ -201,11 +204,24 @@ class VinoConverter():
         layer['inputs'] = layer['inputs'][:1]
         return layer
 
+    def to_LayerNormalize(self, vly):
+        layer = self.to_LayerCommon(vly, 'BatchNormalization')
+        layer['scale'] = layer['weights']
+        shape = layer['scale'].shape
+        del layer['weights']
+        layer['var'] = np.ones(shape, np.float32)
+        layer['mean'] = np.zeros(shape, np.float32)
+        layer['bias'] = np.zeros(shape, np.float32)
+        return layer
+
     def save(self, path):
         pass
 
-    def run(self, feed):
-        outputs = {}
+    def run(self, feeds, **kwargs):
+        outputs = lwnn2torch(kwargs['model'], feeds)
+        for n,v in outputs.items():
+            if((type(v) == list) and (len(v) == 1)):
+                outputs[n] = v[0]
         return outputs
 
     def get_layer(self, id):
@@ -270,6 +286,12 @@ class VinoConverter():
     @property
     def inputs(self):
         L = {}
+        for node in self.ir:
+            if(node.tag == 'layers'):
+                for layer in node:
+                    layer = VinoLayer(layer)
+                    if(layer.type == 'Input'):
+                        L[layer.name] = layer.shape
         return L
 
 def vino2lwnn(model, name, **kargs):

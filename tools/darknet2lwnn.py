@@ -287,11 +287,8 @@ class DarknetConverter():
         self.weights.close()
         return self.lwnn_model
 
-    def set_opt_model(self, model):
-        self.opt_lwnn_model = model
-
-    def run(self, feeds):
-        outputs = lwnn2torch(self.opt_lwnn_model, feeds)
+    def run(self, feeds, **kwargs):
+        outputs = lwnn2torch(kwargs['model'], feeds)
         for n,v in outputs.items():
             if((type(v) == list) and (len(v) == 1)):
                 outputs[n] = v[0]
@@ -309,7 +306,6 @@ def dartnet2lwnn(cfg, name, **kargs):
         feeds = None
     model.gen_float_c(feeds)
     if(feeds != None):
-        model.converter.set_opt_model(model.lwnn_model)
         model.gen_quantized_c(feeds)
 
 

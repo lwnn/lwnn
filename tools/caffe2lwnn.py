@@ -172,7 +172,7 @@ class CaffeConverter():
     def save(self, path):
         pass
 
-    def run(self, feed):
+    def run(self, feed, **kwargs):
         outputs = {}
         if(feed == None):
             feed = {}

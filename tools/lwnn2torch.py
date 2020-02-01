@@ -138,7 +138,10 @@ class Lwnn2Torch():
 
     def run_LayerInput(self, layer):
         name = layer['name']
-        feed = self.feeds[name]
+        if(self.feeds != None):
+            feed = self.feeds[name]
+        else:
+            feed = np.random.uniform(low=-1,high=1,size=layer['shape']).astype(np.float32)
         layer['top'] = [feed]
 
     def run_QLayerInput(self, layer):

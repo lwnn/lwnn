@@ -70,7 +70,7 @@ class OnnxConverter():
                 return oT
         raise Exception("can't determint output type for %s"%(output))
 
-    def run(self, feed=None):
+    def run(self, feed=None, **kwargs):
         outputs = {}
         oldoutputs = [n for n in self.onnx_model.graph.output]
         del self.onnx_model.graph.output[:]

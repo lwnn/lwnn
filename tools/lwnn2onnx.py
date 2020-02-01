@@ -41,7 +41,7 @@ class Lwnn2Onnx():
     def to_LayerCommon(self, layer, initializer=[], **kwargs):
         name = layer['name']
         attr = {}
-        inputs = layer['inputs']
+        inputs = list(layer['inputs'])
         for i in initializer:
             self._initializer.append(onnx.numpy_helper.from_array(layer[i], '%s_%s'%(name, i)))
             inputs.append('%s_%s'%(name, i))
