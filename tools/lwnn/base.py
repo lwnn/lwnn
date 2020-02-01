@@ -258,7 +258,7 @@ class LWNNBaseC():
         with_mask = 0
         if(len(layer['outputs']) == 2):
             with_mask = 1
-        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides'] + [with_mask]), np.int32)
+        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides']) + [with_mask], np.int32)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_MAXPOOL ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
@@ -270,7 +270,7 @@ class LWNNBaseC():
         with_mask = 0
         if(len(layer['outputs']) == 2):
             with_mask = 1
-        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides'] + [with_mask]), np.int32)
+        M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides']) + [with_mask], np.int32)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_AVGPOOL ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 

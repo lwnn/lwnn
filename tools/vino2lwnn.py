@@ -133,7 +133,12 @@ class VinoConverter():
         return layer
 
     def to_LayerScaleShift(self, vly):
-        layer = self.to_LayerCommon(vly, 'Scale')
+        layer = self.to_LayerCommon(vly, 'BatchNormalization')
+        layer['scale'] = layer['weights']
+        shape = layer['scale'].shape
+        del layer['weights']
+        layer['var'] = np.ones(shape, np.float32)
+        layer['mean'] = np.zeros(shape, np.float32)
         return layer
 
     def to_LayerConv(self, vly):
