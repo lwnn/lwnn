@@ -322,5 +322,5 @@ if(__name__ == '__main__'):
     parser.add_argument('-r', '--raw', help='input raw directory', type=str, default=None, required=False)
     args = parser.parse_args()
     if(args.output == None):
-        args.output = os.path.basename(args.input)[:-9]
+        args.output = os.path.basename(args.input)[:-4]
     dartnet2lwnn(args.input, args.output, weights=args.weights, feeds=args.raw)

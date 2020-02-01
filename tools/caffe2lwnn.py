@@ -3,7 +3,6 @@
 
 from lwnn import *
 import os
-from _sqlite3 import NotSupportedError
 os.environ['GLOG_minloglevel'] = '2'
 import caffe
 from caffe.proto import caffe_pb2
@@ -287,28 +286,7 @@ def caffe2lwnn(model, name, **kargs):
         feeds = None
 
     if(type(feeds) == str):
-        inputs = model.converter.inputs
-        feeds_ = {}
-        for rawF in glob.glob('%s/*.raw'%(feeds)):
-            raw = np.fromfile(rawF, np.float32)
-            for n, shape in inputs.items():
-                if(len(shape) == 4):
-                    shape = [shape[s] for s in [0,2,3,1]]
-                sz = 1
-                for s in shape:
-                    sz = sz*s
-                if(raw.shape[0] == sz):
-                    raw = raw.reshape(shape)
-                    if(n in feeds_):
-                        feeds_[n] = np.concatenate((feeds_[n], raw))
-                    else:
-                        feeds_[n] = raw
-                    print('using %s for input %s'%(rawF, n))
-        feeds = {}
-        for n,v in feeds_.items():
-            if(len(v.shape) == 4):
-                v = np.transpose(v, (0,3,1,2))
-            feeds[n] = v
+        feeds = load_feeds(feeds, model.converter.inputs)
 
     model.gen_float_c(feeds)
     if(feeds != None):
@@ -316,7 +294,7 @@ def caffe2lwnn(model, name, **kargs):
 
 if(__name__ == '__main__'):
     import argparse
-    parser = argparse.ArgumentParser(description='convert onnx to lwnn')
+    parser = argparse.ArgumentParser(description='convert caffe to lwnn')
     parser.add_argument('-i', '--input', help='input caffe model', type=str, required=True)
     parser.add_argument('-w', '--weights', help='input caffe weights', type=str, required=True)
     parser.add_argument('-o', '--output', help='output lwnn model', type=str, default=None, required=False)

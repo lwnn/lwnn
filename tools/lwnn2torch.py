@@ -10,8 +10,6 @@ import liblwnn as lwnn
 import torch
 from verifyoutput import *
 
-# https://docs.nvidia.com/deeplearning/sdk/tensorrt-sample-support-guide/index.html#int8_sample
-
 __all__ = ['lwnn2torch']
 
 def LI(a):
@@ -327,28 +325,7 @@ def lwnn2torch(model, feeds, **kargs):
     model = Lwnn2Torch(model, **kargs)
 
     if(type(feeds) == str):
-        inputs = model.inputs
-        feeds_ = {}
-        for rawF in glob.glob('%s/*.raw'%(feeds)):
-            raw = np.fromfile(rawF, np.float32)
-            for n, shape in inputs.items():
-                if(len(shape) == 4):
-                    shape = [shape[s] for s in [0,2,3,1]]
-                sz = 1
-                for s in shape:
-                    sz = sz*s
-                if(raw.shape[0] == sz):
-                    raw = raw.reshape(shape)
-                    if(n in feeds_):
-                        feeds_[n] = np.concatenate((feeds_[n], raw))
-                    else:
-                        feeds_[n] = raw
-                    print('using %s for input %s'%(rawF, n))
-        feeds = {}
-        for n,v in feeds_.items():
-            if(len(v.shape) == 4):
-                v = np.transpose(v, (0,3,1,2))
-            feeds[n] = v
+        feeds = load_feeds(feeds, model.inputs)
     return model.run(feeds)
 
 if(__name__ == '__main__'):

@@ -4,6 +4,7 @@ set ASPATH=%~dp0
 set astmp=%ASPATH%
 set ASDISK=%astmp:~1,2%
 set MSYS2=C:\msys64
+set INTELSW=C:\Program Files (x86)\IntelSWTools
 
 %ASDISK%
 cd %ASPATH%
@@ -12,6 +13,7 @@ echo %ASPATH%
 
 if NOT EXIST "%ASPATH%\Console.bat" goto perror
 if NOT EXIST %MSYS2%\usr\bin goto install_msys2
+REM if NOT EXIST "%INTELSW%\openvino\bin\setupvars.bat" goto install_openvino
 
 REM base env PATH
 set PATH=C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0
@@ -31,6 +33,8 @@ wget https://github.com/Maximus5/ConEmu/releases/download/v19.07.14/ConEmuPack.1
 cd %ASPATH%
 
 :prepareEnv
+%INTELSW%\openvino\bin\setupvars.bat
+set PYTHONPATH=%INTELSW%/openvino\python\python3.7;%PYTHONPATH%
 set MSYS=winsymlinks:nativestrict
 set PYTHONPATH=%ASPATH%/tools;%PYTHONPATH%
 REM env.asc in format "tokens=value" to set some environment
@@ -47,6 +51,11 @@ exit 0
 :install_msys2
 set msys2="www.msys2.org"
 echo Please visit %msys2% and install msys2 as c:\msys64
+pause
+exit -1
+
+:install_openvino
+echo Please visit https://software.intel.com/en-us/openvino-toolkit and install openvino as %INTELSW%
 pause
 exit -1
 
