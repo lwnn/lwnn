@@ -26,7 +26,7 @@ class LWNNModel():
             (self.opt_IsLayerConvTranspose, self.opt_LayerConvTransposeWeightsReorder, None),
             (self.opt_IsTrainingOperators, self.opt_RemoveLayer, None),
             (self.opt_IsLayerConcatWithOneOnly, self.opt_LayerConcatWithOneOnly, None),
-            (self.opt_IsLayerConcatOnPriorBox, self.opt_ReplaceAsConstant, None),
+            (self.opt_IsLayerConcatOnPriorBox, self.opt_LayerConcatOnPriorBox, None),
             (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
             (self.opt_IsLayerOutputWithoutConsumers, self.opt_LayerOutputWithoutConsumers, None),
@@ -79,16 +79,19 @@ class LWNNModel():
             model = self.omodel
         return self.converter.run(feed, model=model)
 
+    def clone_layer(self, layer):
+        L = {}
+        for k,v in layer.items():
+            if(type(v) in [list, tuple]):
+                L[k] = list(v)
+            else:
+                L[k] = v
+        return L
+
     def clone(self):
         model = []
         for ly in self.lwnn_model:
-            L = {}
-            for k,v in ly.items():
-                if(type(v) in [list, tuple]):
-                    L[k] = list(v)
-                else:
-                    L[k] = v
-            model.append(L)
+            model.append(self.clone_layer(ly))
         return model
 
     def set(self, model):
@@ -598,6 +601,8 @@ class LWNNModel():
         r = False
         if((layer['op'] == 'Conv') and (len(layer['inputs']) > 1)):
             r = True
+        elif((layer['op'] == 'Gather') and (len(layer['inputs']) > 1)):
+            r = True
         return r
 
     def opt_IsLayerTransposeCanBeRemoved(self, layer):
@@ -618,18 +623,27 @@ class LWNNModel():
                     r = False
         return r
 
-    def opt_ReplaceAsConstant(self, layer):
-        outputs = self.run(model=self.clone())
+    def create_priorbox_model(self, layer):
+        model = []
+        for ly in self.get_layers(layer['inputs']):
+            L = self.clone_layer(ly)
+            inputs = self.get_layers(L['inputs'])
+            L['inputs'] = []
+            L['feature_shape'] = inputs[0]['shape']
+            L['image_shape'] = inputs[1]['shape']
+            model.append(L)
+        model.append(self.clone_layer(layer))
+        return model
+
+    def opt_LayerConcatOnPriorBox(self, layer):
+        outputs = self.run(model=self.create_priorbox_model(layer))
         oname = layer['outputs'][0]
-        if(oname not in outputs):
-            return False
-        if(self.opt_IsLayerConcatOnPriorBox(layer)):
-            layer['ConcatOnPriorBox'] = True
         const = outputs[oname]
         const = np.array(const, np.float32)
+        layer['ConcatOnPriorBox'] = True
         layer['op'] = 'Const'
         layer['inputs'] = []
-        layer['const'] = const
+        layer['const'] = const 
         return True
 
     def opt_LayerConcatWithOneOnly(self, layer):
@@ -687,6 +701,9 @@ class LWNNModel():
             else:
                 M = layer['weights'].shape[0]
                 layer['bias'] = np.zeros((M), np.float32)
+        elif(op == 'Gather'):
+            layer['inputs'] = [inputs[0]['name']]
+            layer['indices'] = inputs[1]['const']
         return True
 
     def opt_IsTrainingOperators(self, layer):

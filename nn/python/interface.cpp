@@ -7,6 +7,8 @@
 #include <pybind11/numpy.h>
 #include "nn.h"
 #include "algorithm.h"
+#include <math.h>
+#include <cmath>
 /* https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html */
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
@@ -130,6 +132,131 @@ py::array_t<float> MaxPool2d(py::array_t<float> input, /* NCHW */
 	return result;
 }
 
+py::array_t<float> PriorBox(py::array_t<int> feature_shape, /* NCHW */
+		py::array_t<int> image_shape,
+		py::array_t<float> variance,
+		py::array_t<int> max_sizes,
+		py::array_t<int> min_sizes,
+		py::array_t<float> aspect_ratios,
+		int clip, int flip,
+		float step, float offset,
+		py::array_t<int> output_shape) {
+
+	auto result = py::array_t<float>({ (size_t)output_shape.at(0),
+									   (size_t)output_shape.at(1),
+									   (size_t)output_shape.at(2)});
+	py::buffer_info buf_out = result.request();
+	float *top_data = (float *) buf_out.ptr;
+
+	int layer_width = (int) feature_shape.at(3);
+	int layer_height = (int) feature_shape.at(2);
+
+	int img_width = (int) image_shape.at(3);
+	int img_height = (int) image_shape.at(2);
+
+	float step_w = step;
+	float step_h = step;
+
+	if (0 == step) {
+		step_w = static_cast<float>(img_width) / layer_width;
+		step_h = static_cast<float>(img_height) / layer_height;
+	}
+
+	int num_priors_ = (int) output_shape.at(2) / (4 * layer_width * layer_height);
+
+	int num_ar = aspect_ratios.request().shape[0];
+	int num_max = max_sizes.request().shape[0];
+	int num_min = min_sizes.request().shape[0];
+	int num_var = variance.request().shape[0];
+
+	NNLOG(NN_DEBUG, ("PriorBox: layer.(w,h)=(%d,%d) img.(w,h)=(%d,%d), step.(w,h)=(%d,%d), num_priors=%d, num_ar=%d\n",
+			layer_width, layer_height, img_width, img_height, step_w, step_h, num_priors_, num_ar));
+
+	int dim = layer_height * layer_width * num_priors_ * 4;
+	assert(dim == (int) output_shape.at(2));
+	int idx = 0;
+	for (int h = 0; h < layer_height; ++h) {
+		for (int w = 0; w < layer_width; ++w) {
+			float center_x = (w + offset) * step_w;
+			float center_y = (h + offset) * step_h;
+			float box_width, box_height;
+			for (int s = 0; s < num_min; ++s) {
+				int min_size_ = (int) min_sizes.at(s);
+				// first prior: aspect_ratio = 1, size = min_size
+				box_width = box_height = min_size_;
+				// xmin
+				top_data[idx++] = (center_x - box_width / 2.) / img_width;
+				// ymin
+				top_data[idx++] = (center_y - box_height / 2.) / img_height;
+				// xmax
+				top_data[idx++] = (center_x + box_width / 2.) / img_width;
+				// ymax
+				top_data[idx++] = (center_y + box_height / 2.) / img_height;
+
+				if (num_max > 0) {
+					assert(num_min == num_max);
+					int max_size_ = (int) max_sizes.at(s);
+					// second prior: aspect_ratio = 1, size = sqrt(min_size * max_size)
+					box_width = box_height = sqrt(min_size_ * max_size_);
+					// xmin
+					top_data[idx++] = (center_x - box_width / 2.) / img_width;
+					// ymin
+					top_data[idx++] = (center_y - box_height / 2.) / img_height;
+					// xmax
+					top_data[idx++] = (center_x + box_width / 2.) / img_width;
+					// ymax
+					top_data[idx++] = (center_y + box_height / 2.) / img_height;
+				}
+
+				// rest of priors
+				for (int r = 0; r < num_ar; ++r) {
+					float ar = (float) aspect_ratios.at(r);
+					if (fabs(ar - 1.) < 1e-6) {
+						continue;
+					}
+					box_width = min_size_ * sqrt(ar);
+					box_height = min_size_ / sqrt(ar);
+					// xmin
+					top_data[idx++] = (center_x - box_width / 2.) / img_width;
+					// ymin
+					top_data[idx++] = (center_y - box_height / 2.) / img_height;
+					// xmax
+					top_data[idx++] = (center_x + box_width / 2.) / img_width;
+					// ymax
+					top_data[idx++] = (center_y + box_height / 2.) / img_height;
+				}
+			}
+		}
+	}
+	// clip the prior's coordidate such that it is within [0, 1]
+	if (clip) {
+		for (int d = 0; d < dim; ++d) {
+			top_data[d] = std::min<float>(std::max<float>(top_data[d], 0.), 1.);
+		}
+	}
+
+	// set the variance.
+	top_data += dim;
+	if (num_var == 1) {
+		for (int i = 0; i < dim; i++) {
+			top_data[i] = (float) variance.at(0);
+		}
+	} else {
+		int count = 0;
+		for (int h = 0; h < layer_height; ++h) {
+			for (int w = 0; w < layer_width; ++w) {
+				for (int i = 0; i < num_priors_; ++i) {
+					for (int j = 0; j < 4; ++j) {
+						top_data[count] = variance.at(j);
+						++count;
+					}
+				}
+			}
+		}
+	}
+
+	return result;
+}
 PYBIND11_PLUGIN(liblwnn)
 {
 	py::module m("liblwnn", "pybind11 lwnn plugin");
@@ -137,5 +264,10 @@ PYBIND11_PLUGIN(liblwnn)
 	m.def("MaxPool2d", &MaxPool2d, "lwnn functional MaxPool2d",
 			py::arg("input"), py::arg("kernel_size"), py::arg("stride"),
 			py::arg("padding"), py::arg("output_shape"));
+	m.def("PriorBox", &PriorBox, "lwnn functional PriorBox",
+			py::arg("feature_shape"), py::arg("image_shape"), py::arg("variance"),
+			py::arg("max_sizes"), py::arg("min_sizes"), py::arg("aspect_ratio"),
+			py::arg("clip"), py::arg("flip"), py::arg("step"), py::arg("offset"),
+			py::arg("output_shape"));
 	return m.ptr();
 }

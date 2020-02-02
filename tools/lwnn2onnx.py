@@ -30,7 +30,7 @@ class Lwnn2Onnx():
             'Normalize': self.to_LayerNormalize,
             'Transpose': self.to_LayerCommon,
             'Const': self.to_LayerConst,
-            'Gather': self.to_LayerCommon,
+            'Gather': self.to_LayerGather,
             'Squeeze': self.to_LayerCommon,
             'Unsqueeze': self.to_LayerCommon,
             'PriorBox': self.to_LayerCommon,
@@ -157,6 +157,9 @@ class Lwnn2Onnx():
 
     def to_LayerConst(self, layer):
         self.to_LayerCommon(layer, ['const'])
+
+    def to_LayerGather(self, layer):
+        self.to_LayerCommon(layer, ['indices'])
 
     def to_LayerDense(self, layer):
         name = layer['name']

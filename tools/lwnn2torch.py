@@ -41,6 +41,9 @@ class Lwnn2Torch():
             'YoloOutput': self.run_LayerUnknown,
             'BatchNormalization': self.run_LayerBatchNormalization,
             'Transpose': self.run_LayerTranspose,
+            'Const': self.run_LayerConst,
+            'Gather': self.run_LayerGather,
+            'PriorBox': self.run_LayerPriorBox,
             'Output': self.run_LayerOutput }
         self.RUNQL = {
             'Input': self.run_QLayerInput,
@@ -298,6 +301,42 @@ class Lwnn2Torch():
         bottom = inp['top'][0]
         perm = layer['perm']
         top = np.transpose(bottom, perm)
+        layer['top'] = [top]
+
+    def run_LayerConst(self, layer):
+        layer['top'] = [layer['const']]
+
+    def run_LayerGather(self, layer):
+        inp = self.get_layers(layer['inputs'])[0]
+        bottom = inp['top'][0]
+        indices = layer['indices']
+        dim = layer['axis']
+        top = torch.gather(torch.from_numpy(bottom), dim, torch.from_numpy(indices.astype(np.int64)))
+        layer['top'] = [top.detach().numpy()]
+
+    def run_LayerPriorBox(self, layer):
+        feature_shape = np.asarray(layer['feature_shape'], np.int32)
+        image_shape = np.asarray(layer['image_shape'], np.int32)
+        variance = np.asarray(layer['variance'], np.float32)
+        max_sizes = self.get_attr(layer, 'max_size')
+        if(type(max_sizes) == float):
+            max_sizes = [max_sizes]
+        max_sizes = np.asarray(max_sizes, np.int32)
+        min_sizes = self.get_attr(layer, 'min_size')
+        if(type(min_sizes) == float):
+            min_sizes = [min_sizes]
+        min_sizes = np.asarray(min_sizes, np.int32)
+        aspect_ratios = self.get_attr(layer, 'aspect_ratio', 1.0)
+        if(type(aspect_ratios) == float):
+            aspect_ratios = [aspect_ratios]
+        aspect_ratios = np.asarray(aspect_ratios, np.float32)
+        flip = self.get_attr(layer, 'flip', 1.0)
+        clip = self.get_attr(layer, 'clip', 0.0)
+        step = self.get_attr(layer, 'step', 0.0)
+        offset = self.get_attr(layer, 'offset', 0.5)
+        output_shape = np.asarray(layer['shape'], np.int32)
+        top = lwnn.PriorBox(feature_shape, image_shape, variance, max_sizes, min_sizes,
+                            aspect_ratios, clip, flip, step, offset, output_shape)
         layer['top'] = [top]
 
     def run_LayerUnknown(self, layer):

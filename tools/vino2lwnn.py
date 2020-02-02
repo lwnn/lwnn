@@ -50,9 +50,14 @@ class VinoLayer():
 
     def blobs(self):
         blobs = []
+        pmaps = {'I32':'i', 'FP32':'f'}
         if(None != self.xml.find('blobs')):
             for blob in self.xml.find('blobs'):
-                blobs.append((blob.tag, eval(blob.attrib['offset']), eval(blob.attrib['size'])))
+                if('precision' in blob.attrib):
+                    dt = pmaps[blob.attrib['precision']]
+                else:
+                    dt = 'f'
+                blobs.append((blob.tag, eval(blob.attrib['offset']), eval(blob.attrib['size']), dt))
         return blobs
 
     def datas(self):
@@ -125,10 +130,10 @@ class VinoConverter():
         if(op in self.opMap):
             op = self.opMap[op]
         layer['op'] = op
-        for bn, of, sz in vly.blobs():
+        for bn, of, sz, dt in vly.blobs():
             if(bn == 'biases'):
                 bn = 'bias'
-            layer[bn] = self.read(of, sz)
+            layer[bn] = self.read(of, sz, dt)
         for dn, dv in vly.datas().items():
             layer[dn] = dv
         return layer
@@ -246,7 +251,6 @@ class VinoConverter():
         lwnn_model = []
         edges  = {}
         self.weights = open(self.vino_weights, 'rb')
-        print(self.ir.attrib['name'])
         for node in self.ir:
             if(node.tag == 'layers'):
                 for layer in node:
