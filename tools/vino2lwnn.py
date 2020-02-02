@@ -93,6 +93,7 @@ class VinoConverter():
             'Permute': self.to_LayerPermute,
             'Reshape': self.to_LayerReshape,
             'Normalize': self.to_LayerNormalize,
+            'DetectionOutput': self.to_LayerDetectionOutput,
              }
         self.opMap = {
             'ReLU': 'Relu',
@@ -218,6 +219,18 @@ class VinoConverter():
         layer['var'] = np.ones(shape, np.float32)
         layer['mean'] = np.zeros(shape, np.float32)
         layer['bias'] = np.zeros(shape, np.float32)
+        return layer
+
+    def to_LayerDetectionOutput(self, vly):
+        layer = self.to_LayerCommon(vly)
+        code_type = layer['code_type']
+        if('CENTER_SIZE' in code_type):
+            code_type = 2
+        elif('CORNER_SIZE' in code_type):
+            code_type = 3
+        else:
+            code_type = 1
+        layer['code_type'] = code_type
         return layer
 
     def save(self, path):

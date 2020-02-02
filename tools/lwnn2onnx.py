@@ -5,6 +5,7 @@ import onnx
 import onnx.helper
 import onnx.numpy_helper
 import numpy as np
+from lwnn import Layer2Str
 
 __all__ = ['lwnn2onnx', 'Lwnn2Onnx']
 
@@ -42,6 +43,9 @@ class Lwnn2Onnx():
         name = layer['name']
         attr = {}
         inputs = list(layer['inputs'])
+        for k,v in layer.items():
+            if((type(v) == np.ndarray) and (k not in initializer)):
+                initializer.append(k)
         for i in initializer:
             self._initializer.append(onnx.numpy_helper.from_array(layer[i], '%s_%s'%(name, i)))
             inputs.append('%s_%s'%(name, i))
@@ -51,12 +55,15 @@ class Lwnn2Onnx():
         for k,v in kwargs.items(): # handle default attr
             if(k not in layer):
                 attr[k] = v
-        x = onnx.helper.make_node(
-            layer['op'],
-            name = name,
-            outputs=[name],
-            inputs=inputs,
-            **attr)
+        try:
+            x = onnx.helper.make_node(
+                layer['op'],
+                name = name,
+                outputs=[name],
+                inputs=inputs,
+                **attr)
+        except Exception as e:
+            raise Exception('%s: %s'%(Layer2Str(layer), e))
         self._nodes.append(x)
 
     def to_LayerInput(self, layer):

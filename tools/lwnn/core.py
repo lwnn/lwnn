@@ -730,6 +730,9 @@ class LWNNModel():
     def toCstr(self, name):
         for s in ['/',':', '-', '.']:
             name = name.replace(s, '_')
+        fc = name[0]
+        if(fc.isdigit()):
+            name = '_' + name
         return name
 
     def check(self):
@@ -746,6 +749,7 @@ class LWNNModel():
             layer['name'] = self.toCstr(layer['name'])
             if('inputs' in layer):
                 layer['inputs'] = [self.toCstr(inp) for inp in layer['inputs']]
+            layer['outputs'] = [self.toCstr(out) for out in layer['outputs']]
         self.is_model_channel_first()
 
     def __str__(self, model=None):

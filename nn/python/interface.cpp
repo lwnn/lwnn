@@ -9,6 +9,7 @@
 #include "algorithm.h"
 #include <math.h>
 #include <cmath>
+#include <vector>
 /* https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html */
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
@@ -169,8 +170,27 @@ py::array_t<float> PriorBox(py::array_t<int> feature_shape, /* NCHW */
 	int num_min = min_sizes.request().shape[0];
 	int num_var = variance.request().shape[0];
 
-	NNLOG(NN_DEBUG, ("PriorBox: layer.(w,h)=(%d,%d) img.(w,h)=(%d,%d), step.(w,h)=(%d,%d), num_priors=%d, num_ar=%d\n",
-			layer_width, layer_height, img_width, img_height, step_w, step_h, num_priors_, num_ar));
+	NNLOG(NN_DEBUG, ("PriorBox: layer.(w,h)=(%d,%d) img.(w,h)=(%d,%d), step.(w,h)=(%.2f,%.2f), offset=%.2f, num_priors=%d, num_ar=%d\n",
+			layer_width, layer_height, img_width, img_height, step_w, step_h, offset, num_priors_, num_ar));
+
+	std::vector<float> aspect_ratios_;
+	aspect_ratios_.push_back(1.);
+	for (int i = 0; i < num_ar; ++i) {
+		float ar = (float)aspect_ratios.at(i);
+		bool already_exist = false;
+		for (int j = 0; j < aspect_ratios_.size(); ++j) {
+			if (fabs(ar - aspect_ratios_[j]) < 1e-6) {
+				already_exist = true;
+				break;
+			}
+		}
+		if (!already_exist) {
+			aspect_ratios_.push_back(ar);
+			if (flip) {
+				aspect_ratios_.push_back(1. / ar);
+			}
+		}
+	}
 
 	int dim = layer_height * layer_width * num_priors_ * 4;
 	assert(dim == (int) output_shape.at(2));
@@ -209,8 +229,8 @@ py::array_t<float> PriorBox(py::array_t<int> feature_shape, /* NCHW */
 				}
 
 				// rest of priors
-				for (int r = 0; r < num_ar; ++r) {
-					float ar = (float) aspect_ratios.at(r);
+				for (int r = 0; r < aspect_ratios_.size(); ++r) {
+					float ar = aspect_ratios_[r];
 					if (fabs(ar - 1.) < 1e-6) {
 						continue;
 					}
