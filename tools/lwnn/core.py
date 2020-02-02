@@ -77,7 +77,11 @@ class LWNNModel():
     def run(self, feed=None, model=None):
         if(model == None):
             model = self.omodel
-        return self.converter.run(feed, model=model)
+        O = self.converter.run(feed, model=model)
+        outputs = {}
+        for k,v in O.items():
+            outputs[self.toCstr(k)] = v
+        return outputs
 
     def clone_layer(self, layer):
         L = {}
