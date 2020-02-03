@@ -11,11 +11,11 @@ import os
 
 os.environ['LWNN_GTEST'] = '1'
 
-def conv2d(name, shape=[32,32,5], filters=24, kernel_size=(3,3), strides=(1,1), padding="same"):
+def conv2d(name, shape=[32,32,5], filters=24, kernel_size=(3,3), strides=(1,1), padding="same", dilations=(1,1)):
     input = Input(shape=shape, name=name+'_input')
     weights = [np.random.uniform(low=-0.1,high=0.2,size=tuple(list(kernel_size)+[shape[-1],filters])).astype(np.float32),
                np.random.uniform(low=-0.1,high=0.2,size=tuple([filters])).astype(np.float32)]
-    output = Conv2D(filters, kernel_size=kernel_size, strides=strides, padding=padding,
+    output = Conv2D(filters, kernel_size=kernel_size, strides=strides, padding=padding, dilation_rate=dilations,
                     weights = weights, name=name+'_output')(input)
     model = Model(inputs=input, outputs=output)
     feeds = {input:np.random.uniform(low=-1,high=2,size=tuple([10]+shape)).astype(np.float32)}
@@ -276,3 +276,6 @@ if(__name__ == '__main__'):
     deconv2d('deconv2d_2')
     deconv2d('deconv2d_3',shape=[45,17,23], filters=13, kernel_size=(2,3), strides=(3,2), padding="valid")
     bn('bn_1')
+    conv2d('dilconv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), dilations=(2,2))
+    conv2d('dilconv2d_2', dilations=(3,3))
+    conv2d('dilconv2d_3', shape=[512, 512,3], filters=8, kernel_size=(6,6), dilations=(6,6))

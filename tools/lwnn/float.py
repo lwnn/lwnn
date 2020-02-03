@@ -20,7 +20,14 @@ class LWNNFloatC(LWNNBaseC):
         else:
             strides = list(layer['strides'])
 
-        M = np.asarray(list(layer['pads']) + strides + [self.get_activation(layer)], np.int32)
+        isDilatedConv = False
+        misc = list(layer['pads']) + strides + [self.get_activation(layer)]
+        if('dilations' in layer):
+            dilations = list(layer['dilations'])
+            if(dilations != [1,1]):
+                misc += dilations
+                isDilatedConv = True
+        M = np.asarray(misc, np.int32)
         self.gen_layer_WBM(layer, W, B, M)
 
         if(layer['group'] == 1):
@@ -29,6 +36,11 @@ class LWNNFloatC(LWNNBaseC):
             op = 'DWCONV2D'
         else:
             raise Exception('convolution with group !=1 or !=C is not supported')
+
+        if(isDilatedConv and (op == 'CONV2D')):
+            op = 'DILCONV2D'
+        elif(isDilatedConv and (op == 'DWCONV2D')):
+            raise Exception('DWCONV2D with dilations=%s is not supported'%(dilations))
 
         self.fpC.write('L_{2} ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0], op))
 

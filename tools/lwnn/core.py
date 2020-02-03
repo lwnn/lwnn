@@ -451,6 +451,9 @@ class LWNNModel():
         layer['strides'] = list(strides)+ [1]
         pads = layer['pads']
         layer['pads'] = [pads[0], 0, pads[1], 0]
+        if('dilations' in layer):
+            dilation = layer['dilations'][0]
+            layer['dilations'] = [dilation, dilation]
         kernel_shape = layer['kernel_shape']
         layer['kernel_shape'] = list(kernel_shape)+ [1]
         return False

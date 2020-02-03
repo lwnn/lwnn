@@ -70,6 +70,7 @@ extern "C" {
 #define L_YOLO(name, input)			L_LAYER_SI(name, input, YOLO)
 #define L_DECONV2D(name, input)		L_LAYER_SI(name, input, DECONV2D)
 #define L_BATCHNORM(name, input)	L_LAYER_SI(name, input, BATCHNORM)
+#define L_DILCONV2D(name, input)	L_LAYER_SI(name, input, DILCONV2D)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\

@@ -20,6 +20,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | Conv2D | Y | Y | Y | Y | Y | |
 | DeConv2D | Y | Y | Y | Y | Y | |
 | DepthwiseConv2D | Y | Y | Y | Y | Y | |
+| DilatedConv2D | Y | N | N | N | N | |
 | EltmentWise Max | Y | Y | Y | Y | Y | |
 | ReLU | Y | Y | Y | Y | Y | |
 | MaxPool1D | Y | Y | Y | Y | Y | based on MaxPool2D |
