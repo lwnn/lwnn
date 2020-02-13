@@ -110,7 +110,6 @@ extern "C" void convolve_HWC_ref_nonsquare(const float * Im_in,
 
 	s.wait();
 }
-
 #if 0
 extern "C" void dilated_convolve_HWC_ref_nonsquare(const float * Im_in,
 		const int dim_im_in_x,
@@ -149,7 +148,10 @@ extern "C" void dilated_convolve_HWC_ref_nonsquare(const float * Im_in,
 	memory::dims conv_bias_tz = {ch_im_out};
 	memory::dims conv_dst_tz = {batch, ch_im_out, dim_im_out_y, dim_im_out_x};
 	memory::dims conv_strides = {stride_y, stride_x};
-	memory::dims conv_padding = {padding_y, padding_x};
+	memory::dims conv_padding_l = {padding_y, padding_x};
+	int padding_r_y = (dim_im_out_y -1)*stride_y - dim_im_in_y + (1 + (dim_kernel_y - 1) * (dilation_y + 1)) - padding_y;
+	int padding_r_x = (dim_im_out_x -1)*stride_x - dim_im_in_x + (1 + (dim_kernel_x - 1) * (dilation_x + 1)) - padding_x;
+	memory::dims conv_padding_r = {padding_r_y, padding_r_x};
 	memory::dims conv_dilations = {dilation_y, dilation_x};
 
 	auto user_src_memory = memory({{usr_src_tz}, dt::f32, tag::nhwc}, eng, (void*)Im_in);
@@ -166,8 +168,8 @@ extern "C" void dilated_convolve_HWC_ref_nonsquare(const float * Im_in,
 
 	auto conv_desc = convolution_forward::desc(prop_kind::forward_inference,
 			algorithm::convolution_auto, conv_src_md, conv_weights_md,
-			conv_bias_md, conv_dst_md, conv_strides, conv_dilations, conv_padding,
-			conv_padding);
+			conv_bias_md, conv_dst_md, conv_strides, conv_dilations, conv_padding_l,
+			conv_padding_r);
 	auto conv_prim_desc = convolution_forward::primitive_desc(conv_desc, eng);
 
 	auto conv_src_memory = user_src_memory;
