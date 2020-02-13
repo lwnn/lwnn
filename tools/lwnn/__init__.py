@@ -1,10 +1,10 @@
 # LWNN - Lightweight Neural Network
 # Copyright (C) 2019  Parai Wang <parai@foxmail.com>
 
-__all__ = ['LWNNModel', 'load_feeds', 'Layer2Str']
+import glob
+import numpy as np
 
 def load_feeds(feeds_path, inputs):
-    inputs = model.converter.inputs
     feeds_ = {}
     for rawF in glob.glob('%s/*.raw'%(feeds_path)):
         raw = np.fromfile(rawF, np.float32)
@@ -55,5 +55,3 @@ def Layer2Str(layer):
             cstr += kv2s(k, v)
     cstr += '}\n'
     return cstr
-
-from .core import LWNNModel

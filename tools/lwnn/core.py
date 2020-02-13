@@ -1,7 +1,7 @@
 # LWNN - Lightweight Neural Network
 # Copyright (C) 2019  Parai Wang <parai@foxmail.com>
 
-from . import Layer2Str
+from . import *
 from .float import *
 from .qformat import *
 from lwnn2onnx import *
@@ -635,9 +635,12 @@ class LWNNModel():
         for ly in self.get_layers(layer['inputs']):
             L = self.clone_layer(ly)
             inputs = self.get_layers(L['inputs'])
+            for inp in inputs:
+                if(inp['op'] == 'Input'):
+                    L['image_shape'] = inp['shape']
+                else:
+                    L['feature_shape'] = inp['shape']
             L['inputs'] = []
-            L['feature_shape'] = inputs[0]['shape']
-            L['image_shape'] = inputs[1]['shape']
             model.append(L)
         model.append(self.clone_layer(layer))
         return model

@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 import glob
 import liblwnn as lwnn
-from lwnn import *
+from lwnn import load_feeds,Layer2Str
 # ref https://pytorch.org/docs/stable/_modules/torch/nn/quantized/functional.html
 import torch
 from verifyoutput import *
@@ -149,7 +149,7 @@ class Lwnn2Torch():
         elif(attr_default is not None):
             return attr_default
         else:
-            raise Exception('attr %s not found for layer %s'%(attr_name, layer))
+            raise Exception('attr %s not found for layer %s'%(attr_name, Layer2Str(layer)))
 
     def run_LayerInput(self, layer):
         name = layer['name']
@@ -318,7 +318,7 @@ class Lwnn2Torch():
         feature_shape = np.asarray(layer['feature_shape'], np.int32)
         image_shape = np.asarray(layer['image_shape'], np.int32)
         variance = np.asarray(layer['variance'], np.float32)
-        max_sizes = self.get_attr(layer, 'max_size')
+        max_sizes = self.get_attr(layer, 'max_size', [])
         if(type(max_sizes) == float):
             max_sizes = [max_sizes]
         max_sizes = np.asarray(max_sizes, np.int32)

@@ -1,7 +1,7 @@
 # LWNN - Lightweight Neural Network
 # Copyright (C) 2020  Parai Wang <parai@foxmail.com>
 
-from lwnn import *
+from lwnn.core import *
 import os
 import numpy as np
 from lwnn2torch import lwnn2torch

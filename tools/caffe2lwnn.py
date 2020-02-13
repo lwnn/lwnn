@@ -1,7 +1,7 @@
 # LWNN - Lightweight Neural Network
 # Copyright (C) 2019  Parai Wang <parai@foxmail.com>
 
-from lwnn import *
+from lwnn.core import *
 import os
 os.environ['GLOG_minloglevel'] = '2'
 import caffe
@@ -104,8 +104,9 @@ class CaffeConverter():
 
     def to_LayerPriorBox(self, cly):
         layer = self.to_LayerCommon(cly)
-        layer['min_size'] = cly.prior_box_param.min_size[0]
-        layer['aspect_ratio'] = cly.prior_box_param.aspect_ratio[0]
+        layer['min_size'] = cly.prior_box_param.min_size
+        layer['max_size'] = self.get_field(cly.prior_box_param, 'max_size', [])
+        layer['aspect_ratio'] = cly.prior_box_param.aspect_ratio
         layer['variance'] = [v for v in cly.prior_box_param.variance]
         layer['offset'] = cly.prior_box_param.offset
         layer['flip'] = cly.prior_box_param.flip
@@ -220,13 +221,17 @@ class CaffeConverter():
         L = list(lwnn_model)
         L.reverse()
         for iname in layer['inputs']:
+            exist = False
             for ly in L:
                 for o in ly['outputs']:
                     if(o == iname):
                         inputs.append(ly['name'])
-                        if(len(inputs) == len(layer['inputs'])):
-                            # caffe may reuse top buffer to save memory
-                            return inputs
+                        exist = True
+                        break
+                if(exist):
+                    break
+            if(exist == False):
+                raise Exception("can't find %s for %s"%(iname, Layer2Str(layer)))
         return inputs
 
     def convert(self):
