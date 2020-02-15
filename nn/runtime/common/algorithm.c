@@ -159,6 +159,11 @@ int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size
 	strideY = outNHWC->H/inNHWC->H;
 	strideX = outNHWC->W/inNHWC->W;
 
+	if(pmask)
+	{
+		memset(pout, 0, NHWC_SIZE(*outNHWC)*type_size);
+	}
+
 	for(n=0; n<inNHWC->N; n++)
 	{
 		pout = APABO(pout, n*NHWC_SIZE(*outNHWC));

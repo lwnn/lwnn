@@ -82,6 +82,7 @@ if(__name__ == '__main__'):
     parser.add_argument('-Q', '--Q', help='number of Q', type=int, default=None, required=False)
     parser.add_argument('-S', '--S', help='value of Q Scale', type=int, default=None, required=False)
     parser.add_argument('-Z', '--Z', help='value of Q Zero Point', type=int, default=None, required=False)
+    parser.add_argument('-o', '--only_compared', help='show only compared result', default=False, action='store_true', required=False)
     args = parser.parse_args()
 
     if((args.type != 'float') and (args.Q == None)):
@@ -124,6 +125,6 @@ if(__name__ == '__main__'):
         parser.print_help()
         exit()
 
-    compare(golden, inp)
+    compare(golden, inp, onlyCompared=args.only_compared)
 
 

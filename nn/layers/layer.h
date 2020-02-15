@@ -59,6 +59,7 @@ extern "C" {
 #define L_OUTPUT(name, input)		L_LAYER_SI(name, input, OUTPUT)
 #define L_CONV2D(name, input)		L_LAYER_SI(name, input, CONV2D)
 #define L_RELU(name, input)			L_LAYER_SI(name, input, RELU)
+#define L_PRELU(name, input)		L_LAYER_SI(name, input, PRELU)
 #define L_MAXPOOL(name, input)		L_LAYER_SI(name, input, MAXPOOL)
 #define L_AVGPOOL(name, input)		L_LAYER_SI(name, input, AVGPOOL)
 #define L_RESHAPE(name, input)		L_LAYER_SI(name, input, RESHAPE)

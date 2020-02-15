@@ -11,6 +11,7 @@ class LWNNBaseC():
                 'Conv': self.gen_LayerConv,
                 'ConvTranspose': self.gen_LayerConvTranspose,
                 'Relu': self.gen_LayerRelu,
+                'PRelu': self.gen_LayerPRelu,
                 'MaxPool': self.gen_LayerMaxPool,
                 'AveragePool': self.gen_LayerAveragePool,
                 'Reshape': self.gen_LayerReshape,
@@ -143,7 +144,8 @@ class LWNNBaseC():
 
     def gen_blobs(self, layer, blobs):
         if((self.T in ['q8', 's8', 'q16']) and
-           (layer['op'] not in ['DetectionOutput', 'YoloOutput'])):
+           (layer['op'] not in ['DetectionOutput', 'YoloOutput', 'PRelu'])):
+            # for float and those fallback to float layers, no Q blob
             blobs = [self.get_Q_blob(layer)] + blobs
         for blob in blobs:
             self.gen_blob(*blob)
@@ -246,9 +248,15 @@ class LWNNBaseC():
         raise NotImplementedError()
     def gen_LayerConvTranspose(self, layer):
         raise NotImplementedError()
+
     def gen_LayerRelu(self, layer):
         self.gen_no_blobs(layer)
         self.fpC.write('L_RELU ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerPRelu(self, layer):
+        weights = layer['weights']
+        self.gen_blobs(layer, [('%s_W'%(layer['name']),weights)])
+        self.fpC.write('L_PRELU ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerMaxPool(self, layer):
         if('pads' not in layer):

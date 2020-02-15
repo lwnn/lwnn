@@ -636,7 +636,7 @@ class LWNNModel():
             L = self.clone_layer(ly)
             inputs = self.get_layers(L['inputs'])
             for inp in inputs:
-                if(inp['op'] == 'Input'):
+                if(inp['op'] in ['Input', 'Unsqueeze']):
                     L['image_shape'] = inp['shape']
                 else:
                     L['feature_shape'] = inp['shape']
@@ -749,8 +749,13 @@ class LWNNModel():
         for id,layer in enumerate(self.lwnn_model):
             if('inputs' in layer):
                 # check that inputs are before me
-                inputs = self.get_layers(layer['inputs'],self.lwnn_model[:id])
-                if(len(inputs) != len(layer['inputs'])):
+                LI = layer['inputs']
+                inputs = self.get_layers(LI,self.lwnn_model[:id])
+                eLI = []
+                for inp in LI:
+                    if(inp not in eLI):
+                        eLI.append(inp)
+                if(len(eLI) != len(inputs)):
                     raise Exception('layer %s inputs is not before me:\n%s'%(layer['name'], self))
 
     def prepare(self):

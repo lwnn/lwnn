@@ -24,6 +24,19 @@ static void relu_ref(float * data, size_t size)
 			data[i] = 0;
 	}
 }
+
+static void prelu_ref(float * data, size_t size, float* slope, int C)
+{
+	size_t  i;
+
+	for (i = 0; i < size; i++)
+	{
+		if (data[i] < 0) {
+			data[i] = slope[i%C]*data[i];
+		}
+	}
+}
+
 static int layer_cpu_float_activation_init(const nn_t* nn, const layer_t* layer)
 {
 	int r =0;
@@ -73,6 +86,13 @@ static int layer_cpu_float_activation_execute(const nn_t* nn, const layer_t* lay
 		case L_OP_RELU:
 			relu_ref(IN, sz);
 			break;
+		case L_OP_PRELU:
+		{
+			float* slope = (float*)layer->blobs[0]->blob;
+			assert(layer->blobs[0]->dims[0] == context->nhwc.C);
+			prelu_ref(IN, sz, slope, context->nhwc.C);
+			break;
+		}
 		default:
 			r = NN_E_INVALID_LAYER;
 			break;
@@ -97,6 +117,21 @@ int layer_cpu_float_RELU_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cpu_float_RELU_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_float_activation_deinit(nn, layer);
+}
+
+int layer_cpu_float_PRELU_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_activation_init(nn, layer);
+}
+
+int layer_cpu_float_PRELU_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_activation_execute(nn, layer);
+}
+
+void layer_cpu_float_PRELU_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_float_activation_deinit(nn, layer);
 }

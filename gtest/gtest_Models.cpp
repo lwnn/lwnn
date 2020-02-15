@@ -24,6 +24,9 @@
 
 #define NNT_VEHICLE_ATTR_NOT_FOUND_OKAY TRUE
 #define NNT_VEHICLE_ATTR_TOP1 0.9
+
+#define NNT_ENET_NOT_FOUND_OKAY TRUE
+#define NNT_ENET_TOP1 0.9
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	void* (*load_input)(nn_t* nn, const char* path, int id, size_t* sz);
@@ -36,10 +39,12 @@ static void* load_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_ssd_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_vehicle_attributes_recognition_barrier_0039_input(nn_t* nn, const char* path, int id, size_t* sz);
+static void* load_enet_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
 static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
 static int vehicle_attributes_recognition_barrier_0039_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
+static int enet_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
 const char* g_InputImagePath = NULL;
 
@@ -106,6 +111,19 @@ static const nnt_model_args_t nnt_vehicle_attributes_recognition_barrier_0039_ar
 NNT_CASE_DEF(VEHICLE_ATTR) =
 {
 	NNT_CASE_DESC_ARGS(vehicle_attributes_recognition_barrier_0039),
+};
+
+static const nnt_model_args_t nnt_enet_args =
+{
+	load_enet_input,
+	load_output,
+	enet_compare,
+	1
+};
+
+NNT_CASE_DEF(ENET) =
+{
+	NNT_CASE_DESC_ARGS(enet),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz)
@@ -208,6 +226,39 @@ static void* load_vehicle_attributes_recognition_barrier_0039_input(nn_t* nn, co
 
 	*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);
 	return (void*) input;
+}
+
+static void* load_enet_input(nn_t* nn, const char* path, int id, size_t* sz)
+{
+	image_t* im;
+	image_t* resized_im;
+	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
+
+	EXPECT_EQ(context->nhwc.C, 3);
+
+	if(g_InputImagePath != NULL)
+	{
+		printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
+		im = image_open(g_InputImagePath);
+		assert(im != NULL);
+		resized_im = image_resize(im, context->nhwc.W, context->nhwc.H);
+		assert(resized_im != NULL);
+		float* input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
+
+		for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc); i++)
+		{
+			input[i] = resized_im->data[i];
+		}
+		image_close(im);
+		image_close(resized_im);
+
+		*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);
+		return (void*) input;
+	}
+	else
+	{
+		return load_input(nn, path, id, sz);
+	}
 }
 
 static void* load_output(const char* path, int id, size_t* sz)
@@ -406,6 +457,11 @@ static int vehicle_attributes_recognition_barrier_0039_compare(nn_t* nn, int id,
 		printf("%s: %.3f, ", colors[i], out[i]);
 	}
 	printf("\n");
+	return 0;
+}
+
+static int enet_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg)
+{
 	return 0;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -646,3 +702,4 @@ NNT_MODEL_TEST_ALL(YOLOV3TINY)
 
 NNT_MODEL_TEST_ALL(VEHICLE_ATTR)
 
+NNT_MODEL_TEST_ALL(ENET)

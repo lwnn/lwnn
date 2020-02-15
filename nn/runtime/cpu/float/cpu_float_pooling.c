@@ -33,6 +33,7 @@ static void maxpooling(const float * Im_in,
 	int   i_ch_in, i_x, i_y;
 	int   k_x, k_y;
 	float max;
+	uint8_t idx=0;
 
 	for (i_ch_in = 0; i_ch_in < ch_im_in; i_ch_in++)
 	{
@@ -50,6 +51,10 @@ static void maxpooling(const float * Im_in,
 							if (Im_in[i_ch_in + ch_im_in * (k_x + k_y * dim_im_in_x)] > max)
 							{
 								max = Im_in[i_ch_in + ch_im_in * (k_x + k_y * dim_im_in_x)];
+								if(Mask_out != NULL) {
+									idx = (k_y-(i_y * stride_y - padding_y))*stride_x + \
+											(k_x-(i_x * stride_x - padding_x));
+								}
 							}
 						}
 					}
@@ -57,8 +62,7 @@ static void maxpooling(const float * Im_in,
 				Im_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = max;
 				if(Mask_out != NULL)
 				{
-					Mask_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = \
-							(k_y-(i_y * stride_y - padding_y))*stride_x + (k_x-(i_x * stride_x - padding_x));
+					Mask_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = idx;
 				}
 			}
 		}
@@ -77,8 +81,7 @@ static void avgpooling(const float * Im_in,
 		const int stride_y,
 		float * Im_out,
 		const int dim_im_out_x,
-		const int dim_im_out_y,
-		uint8_t* Mask_out)
+		const int dim_im_out_y)
 {
 	int   i_ch_in, i_x, i_y;
 	int   k_x, k_y;
@@ -102,11 +105,6 @@ static void avgpooling(const float * Im_in,
 					}
 				}
 				Im_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = sum/(dim_kernel_y*dim_kernel_x);
-				if(Mask_out != NULL)
-				{
-					Mask_out[i_ch_in + ch_im_in * (i_x + i_y * dim_im_out_x)] = \
-							(k_y-(i_y * stride_y - padding_y))*stride_x + (k_x-(i_x * stride_x - padding_x));
-				}
 			}
 		}
 	}
@@ -163,8 +161,7 @@ int pooling(const float * Im_in,
 				stride_y,
 				Im_out,
 				dim_im_out_x,
-				dim_im_out_y,
-				Mask_out);
+				dim_im_out_y);
 			break;
 		default:
 			r = NN_E_INVALID_LAYER;
@@ -249,7 +246,8 @@ static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 		M = (uint8_t*)context->out[1];
 	}
 
-	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n", layer->name,
+	NNLOG(NN_DEBUG, ("execute %s%s: kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n",
+					layer->name, M?" with mask":"",
 					knlY, knlX, padY, padX, strideY, strideX));
 
 

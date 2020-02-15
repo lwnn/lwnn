@@ -26,6 +26,7 @@ class CaffeConverter():
             self.layers = self.net.layer
         self.TRANSLATOR = {
             'Convolution': self.to_LayerConv,
+            'Deconvolution': self.to_LayerDeconvolution,
             'Permute': self.to_LayerTranspose,
             'PriorBox': self.to_LayerPriorBox,
             'DetectionOutput': self.to_LayerDetectionOutput,
@@ -33,11 +34,15 @@ class CaffeConverter():
             'Softmax': self.to_LayerSoftmax,
             'Pooling': self.to_LayerPooling,
             'BN': self.to_LayerBN,
+            'Eltwise': self.to_LayerEltwise,
+            'PReLU': self.to_LayerPReLU,
              }
         self.opMap = { 
-            'ReLU': 'Relu', 
+            'ReLU': 'Relu',
+            'PReLU': 'PRelu',
             'Flatten': 'Reshape',
             'BN':'BatchNormalization',
+            'Deconvolution':'ConvTranspose',
             }
 
     def to_LayerCommon(self, cly, op=None):
@@ -87,6 +92,25 @@ class CaffeConverter():
 
     def to_LayerConv(self, cly):
         layer = self.to_LayerCommon(cly, 'Conv')
+        name = layer['name']
+        params = self.model.params[name]
+        layer['weights'] = params[0].data
+        layer['bias'] = params[1].data
+        padW,padH = self.get_field_hw(cly.convolution_param, 'pad', 'pad_h', 'pad_w', [0,0])
+        layer['pads'] = [padW,padH,0,0]
+        layer['strides'] = self.get_field_hw(cly.convolution_param, 'stride', 'stride_h', 'stride_w', [1,1])
+        layer['group'] = self.get_field(cly.convolution_param, 'group', 1)
+        dilation = self.get_field(cly.convolution_param, 'dilation', None)
+        if(dilation != None):
+            if(len(dilation) == 1):
+                dilation = dilation[0]
+                layer['dilations'] = [dilation, dilation]
+            else:
+                 layer['dilations'] = dilation
+        return layer
+
+    def to_LayerDeconvolution(self, cly):
+        layer = self.to_LayerCommon(cly)
         name = layer['name']
         params = self.model.params[name]
         layer['weights'] = params[0].data
@@ -170,6 +194,22 @@ class CaffeConverter():
             raise NotImplementedError()
         return layer
 
+    def to_LayerEltwise(self, cly):
+        layer = self.to_LayerCommon(cly)
+        op = self.get_field(cly.eltwise_param, 'operation', caffe_pb2.EltwiseParameter.EltwiseOp.SUM)
+        if(op == caffe_pb2.EltwiseParameter.EltwiseOp.SUM):
+            op = 'Add'
+        else:
+            raise NotImplementedError()
+        layer['op']  = op
+        return layer
+
+    def to_LayerPReLU(self, cly):
+        layer = self.to_LayerCommon(cly)
+        params = self.model.params[layer['name']]
+        layer['weights'] = params[0].data
+        return layer
+
     def save(self, path):
         pass
 
@@ -207,6 +247,11 @@ class CaffeConverter():
                     outputs[n] = v.data
         for oname in self.model.outputs:
             outputs['%s_O'%(oname)] = outputs[oname]
+#         for n,v in outputs.items():
+#             if(len(v.shape) == 4):
+#                 v = v.transpose(0,2,3,1)
+#             v.tofile('tmp/%s.raw'%(n))
+#         exit()
         return outputs
 
     def get_layers(self, names, lwnn_model):
@@ -301,7 +346,7 @@ if(__name__ == '__main__'):
     import argparse
     parser = argparse.ArgumentParser(description='convert caffe to lwnn')
     parser.add_argument('-i', '--input', help='input caffe model', type=str, required=True)
-    parser.add_argument('-w', '--weights', help='input caffe weights', type=str, required=True)
+    parser.add_argument('-w', '--weights', help='input caffe weights', type=str, default=None, required=False)
     parser.add_argument('-o', '--output', help='output lwnn model', type=str, default=None, required=False)
     parser.add_argument('-r', '--raw', help='input raw directory', type=str, default=None, required=False)
     args = parser.parse_args()

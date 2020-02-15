@@ -33,6 +33,7 @@ int pooling(const float * Im_in,
 		const int dim_im_out_y,
 		layer_operation_t op,
 		uint8_t* Mask_out);
+extern int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size, uint8_t* pmask);
 }
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
@@ -44,11 +45,12 @@ void set_log_level(int level)
 	nn_set_log_level(level);
 }
 
-py::array_t<float> MaxPool2d(py::array_t<float> input, /* NCHW */
+py::object MaxPool2d(py::array_t<float> input, /* NCHW */
 		py::array_t<int> kernel_size,
 		py::array_t<int> stride,
 		py::array_t<int> padding,
-		py::array_t<int> output_shape /* NCHW */) {
+		py::array_t<int> output_shape, /* NCHW */
+		bool with_mask) {
 	py::buffer_info buf_in = input.request();
 
 	if (buf_in.ndim != 4)
@@ -84,11 +86,11 @@ py::array_t<float> MaxPool2d(py::array_t<float> input, /* NCHW */
 
 	NNLOG(NN_DEBUG, (" stride = [%d %d]\n", stride_y, stride_x));
 
-	auto result = py::array_t<float>({
+	auto result_data = py::array_t<float>({
 				(size_t)batches, (size_t)ch_im_out,
 				(size_t)dim_im_out_y, (size_t)dim_im_out_x});
 
-	py::buffer_info buf_out = result.request();
+	py::buffer_info buf_out = result_data.request();
 
 	NNLOG(NN_DEBUG, ("  buf_in stride(%d) = [%d %d %d %d],", (int)buf_in.strides.size(),
 			(int)buf_in.strides[0], (int)buf_in.strides[1],
@@ -102,6 +104,11 @@ py::array_t<float> MaxPool2d(py::array_t<float> input, /* NCHW */
 
 	float * in = new float[batches*batch_sizeIn];
 	float * o  = new float[batches*batch_sizeO];
+	uint8_t * mask = NULL;
+
+	if(with_mask) {
+		mask = new uint8_t[batches*batch_sizeO];
+	}
 
 	NHWC_t inhwc = { batches, dim_im_in_y, dim_im_in_x, ch_im_in };
 	alg_transpose(in, IN, &inhwc, sizeof(float), ALG_TRANSPOSE_FROM_NCHW_TO_NHWC);
@@ -110,6 +117,10 @@ py::array_t<float> MaxPool2d(py::array_t<float> input, /* NCHW */
 
 	for(int batch=0; batch<batches; batch++)
 	{
+		uint8_t *M = NULL;
+		if(with_mask) {
+			M = mask+batch_sizeO*batch;
+		}
 		pooling(in+batch_sizeIn*batch,
 				dim_im_in_x, dim_im_in_y,
 				ch_im_in, ch_im_out,
@@ -119,7 +130,7 @@ py::array_t<float> MaxPool2d(py::array_t<float> input, /* NCHW */
 				o+batch_sizeO*batch,
 				dim_im_out_x,dim_im_out_y,
 				L_OP_MAXPOOL,
-				NULL);
+				M);
 	}
 
 	NHWC_t onhwc = { batches, dim_im_out_y, dim_im_out_x, ch_im_out };
@@ -129,6 +140,77 @@ py::array_t<float> MaxPool2d(py::array_t<float> input, /* NCHW */
 
 	delete in;
 	delete o;
+	if(with_mask) {
+		auto result_mask = py::array_t<uint8_t>({
+					(size_t)batches, (size_t)ch_im_out,
+					(size_t)dim_im_out_y, (size_t)dim_im_out_x});
+
+		py::buffer_info buf_mask = result_mask.request();
+		uint8_t *O_mask = (uint8_t *) buf_mask.ptr;
+		alg_transpose(O_mask, mask, &onhwc, sizeof(uint8_t), ALG_TRANSPOSE_FROM_NHWC_TO_NCHW);
+		py::list result;
+		result.append(result_data);
+		result.append(result_mask);
+		delete mask;
+		return result;
+	}
+
+	return result_data;
+}
+
+py::object Upsample2d(py::array_t<float> input, /* NCHW */
+		py::array_t<int> output_shape, /* NCHW */
+		py::array_t<uint8_t> mask) {
+	py::buffer_info buf_in = input.request();
+
+	if (buf_in.ndim != 4)
+		throw std::runtime_error("Number of dimensions must be 4");
+
+	int N = buf_in.shape[0];
+	int iH = buf_in.shape[2];
+	int iW = buf_in.shape[3];
+	int iC = buf_in.shape[1];
+
+	int oH = (int)output_shape.at(2);
+	int oW = (int)output_shape.at(3);
+	int oC = (int)output_shape.at(1);
+
+	auto result = py::array_t<float>({
+				(size_t)N, (size_t)oC,
+				(size_t)oH, (size_t)oW});
+
+	py::buffer_info buf_out = result.request();
+
+	float *IN = (float *) buf_in.ptr;
+	float *O = (float *) buf_out.ptr;
+	uint8_t *Mask_out = NULL;
+
+	float * in = new float[N*iH*iW*iC];
+	float * o  = new float[N*oH*oW*oC];
+	uint8_t * pmask = NULL;
+
+	NNLOG(NN_DEBUG, ("Upsample2d%s:", mask.is_none()?"":" with mask"));
+
+	NHWC_t inhwc = { N, iH, iW, iC };
+
+	if(!mask.is_none()) {
+		py::buffer_info buf_mask = mask.request();
+		Mask_out = (uint8_t *) buf_mask.ptr;
+		pmask = new uint8_t[N*iH*iW*iC];
+		alg_transpose(pmask, Mask_out, &inhwc, sizeof(uint8_t), ALG_TRANSPOSE_FROM_NCHW_TO_NHWC);
+	}
+
+	alg_transpose(in, IN, &inhwc, sizeof(float), ALG_TRANSPOSE_FROM_NCHW_TO_NHWC);
+
+	NHWC_t onhwc = { N, oH, oW, oC };
+	alg_up_sampling(o, in, &onhwc, &inhwc, sizeof(float), pmask);
+	alg_transpose(O, o, &onhwc, sizeof(float), ALG_TRANSPOSE_FROM_NHWC_TO_NCHW);
+
+	delete in;
+	delete o;
+	if(pmask) {
+		delete pmask;
+	}
 
 	return result;
 }
@@ -283,7 +365,10 @@ PYBIND11_PLUGIN(liblwnn)
 	m.def("set_log_level", &set_log_level, "set lwnn log level");
 	m.def("MaxPool2d", &MaxPool2d, "lwnn functional MaxPool2d",
 			py::arg("input"), py::arg("kernel_size"), py::arg("stride"),
-			py::arg("padding"), py::arg("output_shape"));
+			py::arg("padding"), py::arg("output_shape"),
+			py::arg("with_mask")=false);
+	m.def("Upsample2d", &Upsample2d, "lwnn functional Upsample2d",
+			py::arg("input"), py::arg("output_shape"), py::arg("mask")=py::none());
 	m.def("PriorBox", &PriorBox, "lwnn functional PriorBox",
 			py::arg("feature_shape"), py::arg("image_shape"), py::arg("variance"),
 			py::arg("max_sizes"), py::arg("min_sizes"), py::arg("aspect_ratio"),

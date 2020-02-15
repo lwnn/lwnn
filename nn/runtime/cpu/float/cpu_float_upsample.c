@@ -29,12 +29,12 @@ int layer_cpu_float_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;
 	uint8_t* pmask = NULL;
 
-	NNLOG(NN_DEBUG, ("execute %s:",layer->name));
-
-	if(2 == input_context->nout)
+	if(NULL != layer->inputs[1])
 	{
-		pmask = (uint8_t*) input_context->out[1];
+		pmask = (uint8_t*) layer->inputs[1]->C->context->out[1];
 	}
+
+	NNLOG(NN_DEBUG, ("execute %s%s:",layer->name, pmask?" with mask":""));
 
 	r = alg_up_sampling(context->out[0], input_context->out[0], &context->nhwc, &input_context->nhwc, sizeof(float), pmask);
 

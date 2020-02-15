@@ -17,6 +17,7 @@ class Lwnn2Onnx():
             'Conv': self.to_LayerConv,
             'ConvTranspose':  self.to_LayerConv,
             'Relu': self.to_LayerCommon,
+            'PRelu': self.to_LayerCommon,
             'MaxPool': self.to_LayerCommon,
             'AveragePool': self.to_LayerCommon,
             'Reshape': self.to_LayerCommon,

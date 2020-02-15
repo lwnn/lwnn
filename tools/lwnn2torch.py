@@ -266,13 +266,20 @@ class Lwnn2Torch():
 
     def run_LayerMaxPool(self, layer):
         inp = self.get_layers(layer['inputs'])[0]
+        with_mask = False
+        if(len(layer['outputs']) == 2):
+            with_mask = True
         bottom = inp['top'][0]
         top = lwnn.MaxPool2d(bottom,
             kernel_size=LI(layer['kernel_shape']),
             stride=LI(layer['strides']), 
             padding=LI(layer['pads'] if 'pads' in layer else [0,0]),
-            output_shape=LI(layer['shape']))
-        layer['top'] = [top]
+            output_shape=LI(layer['shape']),
+            with_mask=with_mask)
+        if(with_mask):
+            layer['top'] = top
+        else
+            layer['top'] = [top]
 
     def run_LayerUpsample(self, layer):
         inp = self.get_layers(layer['inputs'])[0]

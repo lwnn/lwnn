@@ -179,13 +179,21 @@ void rte_save_raw(const char* name, void* data, size_t sz)
 {
 	FILE* fp;
 	fp = fopen(name, "wb");
-
+	size_t r = 0;
 	if(fp != NULL)
 	{
-		fwrite(data, sz, 1, fp);
+		r = fwrite(data, sz, 1, fp);
+		if(1 != r) {
+			r = fwrite(data, sz/2, 1, fp);
+		}
+		if(1 != r) {
+			r = fwrite(data, sz/4, 1, fp);
+		}
+
 		fclose(fp);
 	}
-	else
+
+	if(1 != r)
 	{
 		printf("failed to save raw %s\n", name);
 	}
