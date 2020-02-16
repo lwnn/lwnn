@@ -514,7 +514,7 @@ int rte_OPENCL_init(const nn_t* nn)
 		NNLOG(NN_DEBUG, ("Memory Usage:\n"));
 		STAILQ_FOREACH(i, &(rt->images), entry)
 		{
-			i->img = rte_cl_create_image2d(nn, i->H, i->W);
+			i->img = rte_cl_create_image2d(nn, i->H, i->W, i->ctype);
 			if(i->img == NULL)
 			{
 				r = NN_E_NO_MEMORY;
@@ -578,7 +578,7 @@ cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, const float* init_value)
 	return buffer;
 }
 
-cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W)
+cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W, cl_channel_type ctype)
 {
 	cl_int errNum;
 	cl_mem img2d;
@@ -587,7 +587,7 @@ cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W)
 	rte_cl_t* rt = (rte_cl_t*)nn->runtime;
 
 	fmt.image_channel_order = CL_RGBA;
-	fmt.image_channel_data_type = CL_FLOAT;
+	fmt.image_channel_data_type = ctype;
 
 	memset(&desc, 0, sizeof(desc));
 	desc.image_type = CL_MEM_OBJECT_IMAGE2D;
@@ -707,7 +707,8 @@ cl_mem rte_cl_create_image2d_from_blob(const nn_t* nn, const layer_blob_t* blob)
 	{
 		img2d = rte_cl_create_image2d(nn,
 					RTE_CL_NHWC_H(nhwc),
-					RTE_CL_NHWC_W(nhwc));
+					RTE_CL_NHWC_W(nhwc),
+					CL_FLOAT);
 		if(NULL != img2d)
 		{
 			r = rte_cl_image2d_copy_in(nn, img2d, (const float*)blob->blob, &nhwc);
@@ -884,7 +885,7 @@ int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz)
 	return r;
 }
 #ifdef ENABLE_CL_IMAGE_REUSE
-void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W)
+void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W, cl_channel_type ctype)
 {
 	int r;
 	rte_cl_image_t* image = NULL;
@@ -893,7 +894,7 @@ void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W)
 
 	STAILQ_FOREACH(i, &(rt->images), entry)
 	{
-		if(NULL == i->owner)
+		if((NULL == i->owner) && (i->ctype == ctype))
 		{
 			image = i;
 			break;
@@ -901,7 +902,7 @@ void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W)
 		else
 		{
 			r = rte_is_layer_consumed_from(nn, i->owner, layer);
-			if(FALSE == r)
+			if((FALSE == r) && (i->ctype == ctype))
 			{
 				image = i;
 				break;
@@ -917,6 +918,7 @@ void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W)
 			image->owner = layer;
 			image->H = H;
 			image->W = W;
+			image->ctype = ctype;
 			image->img = NULL;
 
 			STAILQ_INSERT_TAIL(&(rt->images), image, entry);
@@ -960,7 +962,8 @@ int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 		context->out[0] = (cl_mem)rte_cl_create_image2d(nn,
 #endif
 					RTE_CL_NHWC_H(context->nhwc),
-					RTE_CL_NHWC_W(context->nhwc));
+					RTE_CL_NHWC_W(context->nhwc),
+					CL_FLOAT);
 
 		if(NULL == context->out[0])
 		{

@@ -6,6 +6,7 @@
 #include "nn_test_util.h"
 #include "bbox_util.hpp"
 #include "image.h"
+#include <chrono>
 /* ============================ [ MACROS    ] ====================================================== */
 #define NNT_MNIST_NOT_FOUND_OKAY FALSE
 #define NNT_MNIST_TOP1 0.9
@@ -520,8 +521,14 @@ void ModelTestMain(runtime_type_t runtime,
 	int H,W,C,B;
 	int classes;
 
+	auto tcreate_s = std::chrono::high_resolution_clock::now();
 	nn_t* nn = nn_create(network, runtime);
 	ASSERT_TRUE(nn != NULL);
+	auto tcreate_e = std::chrono::high_resolution_clock::now();
+	double tcreate = std::chrono::duration_cast<std::chrono::nanoseconds>(tcreate_e-tcreate_s).count();
+
+	double trun_sum = 0;
+	size_t fps = 0;
 
 	if(NULL == nn)
 	{
@@ -601,8 +608,13 @@ void ModelTestMain(runtime_type_t runtime,
 
 		memcpy(inputs[0]->data, IN, sz_in);
 
+		auto trun_s = std::chrono::high_resolution_clock::now();
 		r = nn_predict(nn);
 		EXPECT_EQ(0, r);
+		auto trun_e = std::chrono::high_resolution_clock::now();
+
+		trun_sum = std::chrono::duration_cast<std::chrono::nanoseconds>(trun_e-trun_s).count();
+		fps ++;
 
 		if(0 == r)
 		{
@@ -701,6 +713,7 @@ void ModelTestMain(runtime_type_t runtime,
 		free(y_test);
 	}
 
+	printf("Create cost %.3fms , Inference cost avg %.3fms\n", tcreate/1000000, trun_sum/fps/1000000);
 }
 
 void NNTModelTestGeneral(runtime_type_t runtime,

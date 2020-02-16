@@ -5,6 +5,9 @@
 
 __kernel void upsample2d(
 		__read_only image2d_t in,
+#ifdef WITH_MASK
+		__read_only image2d_t in_mask,
+#endif
 		__write_only image2d_t out,
 		const int strideX,
 		const int strideY,
@@ -20,6 +23,15 @@ __kernel void upsample2d(
 	int iy = y/strideY;
 
 	float4 value = read_imagef(in, sampler, (int2)(ix,iy));
+	
+#ifdef WITH_MASK
+	int dx = (x/channles)%strideX;
+	int dy = y%strideY;
+	uint offset = dy*strideX + dx;
+	uint4 mask = read_imageui(in_mask, sampler, (int2)(ix,iy));
+	float4 zero = (float4)(0,0,0,0);
+	value = select(zero, value, mask==offset);
+#endif
 
 	write_imagef(out, (int2)(x,y), value);
 }

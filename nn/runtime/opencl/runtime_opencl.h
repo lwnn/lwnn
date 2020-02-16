@@ -40,6 +40,7 @@ typedef struct rte_cl_image
 	STAILQ_ENTRY(rte_cl_image) entry;
 	const layer_t* owner;
 	cl_mem img;
+	cl_channel_type ctype;
 	int H;
 	int W;
 } rte_cl_image_t;
@@ -69,7 +70,7 @@ typedef struct rte_cl_image
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
 cl_mem rte_cl_create_buffer(const nn_t* nn, size_t sz, const float* init_value);
-cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W);
+cl_mem rte_cl_create_image2d(const nn_t* nn, int H, int W, cl_channel_type ctype);
 int rte_cl_image2d_copy_in(const nn_t* nn, cl_mem img2d, const float* in, NHWC_t* nhwc);
 int rte_cl_image2d_copy_out(const nn_t* nn, cl_mem img2d, float* out, NHWC_t* nhwc);
 cl_mem rte_cl_create_image2d_from_blob(const nn_t* nn, const layer_blob_t* blob);
@@ -86,7 +87,7 @@ int rte_cl_set_layer_args(
 int rte_cl_execute_layer(const nn_t* nn, const layer_t* layer, rte_cl_global_work_type_t gwt, int run, NHWC_t* nhwc);
 int rte_cl_read_buffer(const nn_t* nn, cl_mem buffer, void* data, size_t sz);
 #ifdef ENABLE_CL_IMAGE_REUSE
-void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W);
+void* rte_cl_alloc_image2d(const nn_t* nn, const layer_t* layer, int H, int W, cl_channel_type ctype);
 #endif
 int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 		const char* program, const char* kernel, const char* option, size_t ctx_sz);

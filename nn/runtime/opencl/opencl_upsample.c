@@ -17,8 +17,14 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cl_UPSAMPLE_init(const nn_t* nn, const layer_t* layer)
 {
+	const char* option = NULL;
+	if(NULL != layer->inputs[1])
+	{
+		option = "-DWITH_MASK";
+	}
+
 	return rte_cl_create_layer_common(nn, layer,
-			OPENCL_PATH "upsample.cl", "upsample2d", NULL,
+			OPENCL_PATH "upsample.cl", "upsample2d", option,
 			sizeof(layer_cl_upsample_context_t));
 }
 int layer_cl_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
@@ -36,11 +42,20 @@ int layer_cl_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
 	strideY = context->nhwc.H/input_context->nhwc.H;
 	strideX = context->nhwc.W/input_context->nhwc.W;
 
-	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_C, 4,
+	if(NULL != layer->inputs[1]) {
+		r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_C, 5,
+					sizeof(cl_mem), &(input_context->out[0]),
+					sizeof(cl_mem), &(layer->inputs[1]->C->context->out[1]),
+					sizeof(cl_mem), &(context->out[0]),
+					sizeof(int), &strideX,
+					sizeof(int), &strideY);
+	} else {
+		r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_C, 4,
 					sizeof(cl_mem), &(input_context->out[0]),
 					sizeof(cl_mem), &(context->out[0]),
 					sizeof(int), &strideX,
 					sizeof(int), &strideY);
+	}
 
 	if(0 == r)
 	{
