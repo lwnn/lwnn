@@ -17,6 +17,10 @@ __kernel void conv2d(
 		const int padding_y,
 		const int stride_x,
 		const int stride_y,
+#ifdef IS_DILCONV2D
+		const int dilation_x,
+		const int dilation_y,
+#endif
 		const int N,
 		const int dim_im_out_y,
 		const int dim_im_out_x,
@@ -44,8 +48,13 @@ __kernel void conv2d(
 		out0 = read_imagef(bias, sampler, (int2)(c, 0));
 		for (knlY = 0; knlY < dim_kernel_y; knlY++) {
 			for (knlX = 0; knlX < dim_kernel_x; knlX++) {
+#ifdef IS_DILCONV2D
+				in_row = stride_y * y + knlY*dilation_y - padding_y;
+				in_col = stride_x * x + knlX*dilation_x - padding_x;
+#else
 				in_row = stride_y * y + knlY - padding_y;
 				in_col = stride_x * x + knlX - padding_x;
+#endif
 				if ((in_row >= 0) && (in_col >= 0) &&
 					(in_row < dim_im_in_y) && (in_col < dim_im_in_x)) {
 					for (l = 0; l < ch_im_in; l+=4) {

@@ -155,6 +155,7 @@ static void* load_ssd_input(nn_t* nn, const char* path, int id, size_t* sz)
 		{
 			input[i] = 0.007843*(resized_im->data[i]-127.5);
 		}
+
 		image_close(im);
 		image_close(resized_im);
 
@@ -245,9 +246,11 @@ static void* load_enet_input(nn_t* nn, const char* path, int id, size_t* sz)
 		assert(resized_im != NULL);
 		float* input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
 
-		for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc); i++)
-		{
-			input[i] = resized_im->data[i];
+		for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc)/3; i++)
+		{	/* BGR */
+			input[3*i] = resized_im->data[3*i+2];
+			input[3*i+1] = resized_im->data[3*i+1];
+			input[3*i+2] = resized_im->data[3*i];
 		}
 		image_close(im);
 		image_close(resized_im);
@@ -462,6 +465,39 @@ static int vehicle_attributes_recognition_barrier_0039_compare(nn_t* nn, int id,
 
 static int enet_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg)
 {
+	NHWC_t* nhwc = &(nn->network->outputs[0]->layer->C->context->nhwc);
+	const char* labels = "gtest/models/enet/cityscapes19.png";
+	image_t* color_im = image_open(labels);
+	if(color_im != NULL) {
+		image_t* im = image_create(nhwc->W, nhwc->H, 3);
+		for(int h=0; h<nhwc->H; h++) {
+			for(int w=0; w<nhwc->W; w++) {
+				int index = 0;
+				int offset = (h*nhwc->W+w)*nhwc->C;
+				float max = output[offset];
+				for(int c=1; c<nhwc->C; c++) {	/* argmax */
+					float value = output[offset+c];
+					if(value > max) {
+						max = value;
+						index = c;
+					}
+				}
+				uint32_t color = (color_im->data[3*index]<<16) + (color_im->data[3*index+1]<<8) + color_im->data[3*index+2];
+				image_draw_pixel(im, w, h, color);
+			}
+		}
+		image_save(im, "predictions.png");
+		printf("checking predictions.png for %s\n", g_InputImagePath?:"null");
+		#ifdef _WIN32
+		system("predictions.png");
+		#else
+		system("eog predictions.png");
+		#endif
+		image_close(im);
+		image_close(color_im);
+	} else {
+		printf("file %s not exists\n", labels);
+	}
 	return 0;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */

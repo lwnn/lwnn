@@ -144,7 +144,7 @@ class LWNNBaseC():
 
     def gen_blobs(self, layer, blobs):
         if((self.T in ['q8', 's8', 'q16']) and
-           (layer['op'] not in ['DetectionOutput', 'YoloOutput', 'PRelu'])):
+           (layer['op'] not in ['DetectionOutput', 'YoloOutput'])):
             # for float and those fallback to float layers, no Q blob
             blobs = [self.get_Q_blob(layer)] + blobs
         for blob in blobs:
