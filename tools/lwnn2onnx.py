@@ -5,7 +5,6 @@ import onnx
 import onnx.helper
 import onnx.numpy_helper
 import numpy as np
-from lwnn import Layer2Str
 
 __all__ = ['lwnn2onnx', 'Lwnn2Onnx']
 
@@ -16,27 +15,12 @@ class Lwnn2Onnx():
             'Input': self.to_LayerInput,
             'Conv': self.to_LayerConv,
             'ConvTranspose':  self.to_LayerConv,
-            'Relu': self.to_LayerCommon,
-            'PRelu': self.to_LayerCommon,
-            'MaxPool': self.to_LayerCommon,
-            'AveragePool': self.to_LayerCommon,
-            'Reshape': self.to_LayerCommon,
             'Dense': self.to_LayerDense,
-            'Concat': self.to_LayerCommon,
-            'Pad': self.to_LayerCommon,
-            'Softmax': self.to_LayerCommon,
-            'Add': self.to_LayerCommon,
-            'Upsample': self.to_LayerCommon,
             'BatchNormalization': self.to_LayerBatchNormalization,
             'Scale': self.to_LayerScale,
             'Normalize': self.to_LayerNormalize,
-            'Transpose': self.to_LayerCommon,
             'Const': self.to_LayerConst,
             'Gather': self.to_LayerGather,
-            'Squeeze': self.to_LayerCommon,
-            'Unsqueeze': self.to_LayerCommon,
-            'PriorBox': self.to_LayerCommon,
-            'DetectionOutput': self.to_LayerCommon,
             'Output': self.to_LayerOutput
             }
 
@@ -48,6 +32,8 @@ class Lwnn2Onnx():
             if((type(v) == np.ndarray) and (k not in initializer)):
                 initializer.append(k)
         for i in initializer:
+            if(i not in layer):
+                raise Exception('layer %s has no member %s'%(layer, i))
             self._initializer.append(onnx.numpy_helper.from_array(layer[i], '%s_%s'%(name, i)))
             inputs.append('%s_%s'%(name, i))
         for k,v in layer.items():
@@ -64,7 +50,7 @@ class Lwnn2Onnx():
                 inputs=inputs,
                 **attr)
         except Exception as e:
-            raise Exception('%s: %s'%(Layer2Str(layer), e))
+            raise Exception('%s: %s'%(layer, e))
         self._nodes.append(x)
 
     def to_LayerInput(self, layer):
@@ -206,7 +192,15 @@ class Lwnn2Onnx():
         self._inputs = []
         self._outputs = []
         for ly in self.lwnn_model:
-            self.TRANSLATOR[ly['op']](ly)
+            op = ly['op']
+            if(op in self.TRANSLATOR):
+                translator = self.TRANSLATOR[op]
+            else:
+                translator = self.to_LayerCommon
+            if(translator == self.to_LayerCommon):
+                self.to_LayerCommon(ly, []) # fix issue that sometimes initializer != []
+            else:
+                translator(ly)
         graph = onnx.helper.make_graph(
             nodes = self._nodes,
             name = 'lwnn',

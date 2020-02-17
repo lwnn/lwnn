@@ -84,10 +84,10 @@ class DarknetConverter():
 
     def to_LayerInput(self, cfg):
         shape = [1, eval(cfg['channels']), eval(cfg['height']), eval(cfg['width'])]
-        layer = { 'name': 'data', 
-                  'op': 'Input',
-                  'outputs' : ['data'],
-                  'shape':  shape }
+        layer = LWNNLayer(name='data', 
+                  op='Input',
+                  outputs=['data'],
+                  shape=shape)
         return layer
 
     def to_LayerConv(self, cfg):
@@ -133,6 +133,9 @@ class DarknetConverter():
                 layer['bias'] = c_b
             else:
                 raise Exception("don't know how to fuse for %s shape %s"%(layer['name'], c_w.shape))
+            del layer['scales']
+            del layer['rolling_mean']
+            del layer['rolling_variance']
         return layer
 
     def to_LayerShortcut(self, cfg):
@@ -214,12 +217,11 @@ class DarknetConverter():
         if(op in self.opMap):
             op = self.opMap[op]
         op = op[0].upper() + op[1:]
-        layer = { 'name': cfg.name, 
-                  'op': op,
-                  'outputs' : [cfg.name],
-                  'inputs' : [inp['name']],
-                  'shape': inp['shape']
-                }
+        layer = LWNNLayer(name=cfg.name, 
+                  op=op,
+                  outputs=[cfg.name],
+                  inputs=[inp['name']],
+                  shape=inp['shape'])
         for k,v in cfg.items():
             try:
                 v = eval(v)
@@ -251,20 +253,20 @@ class DarknetConverter():
         if(0 == len(self.yolos)):
             inp = self.lwnn_model[-1]
             oname = inp['name']
-            layer = { 'name': oname+'_O', 
-                      'op': 'Output',
-                      'inputs' : [oname],
-                      'outputs' : [oname+'_O'],
-                      'shape': inp['shape'] }
+            layer = LWNNLayer(name=oname+'_O', 
+                      op='Output',
+                      inputs=[oname],
+                      outputs=[oname+'_O'],
+                      shape=inp['shape'])
         else:
             classes = self.yolos[0]['classes']
             n = self.lwnn_model[0]['shape'][0]
-            layer = { 'name': 'YoloOutput', 
-                      'op': 'YoloOutput',
-                      'inputs' : [L['name'] for L in self.yolos],
-                      'outputs' : ['YoloOutput'],
-                      'shape': [n, 7 , classes*2, 1],
-                      'Output': True }
+            layer = LWNNLayer(name='YoloOutput', 
+                      op='YoloOutput',
+                      inputs=[L['name'] for L in self.yolos],
+                      outputs=['YoloOutput'],
+                      shape=[n, 7 , classes*2, 1],
+                      Output=True)
         self.lwnn_model.append(layer)
 
     def convert(self):

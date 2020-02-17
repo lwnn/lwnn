@@ -28,30 +28,3 @@ def load_feeds(feeds_path, inputs):
         feeds[n] = v
     return feeds
 
-def Layer2Str(layer):
-    order = ['name', 'op', 'shape','inputs', 'outputs', 'weights','bias']
-    def kv2s(k, v):
-        cstr = ''
-        try:
-            cstr += '%s: %s, '%(k, v.shape)
-        except:
-            if(k in ['top', 'topq']):
-                cstr += '%s: [ '%(k)
-                for top in v:
-                    try:
-                        cstr += '%s, '%(str(top.shape))
-                    except:
-                        cstr += '%s, '%(top)
-                cstr += '], '
-            else:
-                cstr += '%s: %s, '%(k,v)
-        return cstr
-    cstr = '{'
-    for k in order:
-        if(k in layer):
-            cstr += kv2s(k, layer[k])
-    for k,v in layer.items():
-        if(k not in order):
-            cstr += kv2s(k, v)
-    cstr += '}\n'
-    return cstr

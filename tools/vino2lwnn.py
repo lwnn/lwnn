@@ -120,12 +120,11 @@ class VinoConverter():
 
     def to_LayerCommon(self, vly, op=None):
         name = str(vly.name)
-        layer = { 'name':name,
-                  'outputs': vly.outputs(),
-                  'inputs': vly.inputs(),
-                  'shape': vly.shape(),
-                  'id': vly.id
-                }
+        layer = LWNNLayer(name=name,
+                  outputs=vly.outputs(),
+                  inputs=vly.inputs(),
+                  shape=vly.shape(),
+                  id=vly.id)
         if(op == None):
             op = str(vly.type)
         if(op in self.opMap):

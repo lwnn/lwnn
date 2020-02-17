@@ -8,7 +8,6 @@ import caffe
 from caffe.proto import caffe_pb2
 from google.protobuf import text_format
 import numpy as np
-import glob
 
 __all__ = ['caffe2lwnn']
 
@@ -48,11 +47,10 @@ class CaffeConverter():
     def to_LayerCommon(self, cly, op=None):
         name = str(cly.name)
         blob = self.model.blobs[cly.top[0]]
-        layer = { 'name':name,
-                  'outputs': [str(o) for o in cly.top],
-                  'inputs': [str(o) for o in cly.bottom],
-                  'shape': list(blob.data.shape)
-                }
+        layer = LWNNLayer(name=name,
+                  outputs=[str(o) for o in cly.top],
+                  inputs=[str(o) for o in cly.bottom],
+                  shape=list(blob.data.shape))
         if(op == None):
             op = str(cly.type)
         if(op in self.opMap):
@@ -276,7 +274,7 @@ class CaffeConverter():
                 if(exist):
                     break
             if(exist == False):
-                raise Exception("can't find %s for %s"%(iname, Layer2Str(layer)))
+                raise Exception("can't find %s for %s"%(iname, layer))
         return inputs
 
     def convert(self):
@@ -293,10 +291,10 @@ class CaffeConverter():
             iname = str(iname)
             layers = self.get_layers([iname], lwnn_model)
             if(len(layers) == 0):
-                layer = { 'name': iname, 
-                          'op': 'Input',
-                          'outputs' : [iname],
-                          'shape': self.model.blobs[iname].data.shape }
+                layer = LWNNLayer(name=iname, 
+                          op='Input',
+                          outputs=[iname],
+                          shape=self.model.blobs[iname].data.shape)
                 lwnn_model.insert(0, layer)
         for oname in self.model.outputs:
             oname = str(oname)
@@ -305,11 +303,11 @@ class CaffeConverter():
                 if(oname in ly['outputs']):
                     inp = ly
                     break
-            layer = { 'name': oname+'_O', 
-                      'op': 'Output',
-                      'inputs' : [inp['name']],
-                      'outputs' : [oname+'_O'],
-                      'shape': inp['shape'] }
+            layer = LWNNLayer(name=oname+'_O', 
+                      op='Output',
+                      inputs=[inp['name']],
+                      outputs=[oname+'_O'],
+                      shape=inp['shape'])
             lwnn_model.append(layer)
         for id,ly in enumerate(lwnn_model):
             if('inputs' in ly):

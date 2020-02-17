@@ -136,7 +136,7 @@ class OnnxConverter():
             name = node.input[0]+'_identity'
         else:
             name = node.name
-        layer = {'name': name, 'op': node.op_type, 'inputs':self.get_inputs(node), 'outputs':node.output}
+        layer = LWNNLayer(name=name, op=node.op_type, inputs=self.get_inputs(node), outputs=node.output)
         layer['shape'] = self.get_shape(node)
         for attr in node.attribute:
             layer[attr.name] = onnx.helper.get_attribute_value(attr)
@@ -187,10 +187,10 @@ class OnnxConverter():
             shape = [int(dim.dim_value) for dim in inp.type.tensor_type.shape.dim]
             if(shape[0] == 0):
                 shape[0] = 1
-            layer = {'name': inp.name, 
-                     'op': 'Input',
-                     'outputs' : [inp.name],
-                     'shape': shape }
+            layer = LWNNLayer(name=inp.name, 
+                     op='Input',
+                     outputs=[inp.name],
+                     shape=shape)
             lwnn_model.append(layer)
         for node in self.onnx_model.graph.node:
             if(node.op_type in self.TRANSLATOR):
@@ -208,11 +208,11 @@ class OnnxConverter():
                 if(out.name in ly['outputs']):
                     inp = ly
                     break
-            layer = {'name': out.name+'_output',
-                     'op': 'Output',
-                     'inputs': [inp['name']],
-                     'outputs' : [out.name],
-                     'shape': inp['shape'] }
+            layer = LWNNLayer(name=out.name+'_output',
+                     op='Output',
+                     inputs=[inp['name']],
+                     outputs=[out.name],
+                     shape=inp['shape'])
             lwnn_model.append(layer)
         return lwnn_model
 

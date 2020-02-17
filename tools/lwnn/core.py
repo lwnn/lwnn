@@ -8,6 +8,43 @@ from lwnn2onnx import *
 import pickle
 import traceback
 
+class LWNNLayer(dict):
+    def __init__(self, **kwargs):
+        try:
+            super().__init__()
+        except:
+            dict.__init__(self)
+        for k,v in kwargs.items():
+            self[k] = v
+
+    def __str__(self):
+        order = ['name', 'op', 'shape','inputs', 'outputs', 'weights','bias']
+        def kv2s(k, v):
+            cstr = ''
+            try:
+                cstr += '%s: %s, '%(k, v.shape)
+            except:
+                if(k in ['top', 'topq']):
+                    cstr += '%s: [ '%(k)
+                    for top in v:
+                        try:
+                            cstr += '%s, '%(str(top.shape))
+                        except:
+                            cstr += '%s, '%(top)
+                    cstr += '], '
+                else:
+                    cstr += '%s: %s, '%(k,v)
+            return cstr
+        cstr = '{'
+        for k in order:
+            if(k in self):
+                cstr += kv2s(k, self[k])
+        for k,v in self.items():
+            if(k not in order):
+                cstr += kv2s(k, v)
+        cstr += '}'
+        return cstr
+
 class LWNNModel():
     def __init__(self, converter, name):
         self.OPTIMIER = [
@@ -62,6 +99,7 @@ class LWNNModel():
             lwnn2onnx(self.omodel, '%s.lwnn.onnx'%(self.path))
         except:
             traceback.print_exc()
+            exit()
         try:
             pickle.dump(self.lwnn_model, open('%s.pkl'%(self.path), 'wb'), True)
         except Exception as e:
@@ -84,7 +122,7 @@ class LWNNModel():
         return outputs
 
     def clone_layer(self, layer):
-        L = {}
+        L = LWNNLayer()
         for k,v in layer.items():
             if(type(v) in [list, tuple]):
                 L[k] = list(v)
@@ -772,5 +810,5 @@ class LWNNModel():
             model = self.lwnn_model
         cstr = 'LWNN Model %s:\n'%(self.name)
         for layer in model:
-            cstr += ' ' + Layer2Str(layer)
+            cstr += ' %s\n'%(layer)
         return cstr
