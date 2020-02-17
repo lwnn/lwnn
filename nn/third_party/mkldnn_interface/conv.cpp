@@ -109,6 +109,23 @@ extern "C" void convolve_HWC_ref_nonsquare(const float * Im_in,
 	}
 
 	s.wait();
+
+	switch(act) {
+		case L_ACT_RELU:
+			for(int i=0; i<dim_im_out_x*dim_im_out_y*ch_im_out; i++) {
+				if(Im_out[i] < 0)
+					Im_out[i] = 0;
+			}
+			break;
+		case L_ACT_LEAKY:
+			for(int i=0; i<dim_im_out_x*dim_im_out_y*ch_im_out; i++) {
+				if(Im_out[i] < 0)
+					Im_out[i] = 0.1*Im_out[i];
+			}
+			break;
+		default:
+			break;
+	}
 }
 #if 0
 extern "C" void dilated_convolve_HWC_ref_nonsquare(const float * Im_in,
