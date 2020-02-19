@@ -54,7 +54,6 @@ class LWNNModel():
             (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
             (self.opt_IsLayerFakeQuantize, self.opt_LayerFakeQuantize, None),
             (self.opt_IsLayerHasInitializer, self.opt_LayerHasInitializer, None),
-            (self.opt_IsLayerBeforeReshape, self.opt_LayerBeforeReshape, None),
             (self.opt_IsLayerDense, self.opt_LayerDense, None),
             (self.opt_IsLayerConv1D, self.opt_LayerConv1D, None),
             (self.opt_IsLayerPooling1D, self.opt_LayerPooling1D, None),
@@ -427,28 +426,6 @@ class LWNNModel():
         self.permute_shape(softmax)
         return False
 
-    def opt_IsLayerBeforeReshape(self, layer):
-        r = False
-        consumers = self.get_consumers(layer)
-        if((len(consumers) == 2) and
-           self.is_there_op(consumers, 'Reshape')):
-            r = True
-        return r
-
-    def opt_LayerBeforeReshape(self, layer):
-        consumers = self.get_consumers(layer)
-        if(consumers[0]['op'] == 'Reshape'):
-            to = consumers[0]
-            fr = consumers[1]
-        else:
-            to = consumers[1]
-            fr = consumers[0]
-
-        layers = self.get_between_layers(fr, to)
-        for ly in [layer]+layers:
-            self.opt_RemoveLayer(ly)
-        return True
-
     def opt_IsLayerIdentity(self, layer):
         r = False
         if(layer['op'] == 'Identity'):
@@ -646,8 +623,6 @@ class LWNNModel():
         r = False
         if((layer['op'] == 'Conv') and (len(layer['inputs']) > 1)):
             r = True
-        elif((layer['op'] == 'Gather') and (len(layer['inputs']) > 1)):
-            r = True
         return r
 
     def opt_IsLayerTransposeCanBeRemoved(self, layer):
@@ -689,7 +664,7 @@ class LWNNModel():
         const = outputs[oname]
         const = np.array(const, np.float32)
         layer['ConcatOnPriorBox'] = True
-        layer['op'] = 'Const'
+        layer['op'] = 'Constant'
         layer['inputs'] = []
         layer['const'] = const 
         return True
@@ -749,9 +724,6 @@ class LWNNModel():
             else:
                 M = layer['weights'].shape[0]
                 layer['bias'] = np.zeros((M), np.float32)
-        elif(op == 'Gather'):
-            layer['inputs'] = [inputs[0]['name']]
-            layer['indices'] = inputs[1]['const']
         return True
 
     def opt_IsTrainingOperators(self, layer):

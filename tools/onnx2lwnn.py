@@ -3,6 +3,7 @@
 
 from lwnn.core import *
 import onnx
+from onnx.shape_inference import infer_shapes
 import onnxruntime
 import numpy as np
 
@@ -16,6 +17,8 @@ class OnnxConverter():
                 'BatchNormalization': self.to_LayerBatchNormalization,
                 'MatMul': self.to_LayerMatMul,
                 'Resize': self.to_LayerUpsample,
+                'Reshape': self.to_LayerReshape,
+                'Constant': self.to_LayerConstant,
                 'Add': self.to_LayerAdd }
         if(type(onnx_model) == str):
             onnx_model = onnx.load(onnx_model)
@@ -37,9 +40,13 @@ class OnnxConverter():
         inputs = []
         # order is important for some layers such as Concat
         for iname in node.input:
+            try:
+                _ = self.get_initializer(iname)
+                continue
+            except:
+                pass
             for inp in self.onnx_model.graph.input:
                 if(inp.name == iname):
-                    print(' ', inp.name)
                     inputs.append(inp.name)
             for node2 in self.onnx_model.graph.node:
                 for out in node2.output:
@@ -50,34 +57,20 @@ class OnnxConverter():
                             inputs.append(node2.name)
         return inputs
 
-    def eval_node_output_type(self, output):
-        # TODO: yes, this sounds stupid, is there anyway better?
-        def is_type_okay(oT):
-            oldoutputs = [n for n in self.onnx_model.graph.output]
-            del self.onnx_model.graph.output[:]
-            newoutputs = [onnx.helper.make_tensor_value_info(output, oT, None)]
-            self.onnx_model.graph.output.extend(newoutputs)
-            onnx.save(self.onnx_model, '.tmp.onnx')
-            del self.onnx_model.graph.output[:]
-            self.onnx_model.graph.output.extend(oldoutputs)
-            try:
-                sess = onnxruntime.InferenceSession('.tmp.onnx')
-                return True
-            except:
-                return False
-        for oT in [onnx.TensorProto.FLOAT, onnx.TensorProto.INT64, onnx.TensorProto.INT32]:
-            if(is_type_okay(oT)):
-                return oT
-        raise Exception("can't determint output type for %s"%(output))
-
     def run(self, feed=None, **kwargs):
+        model2 = infer_shapes(self.onnx_model)
+        output_types = {}
+        for vinfo in list(model2.graph.value_info) + \
+                     list(model2.graph.output) + \
+                     list(model2.graph.input):
+            output_types[vinfo.name] = vinfo.type.tensor_type.elem_type
         outputs = {}
         oldoutputs = [n for n in self.onnx_model.graph.output]
         del self.onnx_model.graph.output[:]
         newoutputs = []
         for node in self.onnx_model.graph.node:
             for output in node.output:
-                oT = self.eval_node_output_type(output)
+                oT = output_types[output]
                 newoutputs.append(onnx.helper.make_tensor_value_info(output, oT, None))
         self.onnx_model.graph.output.extend(newoutputs)
 
@@ -108,6 +101,7 @@ class OnnxConverter():
         rs = sess.run(None, feed)
         for r,o in zip(rs, newoutputs):
             outputs[o.name] = r
+
         return outputs
 
     def eval_shapes(self):
@@ -120,16 +114,33 @@ class OnnxConverter():
     def get_shape(self, node):
         return self.shapes[node.output[0]]
 
+    def tensor2numpy(self, tensor):
+        if(tensor.data_type == onnx.TensorProto.FLOAT):
+            dtype, data = np.float32, tensor.float_data
+        elif(tensor.data_type == onnx.TensorProto.INT32):
+            dtype, data = np.int32, tensor.int32_data
+        elif(tensor.data_type == onnx.TensorProto.INT64):
+            dtype, data = np.int64, tensor.int64_data
+        else:
+            raise NotImplemented('Type %s not supported'%(tensor.data_type))
+        if(len(data) > 0):
+            array = np.asarray(data, dtype=np.float32).reshape(tensor.dims)
+        else:
+            array = np.ndarray(
+                                shape=tensor.dims,
+                                dtype=dtype,
+                                buffer=tensor.raw_data)
+        return np.copy(array)
+
     def get_initializer(self, name):
         for init in self.onnx_model.graph.initializer:
             if(name == init.name):
-                return init
+                return self.tensor2numpy(init)
         raise Exception('ERROR: weights %s is not found'%(name))
 
     def get_weights(self, layer, node, wl):
         for id,name in enumerate(wl):
-            W = self.get_initializer(node.input[id+1])
-            layer[name] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
+            layer[name] = self.get_initializer(node.input[id+1])
 
     def to_LayerCommon(self, node):
         if(node.op_type == 'Identity'):
@@ -139,7 +150,10 @@ class OnnxConverter():
         layer = LWNNLayer(name=name, op=node.op_type, inputs=self.get_inputs(node), outputs=node.output)
         layer['shape'] = self.get_shape(node)
         for attr in node.attribute:
-            layer[attr.name] = onnx.helper.get_attribute_value(attr)
+            v = onnx.helper.get_attribute_value(attr)
+            if(type(v) == onnx.TensorProto):
+                v = self.tensor2numpy(v)
+            layer[attr.name] = v
         return layer
 
     def to_LayerConv(self, node):
@@ -147,10 +161,13 @@ class OnnxConverter():
         if('pads' not in layer):
             layer['pads'] = [0,0,0,0]
         W = self.get_initializer(node.input[1])
-        B = self.get_initializer(node.input[2])
-        layer['filters'] = int(W.dims[0])
-        layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
-        layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
+        layer['weights'] = W
+        if(len(node.input) > 2):
+            layer['bias'] = self.get_initializer(node.input[2])
+        else:
+            nF = W.shape[0]
+            layer['bias'] = np.zeros((nF), np.float32)
+        layer['filters'] = int(W.shape[0])
         return layer
 
     def to_LayerConvTranspose(self, node):
@@ -163,8 +180,7 @@ class OnnxConverter():
 
     def to_LayerMatMul(self, node):
         layer = self.to_LayerCommon(node)
-        W = self.get_initializer(node.input[1])
-        layer['weights'] = np.asarray(W.float_data, dtype=np.float32).reshape(W.dims)
+        layer['weights'] = self.get_initializer(node.input[1])
         return layer
 
     def to_LayerUpsample(self, node):
@@ -172,11 +188,21 @@ class OnnxConverter():
         layer['op'] = 'Upsample'
         return layer
 
+    def to_LayerConstant(self, node):
+        layer = self.to_LayerCommon(node)
+        layer['const'] = layer['value']
+        del layer['value']
+        return layer
+
+    def to_LayerReshape(self, node):
+        layer = self.to_LayerCommon(node)
+        layer['inputs'] = layer['inputs'][:1]
+        return layer
+
     def to_LayerAdd(self, node):
         layer = self.to_LayerCommon(node)
         try:
-            B = self.get_initializer(node.input[1])
-            layer['bias'] = np.asarray(B.float_data, dtype=np.float32).reshape(B.dims)
+            layer['bias'] = self.get_initializer(node.input[1])
         except:
             pass
         return layer
@@ -185,6 +211,8 @@ class OnnxConverter():
         lwnn_model = []
         for inp in self.onnx_model.graph.input:
             shape = [int(dim.dim_value) for dim in inp.type.tensor_type.shape.dim]
+            if(len(shape) == 0):
+                continue
             if(shape[0] == 0):
                 shape[0] = 1
             layer = LWNNLayer(name=inp.name, 

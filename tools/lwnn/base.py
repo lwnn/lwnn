@@ -25,7 +25,7 @@ class LWNNBaseC():
                 'Yolo': self.gen_LayerYolo,
                 'YoloOutput': self.gen_LayerYoloOutput,
                 'DetectionOutput': self.gen_LayerDetectionOutput,
-                'Const': self.gen_LayerConst,
+                'Constant': self.gen_LayerConst,
                 'Output': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -160,7 +160,7 @@ class LWNNBaseC():
     def get_blob_type(self, blob):
         if(blob.dtype == np.float32):
             return 'float'
-        elif(blob.dtype == np.int32):
+        elif((blob.dtype == np.int32) or (blob.dtype == np.int64)):
             return 'int32_t'
         elif(blob.dtype == np.int16):
             return 'int16_t'

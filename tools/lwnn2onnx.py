@@ -19,8 +19,7 @@ class Lwnn2Onnx():
             'BatchNormalization': self.to_LayerBatchNormalization,
             'Scale': self.to_LayerScale,
             'Normalize': self.to_LayerNormalize,
-            'Const': self.to_LayerConst,
-            'Gather': self.to_LayerGather,
+            'Constant': self.to_LayerConst,
             'Output': self.to_LayerOutput
             }
 
@@ -37,7 +36,7 @@ class Lwnn2Onnx():
             self._initializer.append(onnx.numpy_helper.from_array(layer[i], '%s_%s'%(name, i)))
             inputs.append('%s_%s'%(name, i))
         for k,v in layer.items():
-            if(k not in ['name', 'outputs', 'inputs', 'op']+initializer):
+            if(k not in ['name', 'outputs', 'inputs', 'op', 'shape']+initializer):
                 attr[k] = v
         for k,v in kwargs.items(): # handle default attr
             if(k not in layer):
@@ -52,10 +51,15 @@ class Lwnn2Onnx():
         except Exception as e:
             raise Exception('%s: %s'%(layer, e))
         self._nodes.append(x)
+        vinfo = onnx.helper.make_tensor_value_info(
+                name,
+                onnx.TensorProto.FLOAT, 
+                layer['shape'])
+        self._value_info.append(vinfo)
 
     def to_LayerInput(self, layer):
         x = onnx.helper.make_tensor_value_info(
-            layer['name'], 
+            layer['name'],
             onnx.TensorProto.FLOAT,
             layer['shape'])
         self._inputs.append(x)
@@ -124,19 +128,22 @@ class Lwnn2Onnx():
                         'Relu',
                         name = name,
                         inputs = [conv_name],
-                        outputs = [name],
-                        shape = shape)
+                        outputs = [name])
             elif(activation == 'leaky'):
                 x = onnx.helper.make_node(
                         'LeakyRelu',
                         name = name,
                         inputs = [conv_name],
                         outputs = [name],
-                        alpha=self.get_attr(layer, 'alpha', 0.1),
-                        shape = shape)
+                        alpha=self.get_attr(layer, 'alpha', 0.1))
             else:
                 raise NotImplementedError('activation %s is not supported'%(activation))
             self._nodes.append(x)
+        vinfo = onnx.helper.make_tensor_value_info(
+                name,
+                onnx.TensorProto.FLOAT, 
+                shape)
+        self._value_info.append(vinfo)
 
     def to_LayerBatchNormalization(self, layer):
         self.to_LayerCommon(layer, ['scale', 'bias', 'mean', 'var'],
@@ -150,10 +157,20 @@ class Lwnn2Onnx():
         self.to_LayerCommon(layer, ['weights'])
 
     def to_LayerConst(self, layer):
-        self.to_LayerCommon(layer, ['const'])
-
-    def to_LayerGather(self, layer):
-        self.to_LayerCommon(layer, ['indices'])
+        name = layer['name']
+        value = onnx.numpy_helper.from_array(layer['const'])
+        x = onnx.helper.make_node(
+            'Constant',
+            name=name,
+            inputs=layer['inputs'],
+            outputs=[name],
+            value=value)
+        self._nodes.append(x)
+        vinfo = onnx.helper.make_tensor_value_info(
+                name,
+                value.data_type, 
+                layer['shape'])
+        self._value_info.append(vinfo)
 
     def to_LayerDense(self, layer):
         name = layer['name']
@@ -168,20 +185,23 @@ class Lwnn2Onnx():
             'MatMul',
             name = name+'_o',
             inputs=layer['inputs']+[wname],
-            outputs=[name+'_o'],
-            shape = layer['shape'])
+            outputs=[name+'_o'])
         self._nodes.append(x)
         x = onnx.helper.make_node(
             'Add',
             name = name,
             inputs=[name+'_o', bname],
-            outputs=[name],
-            shape = layer['shape'])
+            outputs=[name])
         self._nodes.append(x)
+        vinfo = onnx.helper.make_tensor_value_info(
+                name,
+                onnx.TensorProto.FLOAT, 
+                layer['shape'])
+        self._value_info.append(vinfo)
 
     def to_LayerOutput(self, layer):
         x = onnx.helper.make_tensor_value_info(
-            layer['inputs'][0], 
+            layer['inputs'][0],
             onnx.TensorProto.FLOAT,
             layer['shape'])
         self._outputs.append(x)
@@ -191,6 +211,7 @@ class Lwnn2Onnx():
         self._nodes = []
         self._inputs = []
         self._outputs = []
+        self._value_info = []
         for ly in self.lwnn_model:
             op = ly['op']
             if(op in self.TRANSLATOR):
@@ -206,6 +227,7 @@ class Lwnn2Onnx():
             name = 'lwnn',
             inputs = self._inputs,
             outputs = self._outputs,
+            value_info = self._value_info,
             initializer = self._initializer
             )
         model = onnx.helper.make_model(graph, producer_name='lwnn-nhwc')
