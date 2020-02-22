@@ -22,7 +22,7 @@ class LWNNLayer(dict):
         def kv2s(k, v):
             cstr = ''
             try:
-                cstr += '%s: %s, '%(k, v.shape)
+                cstr += '%s: t%s, '%(k, v.shape)
             except:
                 if(k in ['top', 'topq']):
                     cstr += '%s: [ '%(k)
@@ -628,7 +628,8 @@ class LWNNModel():
     def opt_IsLayerTransposeCanBeRemoved(self, layer):
         r = False
         if((layer['op'] == 'Transpose') and
-           (list(layer['perm']) == [0 , 2 , 3 , 1])):
+           ( (list(layer['perm']) == [0 , 2 , 3 , 1]) or 
+             (list(layer['perm']) == [0 , 2 , 1]) )):
             # LWNN is already NHWC
             r = True
         return r

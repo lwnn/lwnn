@@ -228,6 +228,20 @@ def uci_inception():
         x_test.tofile('models/uci_inception/golden/input.raw')
         y_test.tofile('models/uci_inception/golden/output.raw')
 
+def lstm():
+    from keras.datasets import imdb
+    from keras.preprocessing import sequence
+    if(not os.path.exists('models/lstm/lstm.h5')):
+        return
+    os.makedirs('models/lstm/golden', exist_ok=True)
+    model = load_model('models/lstm/lstm.h5')
+    (_, _), (x_test, y_test) = imdb.load_data(num_words=20000)
+    x_test = sequence.pad_sequences(x_test, maxlen=80)
+    x_test = np.asarray(x_test, np.float32)
+    keras2lwnn(model, 'lstm', {model.inputs[0]:x_test[0:100]})
+    x_test.tofile('models/lstm/golden/input.raw')
+    y_test.tofile('models/lstm/golden/output.raw')
+
 # https://keras-cn.readthedocs.io/en/latest/other/application/
 def resnet50():
     from keras.applications import ResNet50
@@ -239,6 +253,7 @@ def mobilenetv2():
     keras2lwnn(model, 'mobilenetv2')
 
 if(__name__ == '__main__'):
+    lstm()
     transpose()
     conv2d('conv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), strides=(1,1), padding="same")
     conv2d('conv2d_2')

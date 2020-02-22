@@ -10,7 +10,7 @@ import numpy as np
 __all__ = ['onnx2lwnn']
 
 class OnnxConverter():
-    def __init__(self, onnx_model):
+    def __init__(self, onnx_model, feeds=None):
         self.TRANSLATOR = {
                 'Conv': self.to_LayerConv,
                 'ConvTranspose': self.to_LayerConvTranspose,
@@ -23,6 +23,7 @@ class OnnxConverter():
         if(type(onnx_model) == str):
             onnx_model = onnx.load(onnx_model)
         self.onnx_model = onnx_model
+        self.feeds = feeds
         self.shapes = self.eval_shapes()
 
     @property
@@ -59,6 +60,7 @@ class OnnxConverter():
 
     def run(self, feed=None, **kwargs):
         model2 = infer_shapes(self.onnx_model)
+        onnx.save(model2, 'tmp.onnx')
         output_types = {}
         for vinfo in list(model2.graph.value_info) + \
                      list(model2.graph.output) + \
@@ -70,7 +72,10 @@ class OnnxConverter():
         newoutputs = []
         for node in self.onnx_model.graph.node:
             for output in node.output:
-                oT = output_types[output]
+                if(output in output_types):
+                    oT = output_types[output]
+                else:
+                    oT = onnx.TensorProto.FLOAT
                 newoutputs.append(onnx.helper.make_tensor_value_info(output, oT, None))
         self.onnx_model.graph.output.extend(newoutputs)
 
@@ -85,6 +90,7 @@ class OnnxConverter():
                 shape = list(inp.shape)
                 if((str(shape[0]) == 'None') or (shape[0] == 'N')):
                     shape[0] = 1
+                print(inp, shape)
                 data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
                 feed[inp.name] = data
         else:
@@ -106,7 +112,13 @@ class OnnxConverter():
 
     def eval_shapes(self):
         shapes = {}
-        outputs = self.run()
+        if(self.feeds is None):
+            feed = None
+        else:
+            feed = {}
+            for k,v in self.feeds.items():
+                feed[k] = v[:1]
+        outputs = self.run(feed)
         for name, r in outputs.items():
             shapes[name] = r.shape
         return shapes
@@ -248,7 +260,7 @@ def onnx2lwnn(model, name, feeds=None):
     '''
     feeds: mainly used to do quantization
     '''
-    model = LWNNModel(OnnxConverter(model), name)
+    model = LWNNModel(OnnxConverter(model, feeds), name)
     model.gen_float_c(feeds)
     if(feeds != None):
         model.gen_quantized_c(feeds)
