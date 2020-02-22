@@ -51,11 +51,12 @@ class Lwnn2Onnx():
         except Exception as e:
             raise Exception('%s: %s'%(layer, e))
         self._nodes.append(x)
-        vinfo = onnx.helper.make_tensor_value_info(
+        if('shape' in layer):
+            vinfo = onnx.helper.make_tensor_value_info(
                 name,
                 onnx.TensorProto.FLOAT, 
                 layer['shape'])
-        self._value_info.append(vinfo)
+            self._value_info.append(vinfo)
 
     def to_LayerInput(self, layer):
         x = onnx.helper.make_tensor_value_info(
@@ -162,7 +163,7 @@ class Lwnn2Onnx():
         x = onnx.helper.make_node(
             'Constant',
             name=name,
-            inputs=layer['inputs'],
+            inputs=[],
             outputs=[name],
             value=value)
         self._nodes.append(x)

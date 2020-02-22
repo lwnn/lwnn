@@ -31,7 +31,7 @@ if(__name__ == '__main__'):
     import argparse
     parser = argparse.ArgumentParser(description='convert keras to lwnn')
     parser.add_argument('-i', '--input', help='input keras model', type=str, required=True)
-    parser.add_argument('-o', '--output', help='output keras model', type=str, default=None, required=False)
+    parser.add_argument('-o', '--output', help='output lwnn model', type=str, default=None, required=False)
     args = parser.parse_args()
     if(args.output == None):
         args.output = os.path.basename(args.input)[:-3]

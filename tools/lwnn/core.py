@@ -17,15 +17,21 @@ class LWNNLayer(dict):
         for k,v in kwargs.items():
             self[k] = v
 
+    def __getattr__(self, key):
+        return self[key]
+
+    def __setattr__(self, key, v):
+        self[key] = v
+
     def __str__(self):
         order = ['name', 'op', 'shape','inputs', 'outputs', 'weights','bias']
         def kv2s(k, v):
             cstr = ''
             try:
-                cstr += '%s: t%s, '%(k, v.shape)
+                cstr += '%s=t%s, '%(k, v.shape)
             except:
                 if(k in ['top', 'topq']):
-                    cstr += '%s: [ '%(k)
+                    cstr += '%s=[ '%(k)
                     for top in v:
                         try:
                             cstr += '%s, '%(str(top.shape))
@@ -33,20 +39,23 @@ class LWNNLayer(dict):
                             cstr += '%s, '%(top)
                     cstr += '], '
                 else:
-                    cstr += '%s: %s, '%(k,v)
+                    if(k == 'name'):
+                        cstr += '%s, '%(v)
+                    else:
+                        cstr += '%s=%s, '%(k,v)
             return cstr
-        cstr = '{'
+        cstr = 'LWNNLayer('
         for k in order:
             if(k in self):
                 cstr += kv2s(k, self[k])
         for k,v in self.items():
             if(k not in order):
                 cstr += kv2s(k, v)
-        cstr += '}'
+        cstr = cstr[:-2] + ')'
         return cstr
 
 class LWNNModel():
-    def __init__(self, converter, name):
+    def __init__(self, converter, name, **kwargs):
         self.OPTIMIER = [
             (self.nchw_IsLayerNHWC, self.nchw_ActionLayerNHWC, None),
             (self.nchw_IsInputAdjustLayer, self.nchw_ActionInputAdjustLayer, None),
@@ -84,7 +93,8 @@ class LWNNModel():
         # optimization and convert to NCHW if origin model is NHWC
         self.prepare()
         self.omodel = self.clone()
-        self.optimize(['RemoveIdentity'])
+        if(not (('notRmIdentity' in kwargs) and (kwargs['notRmIdentity']==True))):
+            self.optimize(['RemoveIdentity'])
         self.omodel = self.clone()
         self.optimize()
         self.omodel = self.clone()
@@ -98,7 +108,6 @@ class LWNNModel():
             lwnn2onnx(self.omodel, '%s.lwnn.onnx'%(self.path))
         except:
             traceback.print_exc()
-            exit()
         try:
             pickle.dump(self.lwnn_model, open('%s.pkl'%(self.path), 'wb'), True)
         except Exception as e:
@@ -437,7 +446,8 @@ class LWNNModel():
         consumers = self.get_consumers(layer)
         if((layer['op'] == 'MatMul') and 
                (len(consumers) == 1) and
-               (consumers[0]['op'] == 'Add')):
+               (consumers[0]['op'] == 'Add') and
+               ('bias' in consumers[0])):
             r = True
         return r
 
