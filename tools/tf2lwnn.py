@@ -28,7 +28,7 @@ else:
     tfGraphDef = tf.GraphDef
     tfSession = tf.Session
 
-__all__ = ['tf2lwnn']
+__all__ = ['tf2lwnn', 'TfConverter']
 
 class TfConverter(LWNNUtil):
     def __init__(self, graph_def, name, feeds=None):

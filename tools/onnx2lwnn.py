@@ -20,6 +20,7 @@ class OnnxConverter(LWNNUtil):
                 'Reshape': self.to_LayerReshape,
                 'Constant': self.to_LayerConstant,
                 'Gemm': self.to_LayerGemm,
+                'LSTM': self.to_LayerLSTM,
                 'Add': self.to_LayerAdd }
         if(type(onnx_model) == str):
             onnx_model = onnx.load(onnx_model)
@@ -258,6 +259,14 @@ class OnnxConverter(LWNNUtil):
         layer['weights'] = self.get_initializer(node.input[1])
         layer['bias'] = self.get_initializer(node.input[2])
         layer['op'] = 'Dense'
+        return layer
+
+    def to_LayerLSTM(self, node):
+        layer = self.to_LayerCommon(node)
+        layer['W'] = self.get_initializer(node.input[1])
+        layer['R'] = self.get_initializer(node.input[2])
+        if(len(node.input) > 3):
+            layer['B'] = self.get_initializer(node.input[3])
         return layer
 
     def convert(self):
