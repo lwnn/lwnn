@@ -8,6 +8,32 @@ from lwnn2onnx import *
 import pickle
 import traceback
 
+class LWNNUtil():
+    def LN(self, name):
+        '''return lwnn type layer name'''
+        if(':' in name):
+            name,_ = name.split(':')
+        return name
+
+    def get_layers(self, names, model=None):
+        layers = []
+        if(model == None):
+            model = self.lwnn_model
+        for layer in model:
+            if(layer['name'] in names):
+                layers.append(layer)
+        return layers
+
+    def get_consumers(self, layer, model=None):
+        consumers = []
+        if(model == None):
+            model = self.lwnn_model
+        for ly in model:
+            if('inputs' not in ly): continue
+            if(layer['name'] in ly['inputs']):
+                consumers.append(ly)
+        return consumers
+
 class LWNNLayer(dict):
     def __init__(self, **kwargs):
         try:
@@ -54,7 +80,7 @@ class LWNNLayer(dict):
         cstr = cstr[:-2] + ')'
         return cstr
 
-class LWNNModel():
+class LWNNModel(LWNNUtil):
     def __init__(self, converter, name, **kwargs):
         self.OPTIMIER = [
             (self.nchw_IsLayerNHWC, self.nchw_ActionLayerNHWC, None),
@@ -181,15 +207,6 @@ class LWNNModel():
         LWNNQFormatC(self, 'q16', feeds)
         LWNNQSFormatC(self, feeds)
 
-    def get_layers(self, names, model=None):
-        layers = []
-        if(model == None):
-            model = self.lwnn_model
-        for layer in model:
-            if(layer['name'] in names):
-                layers.append(layer)
-        return layers
-
     def nchw_IsInputAdjustLayer(self, layer):
         r = False
         if(self.is_model_channel_first_cached==True):
@@ -302,16 +319,6 @@ class LWNNModel():
     def nchw_ActionLayerNHWC(self, layer):
         self.convert_layer_to_nchw(layer)
         return False
-
-    def get_consumers(self, layer, model=None):
-        consumers = []
-        if(model == None):
-            model = self.lwnn_model
-        for ly in model:
-            if('inputs' not in ly): continue
-            if(layer['name'] in ly['inputs']):
-                consumers.append(ly)
-        return consumers
 
     def is_there_op(self, layers, op):
         for ly in layers:

@@ -5,7 +5,11 @@ from lwnn.core import *
 import tensorflow as tf
 import numpy as np
 import os
-from _sqlite3 import NotSupportedError
+import onnx
+from onnx.shape_inference import infer_shapes
+import tf2onnx
+from tf2onnx.tfonnx import process_tf_graph, tf_optimize
+from onnx2lwnn import OnnxConverter
 
 try:
     TF_VERSION = eval(str(tf.VERSION).replace('.', ','))
@@ -18,7 +22,7 @@ if(TF_VERSION[0] == 2):
     tfFastGFile = tf.io.gfile.GFile
     tfGraphDef = tf.compat.v1.GraphDef
     tfSession = tf.compat.v1.Session
-    raise NotSupportedError('tf version 2 is not supported for now')
+    raise NotImplementedError('tf version 2 is not supported for now')
 else:
     tfFastGFile = tf.gfile.FastGFile
     tfGraphDef = tf.GraphDef
@@ -26,7 +30,7 @@ else:
 
 __all__ = ['tf2lwnn']
 
-class TfConverter():
+class TfConverter(LWNNUtil):
     def __init__(self, graph_def, name, feeds=None):
         self.TRANSLATOR = {
             'Reshape': self.to_LayerReshape,
@@ -162,15 +166,6 @@ class TfConverter():
             layer['shape'] = shape
         return layer
 
-    def get_layers(self, names, model=None):
-        layers = []
-        if(model == None):
-            model = self.lwnn_model
-        for layer in model:
-            if(layer['name'] in names):
-                layers.append(layer)
-        return layers
-
     def to_LayerReshape(self, layer):
         if('shape' not in layer):
             _, shape = self.get_layers(layer.inputs)
@@ -205,6 +200,54 @@ class TfConverter():
     def run(self, feed=None, **kwargs):
         pass
 
+    def convert2onnx(self):
+        inputs = ['%s:0'%(layer.name) for layer in self.lwnn_model if layer.op == 'Input']
+        outputs = ['%s:0'%(layer.name) for layer in self.lwnn_model if len(self.get_consumers(layer)) == 0]
+        custom_ops = {}
+        extra_opset = []
+        graph_def = tf_optimize(inputs, outputs, self.graph_def, True)
+        with tf.Graph().as_default() as tf_graph:
+            tf.import_graph_def(graph_def, name='')
+        with tf.Session(graph=tf_graph):
+            g = process_tf_graph(tf_graph,
+                                 continue_on_error=False,
+                                 target=None,
+                                 opset=None,
+                                 custom_op_handlers=custom_ops,
+                                 extra_opset=extra_opset,
+                                 shape_override=None,
+                                 input_names=inputs,
+                                 output_names=outputs,
+                                 inputs_as_nchw=None)
+
+        onnx_graph = tf2onnx.optimizer.optimize_graph(g)
+        model = onnx_graph.make_model(self.name)
+        inps = []
+        for inp in model.graph.input:
+            if(inp.name in inputs):
+                shape = [int(dim.dim_value) for dim in inp.type.tensor_type.shape.dim]
+                if(len(shape) == 0):
+                    layer = self.get_layers(self.LN(inp.name))[0]
+                    x = onnx.helper.make_tensor_value_info(inp.name, inp.type.tensor_type.elem_type, layer.shape)
+                    inps.append(x)
+                else:
+                    inps.append(inp)
+        outs = []
+        for out in model.graph.output:
+            if(out.name in inputs):
+                shape = [int(dim.dim_value) for dim in out.type.tensor_type.shape.dim]
+                if(len(shape) == 0):
+                    layer = self.get_layers(self.LN(out.name))[0]
+                    x = onnx.helper.make_tensor_value_info(out.name, out.type.tensor_type.elem_type, layer.shape)
+                    inps.append(x)
+                else:
+                    inps.append(out)
+        del model.graph.input[:]
+        model.graph.input.extend(inps)
+        del model.graph.output[:]
+        model.graph.output.extend(outs)
+        return model
+
     def convert(self):
         self.lwnn_model = []
         for node in self.graph_def.node:
@@ -216,7 +259,24 @@ class TfConverter():
         for layer in self.lwnn_model:
             if(layer.op in self.TRANSLATOR):
                 self.TRANSLATOR[layer.op](layer)
-        return self.lwnn_model
+        self.onnx_model = self.convert2onnx()
+        feeds = self.feeds
+        if(feeds != None):
+            feeds = {}
+            for k,v in self.feeds.items():
+                feeds['%s:0'%(k)] = v
+        shapes = {}
+        for node in self.onnx_model.graph.node:
+            name = self.LN(node.name)
+            layer = self.get_layers([name])
+            if(len(layer) > 0):
+                layer = layer[0]
+                if('shape' in layer):
+                    shape = layer.shape
+                    shapes[node.name] = shape
+        converter = OnnxConverter(self.onnx_model, feeds, shapes=shapes)
+        self.lwnn_modelo = converter.convert()
+        return self.lwnn_modelo
 
 def tf2lwnn(graph_def, name, feeds=None):
     model = LWNNModel(TfConverter(graph_def, name, feeds), name, notRmIdentity=True)

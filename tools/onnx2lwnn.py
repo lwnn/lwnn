@@ -7,10 +7,10 @@ from onnx.shape_inference import infer_shapes
 import onnxruntime
 import numpy as np
 
-__all__ = ['onnx2lwnn']
+__all__ = ['onnx2lwnn', 'OnnxConverter']
 
-class OnnxConverter():
-    def __init__(self, onnx_model, feeds=None):
+class OnnxConverter(LWNNUtil):
+    def __init__(self, onnx_model, feeds=None, **kwargs):
         self.TRANSLATOR = {
                 'Conv': self.to_LayerConv,
                 'ConvTranspose': self.to_LayerConvTranspose,
@@ -19,11 +19,13 @@ class OnnxConverter():
                 'Resize': self.to_LayerUpsample,
                 'Reshape': self.to_LayerReshape,
                 'Constant': self.to_LayerConstant,
+                'Gemm': self.to_LayerGemm,
                 'Add': self.to_LayerAdd }
         if(type(onnx_model) == str):
             onnx_model = onnx.load(onnx_model)
         self.onnx_model = onnx_model
         self.feeds = feeds
+        self.kwargs = kwargs
         self.shapes = self.eval_shapes()
 
     @property
@@ -110,7 +112,32 @@ class OnnxConverter():
 
         return outputs
 
+    def infer_node_shape(self, node, inputs):
+        if(node.op_type == 'Gemm'):
+            bias = self.get_initializer(node.input[2])
+            shape = list(inputs[0].shape)[:-2] + list(bias.shape)
+        elif(len(inputs) == 1):
+            x = onnx.helper.make_tensor_value_info(node.input[0], onnx.TensorProto.FLOAT, inputs[0].shape)
+            outputs = [onnx.helper.make_tensor_value_info(o, onnx.TensorProto.FLOAT, None) for o in node.output]
+            graph = onnx.helper.make_graph(
+                nodes = [node],
+                name = 'infer-node-shape',
+                inputs = [x],
+                outputs = outputs,
+                value_info = [],
+                initializer = self.onnx_model.graph.initializer)
+            model = onnx.helper.make_model(graph, producer_name='lwnn-nhwc')
+            model2 = infer_shapes(model)
+            shape = [int(dim.dim_value) for dim in model2.graph.output[0].type.tensor_type.shape.dim]
+        else:
+            raise NotImplementedError('infer %s(%s) shape is not supported'%(node.name, node.op_type))
+        if(len(shape) == 0):
+            raise Exception("can't infer %s(%s) shape"%(node.name, node.op_type))
+        return shape
+
     def eval_shapes(self):
+        if('shapes' in self.kwargs):
+            return self.kwargs['shapes']
         shapes = {}
         if(self.feeds is None):
             feed = None
@@ -124,7 +151,14 @@ class OnnxConverter():
         return shapes
 
     def get_shape(self, node):
-        return self.shapes[node.output[0]]
+        name = node.output[0]
+        if(name in self.shapes):
+            return self.shapes[name]
+        name = self.LN(name)
+        if(name in self.shapes):
+            return self.shapes[name]
+        inputs = self.get_layers([self.LN(n) for n in node.input])
+        return self.infer_node_shape(node, inputs)
 
     def tensor2numpy(self, tensor):
         if(tensor.data_type == onnx.TensorProto.FLOAT):
@@ -219,8 +253,15 @@ class OnnxConverter():
             pass
         return layer
 
+    def to_LayerGemm(self, node):
+        layer = self.to_LayerCommon(node)
+        layer['weights'] = self.get_initializer(node.input[1])
+        layer['bias'] = self.get_initializer(node.input[2])
+        layer['op'] = 'Dense'
+        return layer
+
     def convert(self):
-        lwnn_model = []
+        self.lwnn_model = []
         for inp in self.onnx_model.graph.input:
             shape = [int(dim.dim_value) for dim in inp.type.tensor_type.shape.dim]
             if(len(shape) == 0):
@@ -231,7 +272,7 @@ class OnnxConverter():
                      op='Input',
                      outputs=[inp.name],
                      shape=shape)
-            lwnn_model.append(layer)
+            self.lwnn_model.append(layer)
         for node in self.onnx_model.graph.node:
             if(node.op_type in self.TRANSLATOR):
                 translator = self.TRANSLATOR[node.op_type]
@@ -239,12 +280,13 @@ class OnnxConverter():
                 translator = self.to_LayerCommon
             layer = translator(node)
             if(layer != None):
-                lwnn_model.append(layer)
+                self.lwnn_model.append(layer)
             else:
                 print('WARNINING: layer %s is ignored:\n%s\n'%(node.name, node))
         for out in self.onnx_model.graph.output:
+            print(out)
             inp = None
-            for ly in lwnn_model:
+            for ly in self.lwnn_model:
                 if(out.name in ly['outputs']):
                     inp = ly
                     break
@@ -253,8 +295,8 @@ class OnnxConverter():
                      inputs=[inp['name']],
                      outputs=[out.name],
                      shape=inp['shape'])
-            lwnn_model.append(layer)
-        return lwnn_model
+            self.lwnn_model.append(layer)
+        return self.lwnn_model
 
 def onnx2lwnn(model, name, feeds=None):
     '''
