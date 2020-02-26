@@ -228,22 +228,22 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 {
 	size_t sz = layer_get_size(layer);
 	int i;
-
-	if(L_DT_INT8 == nn->network->layers[0]->dtype)
-	{
-		/* pass */
-	}
-	else if(L_DT_INT16 == nn->network->layers[0]->dtype)
-	{
-		sz = sz*sizeof(int16_t);
-	}
-	else if(L_DT_FLOAT == nn->network->layers[0]->dtype)
-	{
-		sz = sz*sizeof(float);
-	}
-	else
-	{
-		assert(0);
+	switch(layer->C->context->dtype) {
+		case L_DT_INT16:
+		case L_DT_UINT16:
+			sz = sz * sizeof(int16_t);
+			break;
+		case L_DT_INT32:
+		case L_DT_UINT32:
+			sz = sz * sizeof(int32_t);
+			break;
+		case L_DT_FLOAT:
+			sz = sz * sizeof(float);
+			break;
+		case L_DT_STRING:
+			return;
+		default:
+			break;
 	}
 
 #ifndef DISABLE_RUNTIME_CPU

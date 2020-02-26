@@ -71,3 +71,9 @@ class LWNNFloatC(LWNNBaseC):
     def gen_LayerConst(self, layer):
         self.gen_blobs(layer, [('%s_CONST'%(layer['name']), layer['const'])])
         self.fpC.write('L_CONST ({0});\n\n'.format(layer['name']))
+
+    def gen_LayerLSTM(self, layer):
+        n = layer.name
+        blobs = [('%s_W'%(n), layer.W), ('%s_R'%(n), layer.R), ('%s_B'%(n), layer.B)]
+        self.gen_blobs(layer, blobs)
+        self.fpC.write('L_LSTM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))

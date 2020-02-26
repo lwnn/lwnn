@@ -746,7 +746,14 @@ int rte_cl_create_layer_context(
 	if(context != NULL)
 	{
 		memset(context, 0, sz);
-		context->dtype = L_DT_FLOAT;
+		if(layer->dtype != L_DT_AUTO)
+		{
+			context->dtype = layer->dtype;
+		}
+		else
+		{
+			context->dtype = L_DT_FLOAT;
+		}
 		context->out = (void*)(((unsigned long long)context)+sz);
 		context->nout = nout;
 		r = layer_get_NHWC(layer, &context->nhwc);

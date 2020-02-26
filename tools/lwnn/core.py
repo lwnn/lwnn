@@ -19,9 +19,15 @@ class LWNNUtil():
         layers = []
         if(model == None):
             model = self.lwnn_model
-        for layer in model:
-            if(layer['name'] in names):
-                layers.append(layer)
+        if(type(names) is str):
+            for layer in model:
+                if(layer['name'] == names):
+                    return layer
+            return None
+        for name in names:
+            for layer in model:
+                if(layer['name'] == name):
+                    layers.append(layer)
         return layers
 
     def get_consumers(self, layer, model=None):
@@ -33,6 +39,68 @@ class LWNNUtil():
             if(layer['name'] in ly['inputs']):
                 consumers.append(ly)
         return consumers
+
+    def opt_RemoveLayer(self, layer):
+        consumers = self.get_consumers(layer)
+        for ly in consumers:
+            new_inputs = []
+            inputs = self.get_layers(ly['inputs'])
+            for inp in inputs:
+                if(inp == layer):
+                    new_inputs.append(self.get_layers(inp['inputs'])[0]['name'])
+                else:
+                    new_inputs.append(inp['name'])
+            ly['inputs'] = new_inputs
+        self.lwnn_model.remove(layer)
+        return True
+
+    def opt_IsLayerUnused(self, layer):
+        r = False
+        consumers = self.get_consumers(layer)
+        if((len(consumers) == 0) and
+           ((layer['op'] not in ['Output', 'Softmax', 'DetectionOutput', 'YoloOutput']) 
+            and ('Output' not in layer))):
+            r = True
+        return r
+
+    def opt_LayerUnusedAction(self, layer):
+        self.lwnn_model.remove(layer)
+        return True
+
+    def convert_axis_to_nchw(self, layer):
+        axis = layer['axis']
+        shape = layer['shape']
+        if(len(shape) == 4):
+            axis = [0,2,3,1][axis]
+        if(len(shape) == 3):
+            axis = [0,2,1][axis]
+        layer['axis'] = axis
+
+    def convert_layer_to_nchw(self, layer):
+        shape = layer['shape']
+        if('adjusted' not in layer):
+            if(len(shape) == 4):
+                layer['shape'] = [shape[i] for i in [0,3,1,2]]
+            if(len(shape) == 3):
+                layer['shape'] = [shape[i] for i in [0,2,1]]
+            if(layer['op'] == 'Concat'):
+                self.convert_axis_to_nchw(layer)
+            layer['adjusted'] = True
+
+    def optimize(self, additions=[]):
+        id = -1
+        num_layers = len(self.lwnn_model)
+        while(id < (num_layers-1)):
+            id += 1
+            layer = self.lwnn_model[id]
+            for isopt, optact, oname in self.OPTIMIER:
+                if((((oname == None) and (len(additions) == 0)) 
+                    or (oname in additions)) and isopt(layer)):
+                    r = optact(layer)
+                    if(True == r): # if there is remove action, restart optimization
+                        id = -1
+                        num_layers = len(self.lwnn_model)
+                        break
 
 class LWNNLayer(dict):
     def __init__(self, **kwargs):
@@ -228,26 +296,6 @@ class LWNNModel(LWNNUtil):
             else:
                 r = True
         return r
-
-    def convert_axis_to_nchw(self, layer):
-        axis = layer['axis']
-        shape = layer['shape']
-        if(len(shape) == 4):
-            axis = [0,2,3,1][axis]
-        if(len(shape) == 3):
-            axis = [0,2,1][axis]
-        layer['axis'] = axis
-
-    def convert_layer_to_nchw(self, layer):
-        shape = layer['shape']
-        if('adjusted' not in layer):
-            if(len(shape) == 4):
-                layer['shape'] = [shape[i] for i in [0,3,1,2]]
-            if(len(shape) == 3):
-                layer['shape'] = [shape[i] for i in [0,2,1]]
-            if(layer['op'] == 'Concat'):
-                self.convert_axis_to_nchw(layer)
-            layer['adjusted'] = True
 
     def nchw_ActionInputAdjustLayer(self, layer):
         inputs = self.get_layers(layer['inputs'])
@@ -607,29 +655,6 @@ class LWNNModel(LWNNUtil):
             layer['pads'] = padsL + padsR
         return False
 
-    def opt_RemoveLayer(self, layer):
-        consumers = self.get_consumers(layer)
-        for ly in consumers:
-            new_inputs = []
-            inputs = self.get_layers(ly['inputs'])
-            for inp in inputs:
-                if(inp == layer):
-                    new_inputs.append(self.get_layers(inp['inputs'])[0]['name'])
-                else:
-                    new_inputs.append(inp['name'])
-            ly['inputs'] = new_inputs
-        self.lwnn_model.remove(layer)
-        return True
-
-    def opt_IsLayerUnused(self, layer):
-        r = False
-        consumers = self.get_consumers(layer)
-        if((len(consumers) == 0) and
-           ((layer['op'] not in ['Output', 'Softmax', 'DetectionOutput', 'YoloOutput']) 
-            and ('Output' not in layer))):
-            r = True
-        return r
-
     def opt_IsLayerFakeQuantize(self, layer):
         r = False
         if(layer['op'] == 'FakeQuantize'):
@@ -723,10 +748,6 @@ class LWNNModel(LWNNUtil):
         layer['inputs'] = inputsL
         return True
 
-    def opt_LayerUnusedAction(self, layer):
-        self.lwnn_model.remove(layer)
-        return True
-
     def opt_LayerFakeQuantize(self, layer):
         r = self.opt_RemoveLayer(layer)
         return r
@@ -749,21 +770,6 @@ class LWNNModel(LWNNUtil):
         if(layer['op'] in ['Dropout']):
             r = True
         return r
-
-    def optimize(self, additions=[]):
-        id = -1
-        num_layers = len(self.lwnn_model)
-        while(id < (num_layers-1)):
-            id += 1
-            layer = self.lwnn_model[id]
-            for isopt, optact, oname in self.OPTIMIER:
-                if((((oname == None) and (len(additions) == 0)) 
-                    or (oname in additions)) and isopt(layer)):
-                    r = optact(layer)
-                    if(True == r): # if there is remove action, restart optimization
-                        id = -1
-                        num_layers = len(self.lwnn_model)
-                        break
 
     def toCstr(self, name):
         for s in ['/',':', '-', '.']:

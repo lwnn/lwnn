@@ -72,6 +72,8 @@ extern "C" {
 #define L_DECONV2D(name, input)		L_LAYER_SI(name, input, DECONV2D)
 #define L_BATCHNORM(name, input)	L_LAYER_SI(name, input, BATCHNORM)
 #define L_DILCONV2D(name, input)	L_LAYER_SI(name, input, DILCONV2D)
+#define L_MFCC(name, input)			L_LAYER_SI(name, input, MFCC)
+#define L_LSTM(name, input)			L_LAYER_SI(name, input, LSTM)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\
@@ -207,6 +209,7 @@ typedef enum
 	L_DT_UINT32,
 	L_DT_FLOAT,
 	L_DT_DOUBLE,
+	L_DT_STRING, /* for audio input */
 	L_DT_AUTO
 } layer_data_type_t;
 

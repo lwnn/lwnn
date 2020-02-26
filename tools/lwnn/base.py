@@ -26,6 +26,8 @@ class LWNNBaseC():
                 'YoloOutput': self.gen_LayerYoloOutput,
                 'DetectionOutput': self.gen_LayerDetectionOutput,
                 'Constant': self.gen_LayerConst,
+                'Mfcc': self.gen_LayerMfcc,
+                'LSTM': self.gen_LayerLSTM,
                 'Output': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -188,12 +190,16 @@ class LWNNBaseC():
             t = 'int8_t'
         elif(self.T == 'q16'):
             t = 'int16_t'
+        if(('dtype' in layer) and (layer.dtype == 'string')):
+            t = 'void*' # for autod input
         return t
 
     def get_size(self, layer):
         sz = 1
         for s in layer['shape']:
             sz = sz*s
+        if((layer.op == 'Input') and ('dtype' in layer) and (layer.dtype == 'string')):
+            sz = 2
         return sz
 
     def gen_models(self):
@@ -242,6 +248,8 @@ class LWNNBaseC():
             T = 'INT16'
         else:
             T = 'FLOAT'
+        if(('dtype' in layer) and (layer.dtype == 'string')):
+            T = 'STRING'
         self.fpC.write('L_INPUT ({0}, L_DT_{1});\n\n'.format(layer['name'], T))
 
     def gen_LayerConv(self, layer):
@@ -324,8 +332,7 @@ class LWNNBaseC():
         self.fpC.write('L_PAD ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerSoftmax(self, layer):
-        M = np.asarray([layer['axis']], np.int8)
-        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.gen_no_blobs(layer)
         self.fpC.write('L_SOFTMAX ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerAdd(self, layer):
@@ -390,6 +397,18 @@ class LWNNBaseC():
         self.fpC.write('L_DETECTIONOUTPUT ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
     def gen_LayerConst(self, layer):
+        raise NotImplementedError()
+
+    def gen_LayerMfcc(self, layer):
+        M = np.asarray([layer.magnitude_squared, layer.window_size,
+                        layer.stride, layer.desired_samples, layer.desired_channels,
+                        layer.upper_frequency_limit, layer.lower_frequency_limit, 
+                        layer.dct_coefficient_count, layer.filterbank_channel_count], 
+                        np.int32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_MFCC ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerLSTM(self, layer):
         raise NotImplementedError()
 
     def gen_LayerOutput(self, layer):

@@ -288,6 +288,10 @@ int rte_cpu_create_layer_context(
 				assert(0);
 				break;
 		}
+		if(layer->dtype != L_DT_AUTO)
+		{
+			context->dtype = layer->dtype;
+		}
 		context->out = (void**)(((unsigned long long)context)+sz);
 		context->nout = nout;
 		if(nout > 0)

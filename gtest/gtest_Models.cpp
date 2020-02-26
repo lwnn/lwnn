@@ -28,6 +28,9 @@
 
 #define NNT_ENET_NOT_FOUND_OKAY TRUE
 #define NNT_ENET_TOP1 0.9
+
+#define NNT_KWS_NOT_FOUND_OKAY TRUE
+#define NNT_KWS_TOP1 0.9
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	void* (*load_input)(nn_t* nn, const char* path, int id, size_t* sz);
@@ -41,11 +44,13 @@ static void* load_ssd_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_vehicle_attributes_recognition_barrier_0039_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_enet_input(nn_t* nn, const char* path, int id, size_t* sz);
+static void* load_kws_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
 static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
 static int vehicle_attributes_recognition_barrier_0039_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
 static int enet_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
+static int kws_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
 const char* g_InputImagePath = NULL;
 
@@ -125,6 +130,19 @@ static const nnt_model_args_t nnt_enet_args =
 NNT_CASE_DEF(ENET) =
 {
 	NNT_CASE_DESC_ARGS(enet),
+};
+
+static const nnt_model_args_t nnt_kws_args =
+{
+	load_kws_input,
+	load_output,
+	kws_compare,
+	1
+};
+
+NNT_CASE_DEF(KWS) =
+{
+	NNT_CASE_DESC_ARGS(kws),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz)
@@ -263,6 +281,21 @@ static void* load_enet_input(nn_t* nn, const char* path, int id, size_t* sz)
 	{
 		return load_input(nn, path, id, sz);
 	}
+}
+
+static void* load_kws_input(nn_t* nn, const char* path, int id, size_t* sz)
+{
+	assert(g_InputImagePath != NULL);
+
+	void* wav_data = nnt_load(g_InputImagePath, sz);
+
+	void** inputs = (void**)malloc(sizeof(void*)*3);
+	inputs[0] = wav_data;
+	inputs[1] = (void*)*sz;
+
+	printf("load %s @%p with size %d\n", g_InputImagePath, wav_data, (int)*sz);
+
+	return inputs;
 }
 
 static void* load_output(const char* path, int id, size_t* sz)
@@ -501,6 +534,10 @@ static int enet_compare(nn_t* nn, int id, float* output, size_t szo, float* glod
 	}
 	return 0;
 }
+static int kws_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg)
+{
+	return 0;
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 void ModelTestMain(runtime_type_t runtime,
 		const network_t* network,
@@ -572,7 +609,9 @@ void ModelTestMain(runtime_type_t runtime,
 		else
 		{
 			in = (float*)args->load_input(nn, input, i, &sz_in);
-			EXPECT_EQ(sz_in, H*W*C*sizeof(float));
+			if(inputs[0]->layer->dtype != L_DT_STRING) {
+				EXPECT_EQ(sz_in, H*W*C*sizeof(float));
+			}
 			if(NULL == g_InputImagePath)
 			{
 				golden = (float*)args->load_output(input, i, &sz_golden);
@@ -580,7 +619,12 @@ void ModelTestMain(runtime_type_t runtime,
 			}
 		}
 
-		if(network->type== NETWORK_TYPE_Q8)
+		if(inputs[0]->layer->dtype == L_DT_STRING)
+		{
+			sz_in = sizeof(void*)*2;
+			IN = in;
+		}
+		else if(network->type== NETWORK_TYPE_Q8)
 		{
 			sz_in = H*W*C;
 			IN = nnt_quantize8(in, H*W*C, LAYER_Q(inputs[0]->layer));
@@ -752,3 +796,5 @@ NNT_MODEL_TEST_ALL(YOLOV3TINY)
 NNT_MODEL_TEST_ALL(VEHICLE_ATTR)
 
 NNT_MODEL_TEST_ALL(ENET)
+
+NNT_MODEL_TEST_ALL(KWS)

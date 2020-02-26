@@ -4,11 +4,11 @@ Import('asenv')
 objs = []
 cmsis = Package('https://github.com/lwnn/CMSIS_5.git')
 objs += Glob('CMSIS_5/CMSIS/NN/Source/*/*.c')
-objs += Glob('CMSIS_5/CMSIS/DSP/Source/BasicMathFunctions/*.c')
+objs += Glob('CMSIS_5/CMSIS/DSP/Source/*/*.c')
 asenv.Append(CPPPATH=['%s/CMSIS/NN/Include'%(cmsis),
                       '%s/CMSIS/DSP/Include'%(cmsis),
                       '%s/CMSIS/Core/Include'%(cmsis)])
-asenv.Append(CPPDEFINES=['__ARM_ARCH_8M_BASE__'])
+asenv.Append(CPPDEFINES=['__ARM_ARCH_8M_BASE__', 'ARM_ALL_FFT_TABLES'])
 
 if(GetOption('android')):
     cmd = 'sh ./build-android.sh %s --arch=arm64-v8a'%(asenv['ANDROID_NDK'])
