@@ -335,6 +335,7 @@ void rte_cpu_destory_layer_context(const nn_t* nn, const layer_t* layer)
 int rte_cpu_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx_sz, size_t type_sz)
 {
 	int r = 0;
+	int bsz = 0;
 	layer_cpu_context_t* context;
 
 	r = rte_cpu_create_layer_context(nn, layer, ctx_sz, 1);
@@ -342,15 +343,20 @@ int rte_cpu_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx
 	if(0 == r)
 	{
 		context = (layer_cpu_context_t*)layer->C->context;
+		bsz = NHWC_SIZE(context->nhwc)*type_sz;
+	}
+
+	if(bsz > 0)
+	{
 		#ifndef DISABLE_RTE_FALLBACK
 		if(RUNTIME_CPU != nn->runtime_type)
 		{
-			context->out[0] = malloc(NHWC_SIZE(context->nhwc)*type_sz);
+			context->out[0] = malloc(bsz);
 		}
 		else
 		{
 		#endif
-			context->out[0] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*type_sz);
+			context->out[0] = rte_cpu_create_buffer(nn, layer, bsz);
 		#ifndef DISABLE_RTE_FALLBACK
 		}
 		#endif

@@ -149,6 +149,7 @@ enum {
 	NN_E_INPUTS_Z_MISMATCH = -18,
 	NN_E_INPUTS_S_MISMATCH = -19,
 	NN_E_INVALID_PARAMETER = -20,
+	NN_E_INPUT_TOO_SMALL = -21,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;

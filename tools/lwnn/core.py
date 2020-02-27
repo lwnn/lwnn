@@ -102,6 +102,14 @@ class LWNNUtil():
                         num_layers = len(self.lwnn_model)
                         break
 
+    def toCstr(self, name):
+        for s in ['/',':', '-', '.']:
+            name = name.replace(s, '_')
+        fc = name[0]
+        if(fc.isdigit()):
+            name = '_' + name
+        return name
+
 class LWNNLayer(dict):
     def __init__(self, **kwargs):
         try:
@@ -770,14 +778,6 @@ class LWNNModel(LWNNUtil):
         if(layer['op'] in ['Dropout']):
             r = True
         return r
-
-    def toCstr(self, name):
-        for s in ['/',':', '-', '.']:
-            name = name.replace(s, '_')
-        fc = name[0]
-        if(fc.isdigit()):
-            name = '_' + name
-        return name
 
     def check(self):
         for id,layer in enumerate(self.lwnn_model):

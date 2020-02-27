@@ -314,7 +314,6 @@ class TfConverter(LWNNUtil):
         layer.inputs = decode.inputs
         self.lwnn_model.remove(spectrogram)
         self.lwnn_model.remove(decode)
-        return True
 
     def opt_IsLayerReshapeBeforeReshape(self, layer):
         r = False
