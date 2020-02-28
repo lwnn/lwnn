@@ -218,6 +218,8 @@ typedef enum
 	L_ACT_NONE  = 0,
 	L_ACT_RELU  = 1,
 	L_ACT_LEAKY = 2,
+	L_ACT_SIGMOID = 3,
+	L_ACT_TANH = 4,
 } layer_activation_type_t;
 
 typedef const int* layer_dimension_t;

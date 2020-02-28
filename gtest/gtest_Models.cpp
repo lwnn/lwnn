@@ -536,6 +536,13 @@ static int enet_compare(nn_t* nn, int id, float* output, size_t szo, float* glod
 }
 static int kws_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg)
 {
+	static const char* kws[] = {"Silence", "Unknown","yes","no","up","down","left","right","on","off","stop","go"};
+	printf("kws: ");
+	for(int i=0; i<szo; i++)
+	{
+		printf("%s: %.3f, ", kws[i], output[i]);
+	}
+	printf("\n");
 	return 0;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */

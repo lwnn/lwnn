@@ -45,6 +45,7 @@ class TfConverter(LWNNUtil):
             'MatMul': self.to_LayerMatMul,
             'Add': self.to_LayerAdd,
             'Constant': self.to_LayerConst,
+            'BlockLSTM': self.to_LayerBlockLSTM,
             'Transpose': self.to_LayerTranspose }
         self.opMap = {
             'Placeholder': 'Input',
@@ -110,14 +111,18 @@ class TfConverter(LWNNUtil):
                     attr = 'string'
                 elif('DT_INT32' in str(attr)):
                     attr = 'int32'
+                elif('DT_INT64' in str(attr)):
+                    attr = 'int64'
                 elif('DT_FLOAT' in str(attr)):
                     attr = 'float'
+                elif('DT_BOOL' in str(attr)):
+                    attr = 'bool'
                 elif('DT_RESOURCE' in str(attr)):
                     attr = 'resource' 
                 else:
                     raise NotImplementedError('type %s of node %s is not supported'%(attr, node))
             elif(self.has_field(attr,'shape')):
-                attr = [int(dim) for dim in attr.shape.dim]
+                attr = [dim.size for dim in attr.shape.dim]
             elif(self.has_field(attr,'i')):
                 attr = attr.i
             elif(self.has_field(attr,'b')):
@@ -141,6 +146,8 @@ class TfConverter(LWNNUtil):
                     dtype = np.int64
                 elif('DT_FLOAT' in str(tensor)):
                     dtype = np.float32 
+                elif('DT_STRING' in str(tensor)):
+                    dtype = 'string' 
                 else:
                     raise NotImplementedError('type of tensor %s is not supported'%(attr))
                 try:
@@ -153,6 +160,11 @@ class TfConverter(LWNNUtil):
                         attr = np.asarray(tensor.int_val, dtype=dtype)
                     elif(dtype == np.float32):
                         attr = np.asarray(tensor.float_val, dtype=dtype)
+                    elif(dtype == 'string'):
+                        attr = np.copy(np.ndarray(
+                            shape=(len(tensor.string_val[0])),
+                            dtype=np.int8,
+                            buffer=tensor.string_val[0]))
                     else:
                         raise
             else:
@@ -189,6 +201,44 @@ class TfConverter(LWNNUtil):
         _, weights = self.get_layers(layer.inputs)
         layer.weights = self.sess.run(self.tensors[weights.name])
         layer.inputs = layer.inputs[:1]
+
+    def to_LayerBlockLSTM(self, layer):
+        inputs = self.get_layers(layer.inputs)
+        x,w,b = inputs[1],inputs[4],inputs[-1]
+        W = self.sess.run(self.tensors[w.name])
+        B = self.sess.run(self.tensors[b.name])
+        W = W.transpose(1,0)
+        layer.input_size = I = x.shape[-1]
+        layer.hidden_size = H = W.shape[-1]-I
+        H2 = int(B.shape[0]/4) # normally H == H2, but tf lstm_cell has exceptions
+        W,R = W[:,:I], W[:, I:]
+        Wi,Wc,Wf,Wo = W.reshape(4,-1,I)
+        Ri,Rc,Rf,Ro = R.reshape(4,-1,H)
+        Wbi,Wbc,Wbf,Wbo = B.reshape(4, H2)
+        Rbi,Rbc,Rbf,Rbo = np.zeros((4, H2), np.float32)
+        # ONNX W,R,B, not bidirectional
+        W = np.concatenate([Wi, Wo, Wf, Wc], axis=0).reshape(1, 4*H2, I)
+        R = np.concatenate([Ri, Ro, Rf, Rc], axis=0).reshape(1, 4*H2, H)
+        B = np.concatenate([Wbi, Wbo, Wbf, Wbc, Rbi, Rbo, Rbf, Rbc], axis=0).reshape(1, 8*H2)
+        layer.op = 'LSTM'
+        layer.W = W
+        layer.R = R
+        layer.B = B
+        layer.inputs = [x.name]
+        for c in self.get_consumers(layer):
+            if(c.op == 'Mul'):
+                mul = c
+                break
+            else:
+                self.lwnn_model.remove(c)
+        for c in self.get_consumers(mul):
+            if(c.op == 'Reshape'):
+                o = c
+                break
+            else:
+                self.lwnn_model.remove(c)
+        self.lwnn_model.remove(mul)
+        o.inputs = [layer.name]
 
     def to_LayerAdd(self, layer):
         _, bias = self.get_layers(layer.inputs)
@@ -309,9 +359,14 @@ class TfConverter(LWNNUtil):
         layer.magnitude_squared = spectrogram.magnitude_squared
         layer.window_size = spectrogram.window_size
         layer.stride = spectrogram.stride
-        layer.desired_samples = decode.desired_samples
-        layer.desired_channels = decode.desired_channels
-        layer.inputs = decode.inputs
+        if(decode.op == 'DecodeWav'):
+            layer.desired_samples = decode.desired_samples
+            layer.desired_channels = decode.desired_channels
+            layer.inputs = decode.inputs
+        else:
+            layer.desired_samples = self.sess.run(self.tensors[decode.name])
+            layer.desired_channels = 1
+            layer.inputs = spectrogram.inputs
         self.lwnn_model.remove(spectrogram)
         self.lwnn_model.remove(decode)
 
@@ -383,6 +438,22 @@ class TfConverter(LWNNUtil):
         model.graph.output.extend(outs)
         return model
 
+    def handle_input_output(self):
+        if('input_node' in self.kwargs):
+            for inp in self.get_layers(self.kwargs['input_node']):
+                inp.op = 'Input'
+                del inp['inputs']
+            self.optimize()
+        if('output_node' in self.kwargs):
+            for inp in self.get_layers(self.kwargs['output_node']):
+                layer = LWNNLayer(name=inp.name+'_O',
+                              op='Output',
+                              inputs=[inp.name],
+                              outputs=[inp.name+'_O'],
+                              shape=inp.shape)
+                self.lwnn_model.append(layer)
+            self.optimize()
+
     def convert(self):
         self.lwnn_model = []
         for node in self.graph_def.node:
@@ -396,6 +467,7 @@ class TfConverter(LWNNUtil):
                 self.TRANSLATOR[layer.op](layer)
         if(('use_tf2onnx' not in self.kwargs) or (self.kwargs['use_tf2onnx'] == False)):
             self.optimize()
+            self.handle_input_output()
             for l in self.lwnn_model:
                 if('shape' in l):
                     self.convert_layer_to_nchw(l)
@@ -432,11 +504,14 @@ if(__name__ == '__main__'):
     parser.add_argument('-i', '--input', help='input tf model', type=str, required=True)
     parser.add_argument('-o', '--output', help='output lwnn model', type=str, default=None, required=False)
     parser.add_argument('-s', '--shape', help='shapes of some layers', nargs='+', default=None, required=False)
+    parser.add_argument('--input_node', help='force which to be input node', nargs='+', default=None, required=False)
+    parser.add_argument('--output_node', help='force which to be output node', nargs='+', default=None, required=False)
     parser.add_argument('--tf2onnx', help='if want to use tf2onnx instead of tf2lwnn', default=False, action='store_true', required=False)
     args = parser.parse_args()
     if(args.output == None):
         args.output = os.path.basename(args.input)[:-3]
     feeds = None
+    kwargs = {}
     if((args.shape is not None) and (len(args.shape)%2 == 0)):
         n = int(len(args.shape)/2)
         shapes = {}
@@ -444,4 +519,10 @@ if(__name__ == '__main__'):
             k = args.shape[2*i]
             shape = eval(args.shape[2*i+1])
             shapes[k] = shape
-    tf2lwnn(args.input, args.output, feeds, shapes=shapes, use_tf2onnx=args.tf2onnx)
+        kwargs['shapes'] = shapes
+    kwargs['use_tf2onnx'] = args.tf2onnx
+    if(args.input_node != None):
+        kwargs['input_node'] = args.input_node
+    if(args.output_node != None):
+        kwargs['output_node'] = args.output_node
+    tf2lwnn(args.input, args.output, feeds, **kwargs)
