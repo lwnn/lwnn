@@ -33,6 +33,22 @@ static void layer_cpu_q16_max(int16_t* A, int16_t* B, int16_t* O, size_t sz)
 	}
 }
 
+static void layer_cpu_q16_min(int16_t* A, int16_t* B, int16_t* O, size_t sz)
+{
+	size_t i;
+	for(i=0; i<sz; i++)
+	{
+		if(A[i] < B[i])
+		{
+			O[i] = A[i];
+		}
+		else
+		{
+			O[i] = B[i];
+		}
+	}
+}
+
 static void layer_cpu_q16_add(int16_t* A, int16_t* B, int16_t* O, size_t sz, const int8_t out_shift)
 {
 	size_t i;
@@ -75,6 +91,7 @@ static int layer_cpu_q16_eltwise_execute(const nn_t* nn, const layer_t* layer)
 	O = (int16_t*)context->out[0];
 
 	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
+	assert(LAYER_Q(inputA) == LAYER_Q(inputB));
 
 	switch(layer->op)
 	{
@@ -82,8 +99,10 @@ static int layer_cpu_q16_eltwise_execute(const nn_t* nn, const layer_t* layer)
 			layer_cpu_q16_max(A, B, O, sz);
 			break;
 		case L_OP_ADD:
-			assert(LAYER_Q(inputA) == LAYER_Q(inputB));
 			layer_cpu_q16_add(A, B, O, sz, LAYER_Q(layer)-LAYER_Q(inputA));
+			break;
+		case L_OP_MINIMUM:
+			layer_cpu_q16_min(A, B, O, sz);
 			break;
 		default:
 			r = NN_E_INVALID_LAYER;
@@ -112,6 +131,22 @@ void layer_cpu_q16_MAXIMUM_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_q16_eltwise_deinit(nn, layer);
 }
+
+int layer_cpu_q16_MINIMUM_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q16_eltwise_init(nn, layer);
+}
+
+int layer_cpu_q16_MINIMUM_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_q16_eltwise_execute(nn, layer);
+}
+
+void layer_cpu_q16_MINIMUM_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_q16_eltwise_deinit(nn, layer);
+}
+
 
 int layer_cpu_q16_ADD_init(const nn_t* nn, const layer_t* layer)
 {

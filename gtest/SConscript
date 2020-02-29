@@ -1,5 +1,9 @@
 from building import *
 Import('gtenv')
+Import('asenv')
+
+asenv.Append(CPPDEFINES=['L_BLOB_NOT_BUILTIN'])
+gtenv.Append(CPPDEFINES=['L_BLOB_NOT_BUILTIN'])
 
 cwd = GetCurrentDir()
 tgt = '%s/models/date.o'%(cwd)
@@ -70,11 +74,6 @@ for obj in objsM:
     p,n = os.path.dirname(str(obj)),os.path.basename(str(obj))
     tgt = os.path.join(p,prefix+n[:-2]+suffix)
     tgt = os.path.abspath(os.path.relpath(tgt, cwd))
-    if(os.path.exists(tgt)):
-        ttime = os.path.getmtime(tgt)
-    else:
-        ttime = -1
-    otime = os.path.getmtime(str(obj))
-    if(otime > ttime):
-        gtenv.SharedLibrary(obj)
+    gtenv.SharedLibrary(obj)
+
 Return('objs')

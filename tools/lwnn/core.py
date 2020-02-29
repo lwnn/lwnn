@@ -263,18 +263,6 @@ class LWNNModel(LWNNUtil):
                 raise Exception('Fatal Error: can\'t create directory <%s>'%(d))
         return p
 
-    def open(self, fix='.c'):
-        if(fix != '.c'):
-            fix = '_' + fix
-        p = self.path + fix
-        print('LWNN %s'%(p))
-        fp = open(p, 'w')
-        fp.write('#include "nn.h"\n')
-        return fp
-
-    def close(self, fp):
-        fp.close()
-
     def gen_float_c(self, feeds=None):
         LWNNFloatC(self, feeds)
 
@@ -739,7 +727,7 @@ class LWNNModel(LWNNUtil):
         if(layer['op'] == 'DetectionOutput'):
             inputs = self.get_layers(layer['inputs'])
             if((len(inputs) == 3) and
-               self.is_there_op(inputs, 'Const')):
+               self.is_there_op(inputs, 'Constant')):
                 r = True
         return r
 
@@ -748,7 +736,7 @@ class LWNNModel(LWNNUtil):
         const = None
         inputsL = []
         for inp in inputs:
-            if(inp['op'] == 'Const'):
+            if(inp['op'] == 'Constant'):
                 const = inp
             else:
                 inputsL.append(inp['name'])

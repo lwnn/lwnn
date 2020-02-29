@@ -15,6 +15,12 @@ extern "C" {
 #define LCONST const
 #endif
 
+#ifndef L_BLOB_NOT_BUILTIN
+#define L_BLOB_DECLARE(type, name) static const type name[] = l_blob_def_##name
+#else
+#define L_BLOB_DECLARE(type, name) static type name[l_blob_def_##name]
+#endif
+
 #define L_INPUT(name, dtype)							\
 	static layer_context_container_t l_context_##name;	\
 	static LCONST int l_dims_##name[] = { name##_DIMS, 0 };	\
@@ -79,6 +85,11 @@ extern "C" {
 	static LCONST layer_t* l_inputs_##name[] = {		\
 			inputs, NULL };								\
 	L_LAYER_MI(name, MAXIMUM)
+
+#define L_MINIMUM(name, inputs)							\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, MINIMUM)
 
 #define L_ADD(name, inputs)								\
 	static LCONST layer_t* l_inputs_##name[] = {		\
@@ -224,6 +235,9 @@ typedef enum
 
 typedef const int* layer_dimension_t;
 
+#ifdef L_BLOB_NOT_BUILTIN
+typedef int (* nn_blob_loader_t)(void* provider, void* saver, size_t size);
+#endif
 typedef struct layer_blob {
 	const layer_dimension_t dims;	/* 0 terminated */
 	layer_data_type_t dtype;

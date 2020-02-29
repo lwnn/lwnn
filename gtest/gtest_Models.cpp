@@ -31,12 +31,19 @@
 
 #define NNT_KWS_NOT_FOUND_OKAY TRUE
 #define NNT_KWS_TOP1 0.9
+
+#define NNT_DS_NOT_FOUND_OKAY TRUE
+#define NNT_DS_TOP1 0.9
+
+#define ARGS_PREFETCH_ALL 0x01
+#define ARGS_COMPARE_ALL_AT_END 0x02
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	void* (*load_input)(nn_t* nn, const char* path, int id, size_t* sz);
 	void* (*load_output)(const char* path, int id, size_t* sz);
 	int (*compare)(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 	size_t n;
+	size_t flags;
 } nnt_model_args_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz);
@@ -45,12 +52,14 @@ static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_vehicle_attributes_recognition_barrier_0039_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_enet_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_kws_input(nn_t* nn, const char* path, int id, size_t* sz);
+static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
 static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
 static int vehicle_attributes_recognition_barrier_0039_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
 static int enet_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int kws_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
+static int ds_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
 const char* g_InputImagePath = NULL;
 
@@ -143,6 +152,20 @@ static const nnt_model_args_t nnt_kws_args =
 NNT_CASE_DEF(KWS) =
 {
 	NNT_CASE_DESC_ARGS(kws),
+};
+
+static const nnt_model_args_t nnt_deepspeech_args =
+{
+	load_ds_input,
+	load_output,
+	ds_compare,
+	1,
+	ARGS_PREFETCH_ALL|ARGS_COMPARE_ALL_AT_END
+};
+
+NNT_CASE_DEF(DS) =
+{
+	NNT_CASE_DESC_ARGS(deepspeech),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz)
@@ -296,6 +319,11 @@ static void* load_kws_input(nn_t* nn, const char* path, int id, size_t* sz)
 	printf("load %s @%p with size %d\n", g_InputImagePath, wav_data, (int)*sz);
 
 	return inputs;
+}
+
+static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
+{
+	return NULL;
 }
 
 static void* load_output(const char* path, int id, size_t* sz)
@@ -545,6 +573,11 @@ static int kws_compare(nn_t* nn, int id, float * output, size_t szo, float* glod
 	printf("\n");
 	return 0;
 }
+
+static int ds_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg)
+{
+	return 0;
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 void ModelTestMain(runtime_type_t runtime,
 		const network_t* network,
@@ -578,7 +611,7 @@ void ModelTestMain(runtime_type_t runtime,
 	{
 		return;
 	}
-
+	/* This demo code is really a mess, didn't care about memory leak issue, just for test */
 	H = inputs[0]->layer->C->context->nhwc.H;
 	W = inputs[0]->layer->C->context->nhwc.W;
 	C = inputs[0]->layer->C->context->nhwc.C;
@@ -589,6 +622,11 @@ void ModelTestMain(runtime_type_t runtime,
 		y_test = (int32_t*)nnt_load(output,&y_test_sz);
 		B = x_test_sz/(H*W*C*sizeof(float));
 		ASSERT_EQ(B, y_test_sz/sizeof(int32_t));
+	}
+	else if((args->flags&ARGS_PREFETCH_ALL) != 0)
+	{
+		x_test = (float*)args->load_input(nn, input, -1, &x_test_sz);
+		B = x_test_sz/(H*W*C*sizeof(float));
 	}
 	else
 	{
@@ -609,7 +647,7 @@ void ModelTestMain(runtime_type_t runtime,
 		float* golden = NULL;
 		size_t sz_golden;
 
-		if(NULL == args)
+		if((NULL == args) || ((args->flags&ARGS_PREFETCH_ALL) != 0))
 		{
 			in = x_test+H*W*C*i;
 		}
@@ -710,6 +748,20 @@ void ModelTestMain(runtime_type_t runtime,
 					top1 ++;
 				}
 			}
+			else if((args->flags&ARGS_COMPARE_ALL_AT_END) != 0)
+			{
+				static float* final_o = NULL;
+				if(0 == i) {
+					final_o = (float*)malloc(B*classes*sizeof(float));
+				}
+
+				memcpy(&final_o[i*classes], out, classes*sizeof(float));
+
+				if(i == (B-1)) {
+					y = args->compare(nn, -1, final_o, B*classes, NULL, 0);
+					free(final_o);
+				}
+			}
 			else
 			{
 				y = args->compare(nn, i, out, classes, golden, sz_golden/sizeof(float));
@@ -805,3 +857,5 @@ NNT_MODEL_TEST_ALL(VEHICLE_ATTR)
 NNT_MODEL_TEST_ALL(ENET)
 
 NNT_MODEL_TEST_ALL(KWS)
+
+NNT_MODEL_TEST_ALL(DS)

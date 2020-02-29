@@ -13,6 +13,7 @@ class LWNNBaseC():
                 'Relu': self.gen_LayerRelu,
                 'PRelu': self.gen_LayerPRelu,
                 'MaxPool': self.gen_LayerMaxPool,
+                'Min': self.gen_LayerMin,
                 'AveragePool': self.gen_LayerAveragePool,
                 'Reshape': self.gen_LayerReshape,
                 'Dense': self.gen_LayerDense,
@@ -34,6 +35,18 @@ class LWNNBaseC():
         self.feeds = feeds
         self.name = os.path.basename(self.model.name)
 
+
+    def open(self, fix='.c', flags='w'):
+        if(fix != '.c'):
+            fix = '_' + fix
+        p = self.model.path + fix
+        print('LWNN %s'%(p))
+        fp = open(p, flags)
+        return fp
+
+    def close(self, fp):
+        fp.close()
+
     def get_activation(self, layer):
         actMap = { 'linear':0, 'Relu':1, 'leaky':2, }
         if('activation' not in layer):
@@ -43,12 +56,20 @@ class LWNNBaseC():
         return act
 
     def generate(self):
-        self.fpH = self.model.open('%s.h'%(self.T))
-        self.fpC = self.model.open('%s.c'%(self.T))
+        self.fpW = self.open('%s_builtin.h'%(self.T))
+        self.fpB = self.open('%s.bin'%(self.T), 'wb')
+        self.fpH = self.open('%s.h'%(self.T))
+        self.fpC = self.open('%s.c'%(self.T))
+        self.fpC.write('#include "nn.h"\n')
+        self.fpC.write('#ifndef L_BLOB_NOT_BUILTIN\n')
+        self.fpC.write('#include "%s"\n'%(os.path.basename(self.fpW.name)))
+        self.fpC.write('#endif\n')
         self.fpC.write('#include "%s"\n\n'%(os.path.basename(self.fpH.name)))
         self.gen()
-        self.model.close(self.fpH)
-        self.model.close(self.fpC)
+        self.close(self.fpH)
+        self.close(self.fpC)
+        self.close(self.fpW)
+        self.close(self.fpB)
         if(('1' == os.getenv('LWNN_GTEST')) and(self.T == 'float')):
             self.gen_goldens_for_gtest()
 
@@ -131,9 +152,14 @@ class LWNNBaseC():
 
     def gen_blob(self, name, blob):
         T = self.get_blob_type(blob)
-        self.fpH.write('static const %s %s[] = {'%(T, name))
-        self.fpH.write(', '.join(['%s'%(f) for f in blob.reshape(-1)]))
-        self.fpH.write('};\n')
+        self.fpW.write('#define l_blob_def_%s {'%(name))
+        self.fpW.write(', '.join(['%s'%(f) for f in blob.reshape(-1)]))
+        blob.tofile(self.fpB)
+        self.fpW.write('}\n')
+        self.fpH.write('#ifndef l_blob_def_%s\n'%(name))
+        self.fpH.write('#define l_blob_def_%s (%s)\n'%(name, '*'.join(['%s'%(s) for s in blob.shape])))
+        self.fpH.write('#endif\n')
+        self.fpH.write('L_BLOB_DECLARE(%s, %s);\n'%(T, name))
         self.fpH.write('static const int l_dims_%s[]={ %s,0 };\n'%(
             name, ','.join(['%s'%(s) for s in blob.shape])))
         if(T.endswith('_t')):
@@ -277,6 +303,12 @@ class LWNNBaseC():
         M = np.asarray(list(layer['kernel_shape']) + pads + list(layer['strides']) + [with_mask], np.int32)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_MAXPOOL ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerMin(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_MINIMUM ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
     def gen_LayerAveragePool(self, layer):
         if('pads' not in layer):

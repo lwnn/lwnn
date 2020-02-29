@@ -150,6 +150,7 @@ enum {
 	NN_E_INPUTS_S_MISMATCH = -19,
 	NN_E_INVALID_PARAMETER = -20,
 	NN_E_INPUT_TOO_SMALL = -21,
+	NN_E_INVALID_WEIGHTS_LOADER = -22,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;
@@ -173,6 +174,10 @@ void nn_free_input(void* input);
 void nn_free_output(void* output);
 void* nn_get_input_data(const nn_t* nn, const layer_t* layer);
 void* nn_get_output_data(const nn_t* nn, const layer_t* layer);
+
+#ifdef L_BLOB_NOT_BUILTIN
+int nn_load(const network_t* network, nn_blob_loader_t loader, void* provider);
+#endif
 #ifdef __cplusplus
 }
 #endif

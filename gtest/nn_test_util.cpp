@@ -269,13 +269,29 @@ void nnt_siso_network_test(runtime_type_t runtime,
 	free(IN);
 }
 
+int nn_blob_loader(void* provider, void* saver, size_t size)
+{
+	int r = 0;
+	FILE* fp = (FILE*)provider;
+
+	size_t readB = fread(saver, 1, size, fp);
+
+	if(readB != size) {
+		r = -1;
+	}
+
+	return r;
+}
+
 const network_t* nnt_load_network(const char* netpath, void** dll)
 {
 	const network_t* network = NULL;
 	char path[256];
 	char* bname;
+	char* dname;
 	char* cwd;
-	char symbol[128];
+	char symbol[256];
+	int r;
 
 	cwd = getcwd(NULL,0);
 	assert(cwd != NULL);
@@ -304,6 +320,38 @@ const network_t* nnt_load_network(const char* netpath, void** dll)
 			dlclose(*dll);
 			*dll = NULL;
 		}
+#ifdef L_BLOB_NOT_BUILTIN
+		else
+		{
+			snprintf(symbol, sizeof(symbol), "%s", netpath);
+			dname = dirname(symbol);
+			#ifdef _WIN32
+			snprintf(path, sizeof(path), "%s/%s/%s.bin", cwd, &dname[9], bname);
+			#else
+			snprintf(path, sizeof(path), "%s/%s/%s.bin", cwd, &dname[11], bname);
+			#endif
+			FILE* fb = fopen(path, "rb");
+			if(fb != NULL)
+			{
+				NNLOG(NN_DEBUG, ("load weights: %s\n", path));
+				r = nn_load(network, nn_blob_loader, (void*) fb);
+				if(r != 0)
+				{
+					fclose(fb);
+					network=NULL;
+					dlclose(*dll);
+					*dll = NULL;
+				}
+			}
+			else
+			{
+				printf("failed to load weights %s\n", path);
+				network=NULL;
+				dlclose(*dll);
+				*dll = NULL;
+			}
+		}
+#endif
 	}
 	else
 	{

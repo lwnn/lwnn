@@ -24,5 +24,7 @@ lwnn_gtest
 *.asc
 *.txt
 graphs
+*.sh
+*.log
 
 

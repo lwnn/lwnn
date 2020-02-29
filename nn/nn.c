@@ -195,3 +195,60 @@ void nn_free_output(void* output)
 {
 	free(output);
 }
+
+#ifdef L_BLOB_NOT_BUILTIN
+int nn_load(const network_t* network, nn_blob_loader_t loader, void* provider)
+{
+	int r = 0;
+	const layer_t* const* layers;
+	const layer_t* layer;
+	const layer_blob_t* const* blobs;
+	const layer_blob_t* blob;
+	size_t size;
+	const int* dims;
+
+	layers = network->layers;
+	layer = *layers++;
+	while((NULL != layer) && (0 == r)) {
+		blobs = layer->blobs;
+		if(blobs != NULL) {
+			blob = *blobs++;
+			while((NULL != blob) && (0 == r)) {
+				dims = blob->dims;
+				size = *dims++;
+				while(*dims != 0) {
+					size *= *dims++;
+				}
+				switch(blob->dtype) {
+					case L_DT_INT16:
+					case L_DT_UINT16:
+						size *= sizeof(int16_t);
+						break;
+					case L_DT_INT32:
+					case L_DT_UINT32:
+						size *= sizeof(int32_t);
+						break;
+					case L_DT_FLOAT:
+						size *= sizeof(float);
+						break;
+					default:
+						break;
+				}
+				r = loader(provider, (void*)blob->blob, size);
+				blob = *blobs++;
+			}
+		}
+		layer = *layers++;
+	}
+
+	if(0 == r) { /* check all weights are consumed */
+		r = loader(provider, (void*)&size, 1);
+		if(r != 0) {
+			r = 0;
+		} else {
+			r = NN_E_INVALID_WEIGHTS_LOADER;
+		}
+	}
+	return r;
+}
+#endif
