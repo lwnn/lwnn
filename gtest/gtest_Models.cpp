@@ -38,6 +38,12 @@
 #define ARGS_PREFETCH_ALL 0x01
 #define ARGS_COMPARE_ALL_AT_END 0x02
 /* ============================ [ TYPES     ] ====================================================== */
+typedef struct
+{
+	void* data;
+	size_t size;
+} wav_t;
+
 typedef struct {
 	void* (*load_input)(nn_t* nn, const char* path, int id, size_t* sz);
 	void* (*load_output)(const char* path, int id, size_t* sz);
@@ -161,6 +167,11 @@ static const nnt_model_args_t nnt_deepspeech_args =
 	ds_compare,
 	1,
 	ARGS_PREFETCH_ALL|ARGS_COMPARE_ALL_AT_END
+};
+
+NNT_CASE_DEF(DSMFCC) =
+{
+	NNT_CASE_DESC(dsmfcc),
 };
 
 NNT_CASE_DEF(DS) =
@@ -312,18 +323,62 @@ static void* load_kws_input(nn_t* nn, const char* path, int id, size_t* sz)
 
 	void* wav_data = nnt_load(g_InputImagePath, sz);
 
-	void** inputs = (void**)malloc(sizeof(void*)*3);
-	inputs[0] = wav_data;
-	inputs[1] = (void*)*sz;
+	wav_t* wav = (wav_t*)malloc(sizeof(wav_t));
+	wav->data = wav_data;
+	wav->size = *sz;
 
 	printf("load %s @%p with size %d\n", g_InputImagePath, wav_data, (int)*sz);
 
-	return inputs;
+	return wav;
 }
 
 static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 {
-	return NULL;
+	void* dll;
+	const network_t* network;
+	nn_t* dsnn;
+	const char* netpath = DSMFCC_cases[0].networkFloat;
+	wav_t* wav;
+	float* outputs = NULL;
+	int nframes, frame_shift, window_size, i, r=0;
+
+	assert(g_InputImagePath != NULL);
+	printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
+
+	network = nnt_load_network(netpath, &dll);
+	if(NULL != network) {
+		wav = (wav_t*)network->inputs[0]->data;
+		wav->data = nnt_load(g_InputImagePath, &wav->size);
+		if(wav->data != NULL) {
+			frame_shift = RTE_FETCH_INT32(network->layers[1]->blobs[0]->blob, 2);
+			window_size = RTE_FETCH_INT32(network->layers[1]->blobs[0]->blob, 1);
+			nframes = (wav->size/2 - window_size + frame_shift/3)/frame_shift;
+			dsnn = nn_create(network, RUNTIME_CPU);
+			if(NULL != dsnn) {
+				size_t bs = NHWC_SIZE(network->outputs[0]->layer->C->context->nhwc);
+				*sz = nframes*bs*sizeof(float);
+				outputs = (float*)malloc(*sz);
+				if(NULL != outputs) {
+					wav->size = frame_shift*2;
+					for(i=0; (i<nframes) && (0 == r); i++) {
+						r = nn_predict(dsnn);
+						wav->data = (void*)(((size_t)wav->data) + frame_shift*2);
+						memcpy(&outputs[i*bs], network->outputs[0]->data, bs*sizeof(float));
+					}
+					if(0 != r) {
+						free(outputs);
+						outputs = NULL;
+					}
+				}
+				nn_destory(dsnn);
+			}
+			dlclose(dll);
+		} else {
+			free(wav->data);
+		}
+	}
+
+	return outputs;
 }
 
 static void* load_output(const char* path, int id, size_t* sz)
@@ -576,6 +631,26 @@ static int kws_compare(nn_t* nn, int id, float * output, size_t szo, float* glod
 
 static int ds_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg)
 {
+	static const char* alphabet[] = {" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"};
+	int classes = NHWC_BATCH_SIZE(nn->network->outputs[0]->layer->C->context->nhwc);
+	int n = szo / classes;
+	printf("stt:");
+	for(int i=0; i<n; i++) {
+		float max = output[i*classes];
+		int argmax = 0;
+		for(int j=1; j<classes; j++) {
+			if(output[i*classes+j] > max) {
+				argmax = j;
+				max = output[i*classes+j];
+			}
+		}
+		if(argmax < ARRAY_SIZE(alphabet)) {
+			printf("%s", alphabet[argmax]);
+		} else {
+			printf(" ");
+		}
+	}
+	printf("\n");
 	return 0;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -626,6 +701,7 @@ void ModelTestMain(runtime_type_t runtime,
 	else if((args->flags&ARGS_PREFETCH_ALL) != 0)
 	{
 		x_test = (float*)args->load_input(nn, input, -1, &x_test_sz);
+		ASSERT_TRUE(x_test != NULL);
 		B = x_test_sz/(H*W*C*sizeof(float));
 	}
 	else
@@ -754,7 +830,6 @@ void ModelTestMain(runtime_type_t runtime,
 				if(0 == i) {
 					final_o = (float*)malloc(B*classes*sizeof(float));
 				}
-
 				memcpy(&final_o[i*classes], out, classes*sizeof(float));
 
 				if(i == (B-1)) {
@@ -778,8 +853,10 @@ void ModelTestMain(runtime_type_t runtime,
 			{
 				free(out);
 			}
-
-			if((g_CaseNumber != -1) || (g_InputImagePath != NULL))
+			if((args->flags&ARGS_COMPARE_ALL_AT_END) != 0) {
+				/* pass */
+			}
+			else if((g_CaseNumber != -1) || (g_InputImagePath != NULL))
 			{
 				if(NULL == args)
 				{

@@ -281,10 +281,11 @@ class TfConverter(LWNNUtil):
 
     def to_LayerMin(self, layer):
         a,b = self.get_layers(layer.inputs)
-        if((b.op == 'Constant') and (b.shape == [1])):
+        if((b.op == 'Constant') and (list(b.shape) == [1])):
             shape = a.shape
             shape[0] = 1
             b.const = np.full(shape, b.const[0], b.const.dtype)
+            b.shape = shape
 
     def to_LayerAdd(self, layer):
         _, bias = self.get_layers(layer.inputs)
