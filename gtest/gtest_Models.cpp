@@ -357,7 +357,10 @@ static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 		if(wav->data != NULL) {
 			dsnn = nn_create(network, RUNTIME_CPU);
 			if(NULL != dsnn) {
+				auto trun_s = std::chrono::high_resolution_clock::now();
 				r = nn_predict(dsnn);
+				auto trun_e = std::chrono::high_resolution_clock::now();
+				auto trun_sum = std::chrono::duration_cast<std::chrono::nanoseconds>(trun_e-trun_s).count();
 				EXPECT_EQ(r, 0);
 				if(0 == r) {
 					size_t bs = NHWC_SIZE(network->outputs[0]->layer->C->context->nhwc);
@@ -366,6 +369,7 @@ static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 					if(NULL != outputs) {
 						memcpy(outputs, network->outputs[0]->layer->C->context->out[0], *sz);
 					}
+					printf("Feature extraction cost total %.3fms\n",trun_sum/1000000);
 				}
 				nn_destory(dsnn);
 			}
@@ -890,7 +894,7 @@ void ModelTestMain(runtime_type_t runtime,
 		free(y_test);
 	}
 
-	printf("Create cost %.3fms , Inference cost avg %.3fms\n", tcreate/1000000, trun_sum/fps/1000000);
+	printf("Create cost %.3fms , Inference cost avg %.3fms, total %.3fms\n", tcreate/1000000, trun_sum/fps/1000000, trun_sum/1000000);
 }
 
 void NNTModelTestGeneral(runtime_type_t runtime,
