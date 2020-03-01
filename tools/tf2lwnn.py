@@ -77,6 +77,10 @@ class TfConverter(LWNNUtil):
             x = self.sess.graph.get_tensor_by_name('%s/%s:0'%(self.name, node.name))
             self.tensors[node.name] = x
         self.kwargs = kwargs
+        if('dynamic_shape' in self.kwargs):
+            self.dynamic_shape = self.kwargs
+        else:
+            self.dynamic_shape = False
 
     def eval(self, layer):
         return self.sess.run(self.tensors[layer.name])
@@ -139,7 +143,7 @@ class TfConverter(LWNNUtil):
             elif(self.has_field(attr,'f')):
                 attr = attr.f
             elif(self.has_field(attr,'s')):
-                attr = attr.s
+                attr = attr.s.decode('utf-8')
             elif(self.has_field(attr,'list')):
                 L = attr.list
                 if(self.has_field(L,'s')):
@@ -198,7 +202,7 @@ class TfConverter(LWNNUtil):
         if(len(shape) > 0):
             for i, s in enumerate(shape):
                 if(s in [None, 0]):
-                    shape[i] = 1
+                    shape[i] = -1 if self.dynamic_shape else 1
             shape[0] = 1
             layer['shape'] = shape
         return layer
@@ -492,12 +496,15 @@ class TfConverter(LWNNUtil):
                 del inp['inputs']
         if('output_node' in self.kwargs):
             for inp in self.get_layers(self.kwargs['output_node']):
-                layer = LWNNLayer(name=inp.name+'_O',
-                              op='Output',
-                              inputs=[inp.name],
-                              outputs=[inp.name+'_O'],
-                              shape=inp.shape)
-                self.lwnn_model.append(layer)
+                if(-1 in inp.shape):
+                    inp.Output = True
+                else:
+                    layer = LWNNLayer(name=inp.name+'_O',
+                                  op='Output',
+                                  inputs=[inp.name],
+                                  outputs=[inp.name+'_O'],
+                                  shape=inp.shape)
+                    self.lwnn_model.append(layer)
 
     def convert(self):
         self.lwnn_model = []
@@ -552,6 +559,7 @@ if(__name__ == '__main__'):
     parser.add_argument('--input_node', help='force which to be input node', nargs='+', default=None, required=False)
     parser.add_argument('--output_node', help='force which to be output node', nargs='+', default=None, required=False)
     parser.add_argument('--tf2onnx', help='if want to use tf2onnx instead of tf2lwnn', default=False, action='store_true', required=False)
+    parser.add_argument('--dynamic_shape', help='dynamic shape support', default=False, action='store_true', required=False)
     args = parser.parse_args()
     if(args.output == None):
         args.output = os.path.basename(args.input)[:-3]
@@ -566,6 +574,7 @@ if(__name__ == '__main__'):
             shapes[k] = shape
         kwargs['shapes'] = shapes
     kwargs['use_tf2onnx'] = args.tf2onnx
+    kwargs['dynamic_shape'] = args.dynamic_shape
     if(args.input_node != None):
         kwargs['input_node'] = args.input_node
     if(args.output_node != None):

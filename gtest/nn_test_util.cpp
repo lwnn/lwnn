@@ -296,7 +296,6 @@ const network_t* nnt_load_network(const char* netpath, void** dll)
 	cwd = getcwd(NULL,0);
 	assert(cwd != NULL);
 	snprintf(path, sizeof(path),"%s/%s",cwd, netpath);
-	free(cwd);
 
 	*dll = dlopen(path, RTLD_NOW);
 	if((*dll) != NULL)
@@ -328,7 +327,7 @@ const network_t* nnt_load_network(const char* netpath, void** dll)
 			#ifdef _WIN32
 			snprintf(path, sizeof(path), "%s/%s/%s.bin", cwd, &dname[9], bname);
 			#else
-			snprintf(path, sizeof(path), "%s/%s/%s.bin", cwd, &dname[11], bname);
+			snprintf(path, sizeof(path), "%s/%s/%s.bin", cwd, &dname[12], &bname[3]);
 			#endif
 			FILE* fb = fopen(path, "rb");
 			if(fb != NULL)
@@ -357,6 +356,8 @@ const network_t* nnt_load_network(const char* netpath, void** dll)
 	{
 		printf("failed to load %s: %s\n", path, dlerror());
 	}
+
+	free(cwd);
 
 	return network;
 }

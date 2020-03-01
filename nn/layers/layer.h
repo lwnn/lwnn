@@ -153,6 +153,10 @@ extern "C" {
 
 #define NHWC_BATCH_SIZE(nhwc) (((nhwc).H)*((nhwc).W)*((nhwc).C))
 
+#define NHWC_LIST(nhwc) (nhwc).N, (nhwc).H, (nhwc).W, (nhwc).C
+
+#define L_SHAPES(layer) NHWC_LIST(layer->C->context->nhwc)
+
 #define UNSUPPORTED_LAYER_OPS(runtime, op)									\
 int layer_##runtime##_##op##_init(const nn_t* nn, const layer_t* layer)		\
 {																			\
@@ -290,6 +294,10 @@ typedef struct
 int layer_get_blob_NHWC(const layer_blob_t* blob, NHWC_t* nhwc);
 int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc);
 size_t layer_get_size(const layer_t* layer);
+#ifndef DISABLE_DYNAMIC_SHAPE
+int layer_get_dynamic_axis(const layer_t* layer);
+void layer_set_dynamic_shape(const layer_t* layer, int axis, size_t total);
+#endif
 #ifdef __cplusplus
 }
 #endif

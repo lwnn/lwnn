@@ -247,6 +247,7 @@ int nn_load(const network_t* network, nn_blob_loader_t loader, void* provider)
 			r = 0;
 		} else {
 			r = NN_E_INVALID_WEIGHTS_LOADER;
+			NNLOG(NN_ERROR, ("mismatched weights for %s\n", network->name));
 		}
 	}
 	return r;

@@ -71,6 +71,14 @@ void rte_cpu_release_buffer(rte_cpu_buffer_t* buffer);
 
 int rte_cpu_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx_sz, size_t type_sz);
 void* rte_cpu_fetch_out0(const nn_t* nn, const layer_t* layer);
+
+#ifndef DISABLE_DYNAMIC_SHAPE
+void rte_cpu_dynamic_reshape(const layer_t* layer, layer_cpu_context_t* input_context);
+int rte_cpu_dynamic_conv2d(const layer_t* layer,
+		layer_cpu_context_t* context, layer_cpu_context_t* input_context,
+		int* padY, int* padX, int strideY, int strideX,
+		int knlY, int knlX, void** O, size_t* max, size_t type_sz);
+#endif
 #ifdef __cplusplus
 }
 #endif

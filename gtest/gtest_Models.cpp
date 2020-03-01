@@ -340,7 +340,7 @@ static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 	const char* netpath = DSMFCC_cases[0].networkFloat;
 	wav_t* wav;
 	float* outputs = NULL;
-	int nframes, frame_shift, window_size, i, r=0;
+	int r;
 
 	assert(g_InputImagePath != NULL);
 	printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
@@ -350,25 +350,16 @@ static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 		wav = (wav_t*)network->inputs[0]->data;
 		wav->data = nnt_load(g_InputImagePath, &wav->size);
 		if(wav->data != NULL) {
-			frame_shift = RTE_FETCH_INT32(network->layers[1]->blobs[0]->blob, 2);
-			window_size = RTE_FETCH_INT32(network->layers[1]->blobs[0]->blob, 1);
-			nframes = (wav->size/2 - window_size/2 + frame_shift/3)/frame_shift;
 			dsnn = nn_create(network, RUNTIME_CPU);
 			if(NULL != dsnn) {
-				size_t bs = NHWC_SIZE(network->outputs[0]->layer->C->context->nhwc);
-				*sz = nframes*bs*sizeof(float);
-				outputs = (float*)malloc(*sz);
-				if(NULL != outputs) {
-					wav->size = frame_shift*2;
-					for(i=0; (i<nframes) && (0 == r); i++) {
-						r = nn_predict(dsnn);
-						EXPECT_EQ(r, 0);
-						wav->data = (void*)(((size_t)wav->data) + frame_shift*2);
-						memcpy(&outputs[i*bs], network->outputs[0]->data, bs*sizeof(float));
-					}
-					if(0 != r) {
-						free(outputs);
-						outputs = NULL;
+				r = nn_predict(dsnn);
+				EXPECT_EQ(r, 0);
+				if(0 == r) {
+					size_t bs = NHWC_SIZE(network->outputs[0]->layer->C->context->nhwc);
+					*sz = bs*sizeof(float);
+					outputs = (float*)malloc(*sz);
+					if(NULL != outputs) {
+						memcpy(outputs, network->outputs[0]->layer->C->context->out[0], *sz);
 					}
 				}
 				nn_destory(dsnn);

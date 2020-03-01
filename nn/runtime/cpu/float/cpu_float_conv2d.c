@@ -10,6 +10,9 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
+#ifndef DISABLE_DYNAMIC_SHAPE
+	size_t max;
+#endif
 } layer_cpu_float_conv2d_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -93,9 +96,8 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	layer_activation_type_t act;
 
 	size_t batch;
-	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
-	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
-
+	size_t batch_sizeIn;
+	size_t batch_sizeO;
 
 	ints = (int*)layer->blobs[0]->dims;
 	knlY = ints[1];
@@ -108,6 +110,15 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	strideX = ints[5];
 	act = ints[6];
 
+#ifndef DISABLE_DYNAMIC_SHAPE
+	r = rte_cpu_dynamic_conv2d(layer, (layer_cpu_context_t*)context, input_context,
+				&padY, &padX, strideY, strideX, knlY, knlX,
+				&O, &context->max, sizeof(float));
+	if(0 == r) {
+#endif
+
+	batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
+	batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
 	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n",
 			layer->name,
 			knlY, knlX, padY, padX, strideY, strideX));
@@ -129,11 +140,19 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			context->nhwc.H,
 			act);
 	}
-
+#ifndef DISABLE_DYNAMIC_SHAPE
+	}
+#endif
 	return r;
 }
 void layer_cpu_float_CONV2D_deinit(const nn_t* nn, const layer_t* layer)
 {
+#ifndef DISABLE_DYNAMIC_SHAPE
+	layer_cpu_float_conv2d_context_t* context = (layer_cpu_float_conv2d_context_t*)layer->C->context;
+	if(NULL != context) {
+		if(NULL != context->out[0]) free(context->out[0]);
+	}
+#endif
 	rte_cpu_destory_layer_context(nn, layer);
 }
 
