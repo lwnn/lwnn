@@ -178,7 +178,7 @@ int rte_load_raw(const char* name, void* data, size_t sz)
 void rte_save_raw(const char* name, void* data, size_t sz)
 {
 	FILE* fp;
-	fp = fopen(name, "wb");
+	fp = fopen(name, "ab+");
 	size_t r = 0;
 	if(fp != NULL)
 	{

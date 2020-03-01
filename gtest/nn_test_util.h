@@ -218,4 +218,5 @@ void NNTModelTestGeneral(runtime_type_t runtime,
 		float mintop1,
 		float not_found_okay);
 const network_t* nnt_load_network(const char* path, void** dll);
+extern "C" void rte_save_raw(const char* name, void* data, size_t sz);
 #endif /* GTEST_NN_TEST_UTIL_H_ */

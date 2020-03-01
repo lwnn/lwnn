@@ -70,14 +70,20 @@ int create_mel_fbank(layer_cpu_float_mfcc_context_t* context) {
 
 	int r = 0;
 	int32_t bin, i;
-
+	int32_t sample_rate = context->param->desired_samples;
 	int32_t num_fft_bins = context->frame_len_padded/2;
-	float fft_bin_width = ((float)context->param->desired_samples) / context->frame_len_padded;
+	float fft_bin_width;
 	float mel_low_freq = MelScale(context->param->lower_frequency_limit);
 	float mel_high_freq = MelScale(context->param->upper_frequency_limit);
 	float mel_freq_delta = (mel_high_freq - mel_low_freq) / (context->param->filterbank_channel_count+1);
+	float *this_bin;
 
-	float *this_bin = malloc(sizeof(float)*num_fft_bins);
+	if(-1 == sample_rate) {
+		sample_rate = 16000;
+	}
+
+	fft_bin_width = (float)sample_rate / context->frame_len_padded;
+	this_bin= malloc(sizeof(float)*num_fft_bins);
 
 	if(NULL == this_bin) {
 		r = NN_E_NO_MEMORY;

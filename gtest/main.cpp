@@ -23,6 +23,7 @@ int main(int argc, char **argv)
 		{
 			case 'd':
 				nn_set_log_level(0);
+				system("rm -fr tmp/*");
 				break;
 			case 'i':
 				g_InputImagePath = optarg;

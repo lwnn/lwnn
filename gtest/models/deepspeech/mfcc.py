@@ -26,7 +26,7 @@ def audiofile_to_features():
     decoded = contrib_audio.decode_wav(samples, desired_channels=1)
     features, features_len = samples_to_mfccs(decoded.audio, decoded.sample_rate)
 
-    return features, features_len
+    return features, features_len, decoded.sample_rate
 
 
 def create_overlapping_windows(batch_x):
@@ -48,14 +48,15 @@ def create_overlapping_windows(batch_x):
     return batch_x
 
 with tf.Session() as sess:
-    features, _ = audiofile_to_features()
-    features = tf.expand_dims(features, 0)
+    mfccs, _, sample_rate = audiofile_to_features()
+    features = tf.expand_dims(mfccs, 0)
     features = create_overlapping_windows(features)
     if(len(sys.argv) > 1):
         wav_data = open(sys.argv[1], 'rb').read()
-        features_o = sess.run(features, {'input:0': wav_data})
-        print(features_o.shape)
-        features_o.tofile('input.raw')
+        features_o,mfccs_o, sample_rate = sess.run((features, mfccs, sample_rate), {'input:0': wav_data})
+        print(features_o.shape, mfccs_o.shape, sample_rate)
+        features_o.tofile('features.raw')
+        mfccs_o.tofile('mfccs.raw')
     constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['output'])
     with tf.gfile.FastGFile('./mfcc.pb', mode='wb') as f:
         f.write(constant_graph.SerializeToString())

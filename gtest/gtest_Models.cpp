@@ -352,7 +352,7 @@ static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 		if(wav->data != NULL) {
 			frame_shift = RTE_FETCH_INT32(network->layers[1]->blobs[0]->blob, 2);
 			window_size = RTE_FETCH_INT32(network->layers[1]->blobs[0]->blob, 1);
-			nframes = (wav->size/2 - window_size + frame_shift/3)/frame_shift;
+			nframes = (wav->size/2 - window_size/2 + frame_shift/3)/frame_shift;
 			dsnn = nn_create(network, RUNTIME_CPU);
 			if(NULL != dsnn) {
 				size_t bs = NHWC_SIZE(network->outputs[0]->layer->C->context->nhwc);
@@ -362,6 +362,7 @@ static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 					wav->size = frame_shift*2;
 					for(i=0; (i<nframes) && (0 == r); i++) {
 						r = nn_predict(dsnn);
+						EXPECT_EQ(r, 0);
 						wav->data = (void*)(((size_t)wav->data) + frame_shift*2);
 						memcpy(&outputs[i*bs], network->outputs[0]->data, bs*sizeof(float));
 					}
@@ -634,7 +635,7 @@ static int ds_compare(nn_t* nn, int id, float * output, size_t szo, float* glode
 	static const char* alphabet[] = {" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"};
 	int classes = NHWC_BATCH_SIZE(nn->network->outputs[0]->layer->C->context->nhwc);
 	int n = szo / classes;
-	printf("stt:");
+	printf("stt %d/%d:", n, classes);
 	for(int i=0; i<n; i++) {
 		float max = output[i*classes];
 		int argmax = 0;
