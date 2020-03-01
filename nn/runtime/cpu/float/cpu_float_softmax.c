@@ -87,7 +87,7 @@ int layer_cpu_float_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 		context->out[0] = context->p_out;
 	}
 
-	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
+	NNLOG(NN_DEBUG, ("execute %s: %d %d %d %d\n",layer->name,L_SHAPES(layer)));
 
 	for(i=0; i<n_block; i++)
 	{

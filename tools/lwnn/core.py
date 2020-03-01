@@ -175,12 +175,12 @@ class LWNNModel(LWNNUtil):
             (self.opt_IsLayerConcatWithOneOnly, self.opt_LayerConcatWithOneOnly, None),
             (self.opt_IsLayerConcatOnPriorBox, self.opt_LayerConcatOnPriorBox, None),
             (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
-            (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, None),
             (self.opt_IsLayerOutputWithoutConsumers, self.opt_LayerOutputWithoutConsumers, None),
             (self.opt_IsLayerOutputWithOutput, self.opt_RemoveOutputWithOutput, None),
             (self.opt_IsLayerClipRelu, self.opt_LayerClip2Relu, None),
             (self.opt_IsLayerFlatten, self.opt_LayerFlatten2Reshape, None),
             (self.opt_IsLayerPad, self.opt_LayerPad, None),
+            (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, 'PermuteReshapeSoftmax'),
             (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, 'RemoveTranspose'),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
@@ -197,6 +197,8 @@ class LWNNModel(LWNNUtil):
         self.omodel = self.clone()
         if(not (('notRmIdentity' in kwargs) and (kwargs['notRmIdentity']==True))):
             self.optimize(['RemoveIdentity'])
+        if(not (('notPermuteReshapeSoftmax' in kwargs) and (kwargs['notPermuteReshapeSoftmax']==True))):
+            self.optimize(['PermuteReshapeSoftmax'])
         self.omodel = self.clone()
         self.optimize()
         self.omodel = self.clone()

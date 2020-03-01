@@ -545,7 +545,8 @@ class TfConverter(LWNNUtil):
         return self.lwnn_modelo
 
 def tf2lwnn(graph_def, name, feeds=None, **kwargs):
-    model = LWNNModel(TfConverter(graph_def, name, feeds, **kwargs), name, notRmIdentity=True)
+    model = LWNNModel(TfConverter(graph_def, name, feeds, **kwargs), name,
+                      notRmIdentity=True, notPermuteReshapeSoftmax=True)
     model.gen_float_c(feeds)
     if(feeds != None):
         model.gen_quantized_c(feeds)

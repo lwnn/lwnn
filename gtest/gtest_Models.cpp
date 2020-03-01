@@ -341,10 +341,15 @@ static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 	wav_t* wav;
 	float* outputs = NULL;
 	int r;
+	char* pos;
 
 	assert(g_InputImagePath != NULL);
 	printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
 
+	pos = strstr((char*)g_InputImagePath, ".raw");
+	if(NULL != pos) {
+		return nnt_load(g_InputImagePath, sz);
+	}
 	network = nnt_load_network(netpath, &dll);
 	if(NULL != network) {
 		wav = (wav_t*)network->inputs[0]->data;

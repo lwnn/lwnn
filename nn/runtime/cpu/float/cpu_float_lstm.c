@@ -73,13 +73,13 @@ int layer_cpu_float_LSTM_init(const nn_t* nn, const layer_t* layer)
 	if(0 == r) {
 		context = (layer_cpu_float_lstm_context_t*)layer->C->context;
 		hidden_size = layer->blobs[1]->dims[2];
-		context->c = malloc(sizeof(float)*hidden_size);
-		context->h = NULL;
+		context->c = malloc(sizeof(float)*hidden_size*2);
+		context->h = context->c + hidden_size;
 		nn_request_scratch(nn, 3*sizeof(float)*hidden_size);
 		if(NULL == context->c) {
 			r = NN_E_NO_MEMORY;
 		} else {
-			memset(context->c, 0, sizeof(float)*hidden_size);
+			memset(context->c, 0, sizeof(float)*hidden_size*2);
 		}
 	}
 
@@ -101,14 +101,10 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 	float* h = context->h;
 
 	batch_size = input_context->nhwc.H;
+	assert(batch_size == context->nhwc.H);
 	input_size = input_context->nhwc.C;
 	assert(input_size==layer->blobs[0]->dims[2]);
 	hidden_size = layer->blobs[1]->dims[2];
-
-	if(NULL == h) {
-		h = x + (context->nhwc.H-1)*hidden_size;
-		context->h = h;
-	}
 
 	Wi = (const float*) layer->blobs[0]->blob;
 	Wo = Wi + hidden_size*input_size;
@@ -135,17 +131,19 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 	ft = ot + hidden_size;
 	ct = ft + hidden_size;
 
+	NNLOG(NN_DEBUG, ("execute %s: B=%d, I=%d, H=%d\n", layer->name, batch_size, input_size, hidden_size));
+
 	for(i=0; i<batch_size; i++) {
 		gate_calc(x, Wi, h, Ri, Wbi, Rbi, it, input_size, hidden_size, L_ACT_SIGMOID);
 		gate_calc(x, Wf, h, Rf, Wbf, Rbf, ft, input_size, hidden_size, L_ACT_SIGMOID);
 		gate_calc(x, Wc, h, Rc, Wbc, Rbc, ct, input_size, hidden_size, L_ACT_TANH);
 		cell_state_calc(context->c, ft, it, ct, hidden_size);
 		gate_calc(x, Wo, h, Ro, Wbo, Rbo, ot, input_size, hidden_size, L_ACT_SIGMOID);
-		output_calc(y, context->c, ot, hidden_size);
+		output_calc(h, context->c, ot, hidden_size);
+		memcpy(y, h, hidden_size*sizeof(float));
 		if(context->nhwc.H == batch_size) {
 			y = y + hidden_size;
 		}
-		h = y;
 		x += input_size;
 	}
 
