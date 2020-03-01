@@ -553,6 +553,7 @@ void rte_cpu_dynamic_reshape(const layer_t* layer, layer_cpu_context_t* input_co
 		layer_set_dynamic_shape(layer, axis, NHWC_SIZE(input_context->nhwc));
 	}
 }
+
 int rte_cpu_dynamic_conv2d(const layer_t* layer,
 		layer_cpu_context_t* context, layer_cpu_context_t* input_context,
 		int* padY, int* padX, int strideY, int strideX,
@@ -594,6 +595,18 @@ int rte_cpu_dynamic_conv2d(const layer_t* layer,
 		}
 	}
 	return r;
+}
+void rte_cpu_dynamic_free(const layer_t* layer)
+{
+	int axis;
+	layer_cpu_context_t* context = (layer_cpu_context_t*)layer->C->context;
+	if(NULL != context) {
+		axis = layer_get_dynamic_axis(layer);
+		if(axis > 0) {
+			if(NULL != context->out[0]) free(context->out[0]);
+		}
+	}
+
 }
 #endif /* DISABLE_DYNAMIC_SHAPE */
 #endif /* DISABLE_RUNTIME_CPU */

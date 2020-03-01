@@ -113,7 +113,7 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 #ifndef DISABLE_DYNAMIC_SHAPE
 	r = rte_cpu_dynamic_conv2d(layer, (layer_cpu_context_t*)context, input_context,
 				&padY, &padX, strideY, strideX, knlY, knlX,
-				&O, &context->max, sizeof(float));
+				(void**)&O, &context->max, sizeof(float));
 	if(0 == r) {
 #endif
 
@@ -148,10 +148,7 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 void layer_cpu_float_CONV2D_deinit(const nn_t* nn, const layer_t* layer)
 {
 #ifndef DISABLE_DYNAMIC_SHAPE
-	layer_cpu_float_conv2d_context_t* context = (layer_cpu_float_conv2d_context_t*)layer->C->context;
-	if(NULL != context) {
-		if(NULL != context->out[0]) free(context->out[0]);
-	}
+	rte_cpu_dynamic_free(layer);
 #endif
 	rte_cpu_destory_layer_context(nn, layer);
 }

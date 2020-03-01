@@ -845,7 +845,7 @@ void ModelTestMain(runtime_type_t runtime,
 			{
 				free(out);
 			}
-			if((args->flags&ARGS_COMPARE_ALL_AT_END) != 0) {
+			if((args != NULL) && ((args->flags&ARGS_COMPARE_ALL_AT_END) != 0)) {
 				/* pass */
 			}
 			else if((g_CaseNumber != -1) || (g_InputImagePath != NULL))

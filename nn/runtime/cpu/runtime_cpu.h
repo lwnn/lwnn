@@ -78,6 +78,7 @@ int rte_cpu_dynamic_conv2d(const layer_t* layer,
 		layer_cpu_context_t* context, layer_cpu_context_t* input_context,
 		int* padY, int* padX, int strideY, int strideX,
 		int knlY, int knlX, void** O, size_t* max, size_t type_sz);
+void rte_cpu_dynamic_free(const layer_t* layer);
 #endif
 #ifdef __cplusplus
 }
