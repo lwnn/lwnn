@@ -18,8 +18,8 @@ typedef struct {
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 static void gate_calc(float* x, const float* W, float* h, const float* R,
-		const float* Wb, const float* Rb, float* gate,
-		int input_size, int hidden_size, layer_activation_type_t activation)
+		const float* Wb, const float* Rb, const float* P, const float* c, float* gate,
+		int input_size, int hidden_size, int output_size, layer_activation_type_t activation)
 {
 	int i,j;
 	float o;
@@ -29,9 +29,15 @@ static void gate_calc(float* x, const float* W, float* h, const float* R,
 		for(j=0; j<input_size; j++) {
 			o += x[j]*W[i*input_size+j];
 		}
-		for(j=0; j<hidden_size; j++) {
-			o += h[j]*R[i*hidden_size+j];
+
+		for(j=0; j<output_size; j++) {
+			o += h[j]*R[i*output_size+j];
 		}
+
+		if(NULL != P) {
+			o += P[i]*c[i];
+		}
+
 		switch(activation){
 		case L_ACT_SIGMOID:
 			o = 1 / (1 + exp(-o));
@@ -63,6 +69,18 @@ static void output_calc(float* h, float* Ct, float* ot, int hidden_size)
 		h[i] = ot[i]*tanh(Ct[i]);
 	}
 }
+
+static void projection(float* h, float* ht, const float* PJ, int hidden_size, int output_size) {
+	int i,j;
+	float o;
+	for(i=0; i<output_size; i++) {
+		o = 0;
+		for(j=0; j<hidden_size; j++) {
+			o += ht[j]*PJ[i*hidden_size+j];
+		}
+		h[i] = o;
+	}
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_float_LSTM_init(const nn_t* nn, const layer_t* layer)
 {
@@ -72,14 +90,14 @@ int layer_cpu_float_LSTM_init(const nn_t* nn, const layer_t* layer)
 
 	if(0 == r) {
 		context = (layer_cpu_float_lstm_context_t*)layer->C->context;
-		hidden_size = layer->blobs[1]->dims[2];
-		context->c = malloc(sizeof(float)*hidden_size*2);
+		hidden_size = layer->blobs[0]->dims[1]/4;
+		context->c = malloc(sizeof(float)*(hidden_size+context->nhwc.C));
 		context->h = context->c + hidden_size;
 		nn_request_scratch(nn, 3*sizeof(float)*hidden_size);
 		if(NULL == context->c) {
 			r = NN_E_NO_MEMORY;
 		} else {
-			memset(context->c, 0, sizeof(float)*hidden_size*2);
+			memset(context->c, 0, sizeof(float)*(hidden_size+context->nhwc.C));
 		}
 	}
 
@@ -88,7 +106,7 @@ int layer_cpu_float_LSTM_init(const nn_t* nn, const layer_t* layer)
 int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
-	int batch_size, input_size, hidden_size, i;
+	int batch_size, input_size, hidden_size, output_size, i;
 	layer_cpu_float_lstm_context_t* context = (layer_cpu_float_lstm_context_t*)layer->C->context;
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)layer->inputs[0]->C->context;
 	float* x = (float*)input_context->out[0];
@@ -97,14 +115,18 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 	const float *Ri,*Ro,*Rf,*Rc;
 	const float *Wbi,*Wbo,*Wbf,*Wbc;
 	const float *Rbi,*Rbo,*Rbf,*Rbc;
+	const float *Pi=NULL, *Pf=NULL, *Po=NULL;
+	const float *PJ = NULL;
 	float *it,*ft,*ct,*ot;
+	float* c = context->c;
 	float* h = context->h;
+	const int* ints;
 
 	batch_size = input_context->nhwc.H;
-	assert(batch_size == context->nhwc.H);
 	input_size = input_context->nhwc.C;
+	output_size = context->nhwc.C;
 	assert(input_size==layer->blobs[0]->dims[2]);
-	hidden_size = layer->blobs[1]->dims[2];
+	hidden_size = layer->blobs[0]->dims[1]/4;;
 
 	Wi = (const float*) layer->blobs[0]->blob;
 	Wo = Wi + hidden_size*input_size;
@@ -112,9 +134,9 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 	Wc = Wf + hidden_size*input_size;
 
 	Ri = (const float*) layer->blobs[1]->blob;
-	Ro = Ri + hidden_size*hidden_size;
-	Rf = Ro + hidden_size*hidden_size;
-	Rc = Rf + hidden_size*hidden_size;
+	Ro = Ri + hidden_size*output_size;
+	Rf = Ro + hidden_size*output_size;
+	Rc = Rf + hidden_size*output_size;
 
 	Wbi = (const float*) layer->blobs[2]->blob;
 	Wbo = Wbi + hidden_size;
@@ -126,23 +148,45 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 	Rbf = Rbo + hidden_size;
 	Rbc = Rbf + hidden_size;
 
+	if(NULL != layer->blobs[3]) {
+		ints = (const int*)layer->blobs[3]->blob;
+		for(i=0; i<layer->blobs[3]->dims[0]; i++) {
+			switch (ints[i]) {
+			case 0: /* peephole */
+				Pi = (const float*)layer->blobs[4+i]->blob;
+				Pf = Pi + hidden_size;
+				Po = Pf + hidden_size;
+				break;
+			case 1: /* projection */
+				PJ = (const float*)layer->blobs[4+i]->blob;
+				break;
+			}
+		}
+	}
+
 	it = (float*)nn->scratch.area;
 	ot = it;
 	ft = ot + hidden_size;
 	ct = ft + hidden_size;
 
-	NNLOG(NN_DEBUG, ("execute %s: B=%d, I=%d, H=%d\n", layer->name, batch_size, input_size, hidden_size));
+	NNLOG(NN_DEBUG, ("execute %s: B=%d, I=%d, H=%d, O=%d\n", layer->name,
+			batch_size, input_size, hidden_size, output_size));
 
 	for(i=0; i<batch_size; i++) {
-		gate_calc(x, Wi, h, Ri, Wbi, Rbi, it, input_size, hidden_size, L_ACT_SIGMOID);
-		gate_calc(x, Wf, h, Rf, Wbf, Rbf, ft, input_size, hidden_size, L_ACT_SIGMOID);
-		gate_calc(x, Wc, h, Rc, Wbc, Rbc, ct, input_size, hidden_size, L_ACT_TANH);
-		cell_state_calc(context->c, ft, it, ct, hidden_size);
-		gate_calc(x, Wo, h, Ro, Wbo, Rbo, ot, input_size, hidden_size, L_ACT_SIGMOID);
-		output_calc(h, context->c, ot, hidden_size);
-		memcpy(y, h, hidden_size*sizeof(float));
+		gate_calc(x, Wi, h, Ri, Wbi, Rbi, Pi, c, it, input_size, hidden_size, output_size, L_ACT_SIGMOID);
+		gate_calc(x, Wf, h, Rf, Wbf, Rbf, Pf, c, ft, input_size, hidden_size, output_size, L_ACT_SIGMOID);
+		gate_calc(x, Wc, h, Rc, Wbc, Rbc, NULL, NULL, ct, input_size, hidden_size, output_size, L_ACT_TANH);
+		cell_state_calc(c, ft, it, ct, hidden_size);
+		gate_calc(x, Wo, h, Ro, Wbo, Rbo, Po, c, ot, input_size, hidden_size, output_size, L_ACT_SIGMOID);
+		if(NULL != PJ) {
+			output_calc(ct, c, ot, hidden_size);
+			projection(h, ct, PJ, hidden_size, output_size);
+		} else {
+			output_calc(h, c, ot, hidden_size);
+		}
+		memcpy(y, h, output_size*sizeof(float));
 		if(context->nhwc.H == batch_size) {
-			y = y + hidden_size;
+			y = y + output_size;
 		}
 		x += input_size;
 	}

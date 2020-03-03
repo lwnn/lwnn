@@ -228,17 +228,17 @@ class TfConverter(LWNNUtil):
         B = self.eval(b)
         W = W.transpose(1,0)
         layer.input_size = I = x.shape[-1]
-        layer.hidden_size = H = W.shape[-1]-I
-        H2 = int(B.shape[0]/4) # normally H == H2, but tf lstm_cell has exceptions
+        layer.hidden_size = H = int(B.shape[0]/4)
+        O = W.shape[-1]-I   # output size
         W,R = W[:,:I], W[:, I:]
         Wi,Wc,Wf,Wo = W.reshape(4,-1,I)
-        Ri,Rc,Rf,Ro = R.reshape(4,-1,H)
-        Wbi,Wbc,Wbf,Wbo = B.reshape(4, H2)
-        Rbi,Rbc,Rbf,Rbo = np.zeros((4, H2), np.float32)
+        Ri,Rc,Rf,Ro = R.reshape(4,-1,O)
+        Wbi,Wbc,Wbf,Wbo = B.reshape(4, H)
+        Rbi,Rbc,Rbf,Rbo = np.zeros((4, H), np.float32)
         # ONNX W,R,B, not bidirectional
-        W = np.concatenate([Wi, Wo, Wf, Wc], axis=0).reshape(1, 4*H2, I)
-        R = np.concatenate([Ri, Ro, Rf, Rc], axis=0).reshape(1, 4*H2, H)
-        B = np.concatenate([Wbi, Wbo, Wbf, Wbc, Rbi, Rbo, Rbf, Rbc], axis=0).reshape(1, 8*H2)
+        W = np.concatenate([Wi, Wo, Wf, Wc], axis=0).reshape(1, 4*H, I)
+        R = np.concatenate([Ri, Ro, Rf, Rc], axis=0).reshape(1, 4*H, O)
+        B = np.concatenate([Wbi, Wbo, Wbf, Wbc, Rbi, Rbo, Rbf, Rbc], axis=0).reshape(1, 8*H)
         layer.op = 'LSTM'
         layer.W = W
         layer.R = R
@@ -355,18 +355,18 @@ class TfConverter(LWNNUtil):
         W = layer.weights.transpose(1,0)
         B = b.bias
         layer.input_size = I = inp.shape[-1]
-        layer.hidden_size = H = W.shape[-1]-I
-        H2 = int(B.shape[0]/4) # normally H == H2, but tf lstm_cell has exceptions
+        layer.hidden_size = H = int(B.shape[0]/4)
+        O = W.shape[-1]-I   # output size
         W,R = W[:,:I], W[:, I:]
         Wi,Wc,Wf,Wo = W.reshape(4,-1,I)
-        Ri,Rc,Rf,Ro = R.reshape(4,-1,H)
-        Wbi,Wbc,Wbf,Wbo = B.reshape(4, H2)
-        Rbi,Rbc,Rbf,Rbo = np.zeros((4, H2), np.float32)
+        Ri,Rc,Rf,Ro = R.reshape(4,-1,O)
+        Wbi,Wbc,Wbf,Wbo = B.reshape(4, H)
+        Rbi,Rbc,Rbf,Rbo = np.zeros((4, H), np.float32)
         # ONNX W,R,B, not bidirectional
-        W = np.concatenate([Wi, Wo, Wf, Wc], axis=0).reshape(1, 4*H2, I)
-        R = np.concatenate([Ri, Ro, Rf, Rc], axis=0).reshape(1, 4*H2, H)
+        W = np.concatenate([Wi, Wo, Wf, Wc], axis=0).reshape(1, 4*H, I)
+        R = np.concatenate([Ri, Ro, Rf, Rc], axis=0).reshape(1, 4*H, O)
         # Wbf+1 is experience learned
-        B = np.concatenate([Wbi, Wbo, Wbf+1, Wbc, Rbi, Rbo, Rbf, Rbc], axis=0).reshape(1, 8*H2)
+        B = np.concatenate([Wbi, Wbo, Wbf+1, Wbc, Rbi, Rbo, Rbf, Rbc], axis=0).reshape(1, 8*H)
         layer.op = 'LSTM'
         layer.W = W
         layer.R = R
@@ -378,7 +378,7 @@ class TfConverter(LWNNUtil):
             po = self.eval(po)
             layer.P = np.concatenate([pi,pf,po])
         if('pj' in K):
-            layer.PRJECTION = self.eval(K['pj'])
+            layer.PRJECTION = self.eval(K['pj']).transpose(1,0)
         del layer['weights']
         if(inp.op == 'Transpose'):
             layer.inputs = inp.inputs

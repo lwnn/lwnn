@@ -226,7 +226,11 @@ static int extract_features(const layer_t* layer, layer_cpu_float_mfcc_context_t
 	int16_t* wav_data = (int16_t*)wav->data;
 	float* mfcc_out = (float*)context->out[0];
 
-	nframes = (wav->size/2 - context->param->window_size/2 + frame_shift/3)/frame_shift;
+	if(-1 == context->param->desired_samples) {
+		nframes = (wav->size/2 - context->param->window_size/2 + frame_shift/3)/frame_shift;
+	} else {
+		nframes = (wav->size/2 + frame_shift/3)/frame_shift;
+	}
 
 	if(-1 == layer->dims[1]) { /* dynamic number of features */
 		if(NULL == mfcc_out) {

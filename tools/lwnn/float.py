@@ -89,5 +89,14 @@ class LWNNFloatC(LWNNBaseC):
     def gen_LayerLSTM(self, layer):
         n = layer.name
         blobs = [('%s_W'%(n), layer.W), ('%s_R'%(n), layer.R), ('%s_B'%(n), layer.B)]
+        extra_id = []
+        extra_blobs = []
+        for i,wn in [(0,'P'), (1,'PRJECTION')]:
+            if(wn in layer):
+                extra_id.append(i)
+                extra_blobs.append(('%s_%s'%(n,wn), layer[wn]))
+        if(len(extra_id) > 0):
+            blobs.append(('%s_ExtraId'%(n), np.asarray(extra_id, np.int32)))
+            blobs.extend(extra_blobs)
         self.gen_blobs(layer, blobs)
         self.fpC.write('L_LSTM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
