@@ -376,9 +376,9 @@ class TfConverter(LWNNUtil):
             pi = self.eval(pi)
             pf = self.eval(pf)
             po = self.eval(po)
-            layer.P = np.concatenate([pi,pf,po])
+            layer.P = np.concatenate([pi,pf,po]).reshape(1, -1)
         if('pj' in K):
-            layer.PRJECTION = self.eval(K['pj']).transpose(1,0)
+            layer.PRJECTION = self.eval(K['pj']).transpose(1,0).reshape(1, -1)
         del layer['weights']
         if(inp.op == 'Transpose'):
             layer.inputs = inp.inputs

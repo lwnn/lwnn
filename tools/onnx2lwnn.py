@@ -63,7 +63,7 @@ class OnnxConverter(LWNNUtil):
 
     def run(self, feed=None, **kwargs):
         model2 = infer_shapes(self.onnx_model)
-        onnx.save(model2, 'tmp.onnx')
+        #onnx.save(model2, 'tmp.onnx')
         output_types = {}
         for vinfo in list(model2.graph.value_info) + \
                      list(model2.graph.output) + \
