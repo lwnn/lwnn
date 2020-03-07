@@ -31,7 +31,7 @@ else:
 __all__ = ['tf2lwnn', 'TfConverter']
 
 class TfConverter(LWNNUtil):
-    def __init__(self, graph_def, name, feeds=None, **kwargs):
+    def __init__(self, graph_def, name, **kwargs):
         self.OPTIMIER = [
             (self.opt_IsLayerLSTM, self.opt_LayerLSTM, None),
             (self.opt_IsLayerMfcc, self.opt_LayerMfcc, None),
@@ -64,7 +64,6 @@ class TfConverter(LWNNUtil):
                 graph_def.ParseFromString(f.read())
         self.graph_def = graph_def
         self.name = name
-        self.feeds = feeds
         self.sess = tfSession()
         _ = tf.import_graph_def(self.graph_def, name=self.name)
         if(IS_TF_V2):
@@ -75,7 +74,7 @@ class TfConverter(LWNNUtil):
         self.tensors = {}
         for node in self.graph_def.node:
             x = self.sess.graph.get_tensor_by_name('%s/%s:0'%(self.name, node.name))
-            self.tensors[node.name] = x
+            self.tensors[self.c_str(node.name)] = x
         self.kwargs = kwargs
         if('dynamic_shape' in self.kwargs):
             self.dynamic_shape = self.kwargs
@@ -83,7 +82,10 @@ class TfConverter(LWNNUtil):
             self.dynamic_shape = False
 
     def eval(self, layer):
-        return self.sess.run(self.tensors[layer.name])
+        return self.sess.run(self.tensors[self.c_str(layer.name)])
+
+    def get_tensor(self, name):
+        return self.tensors[self.c_str(name)]
 
     def save(self, path):
         pass
@@ -183,14 +185,11 @@ class TfConverter(LWNNUtil):
             else:
                 raise NotImplementedError('attr %s=%s of node %s is not supported'%(k, attr, node))
             layer[k] = attr
-        tensor = self.tensors[node.name]
+        tensor = self.get_tensor(node.name)
         try:
             shape = tensor.shape.as_list()
         except ValueError:
-            if((self.feeds != None) and (node.name in self.feeds)):
-                shape = list(self.feeds[node.name].shape)
-                shape[0] = 1
-            elif(('shapes' in self.kwargs) and (node.name in self.kwargs['shapes'])):
+            if(('shapes' in self.kwargs) and (node.name in self.kwargs['shapes'])):
                 shape = self.kwargs['shapes'][node.name]
                 if(type(shape) == int):
                     shape = [shape]
@@ -384,10 +383,10 @@ class TfConverter(LWNNUtil):
             layer.inputs = inp.inputs
         else:
             layer.inputs = [inp.name]
-        layer.output = [o.name]
+        layer.outputs = [o.name]
         # infer LSTM output shape
-        itensor = self.tensors[inp.name]
-        otensor = self.tensors[o.name]
+        itensor = self.get_tensor(inp.name)
+        otensor = self.get_tensor(o.name)
         feeds = np.random.uniform(low=-1, high=1, size=itensor.shape)
         lstm_o = self.sess.run(otensor, {itensor:feeds})
         layer.shape = lstm_o.shape # shape to be used to decice output Y or Y_h
@@ -438,8 +437,27 @@ class TfConverter(LWNNUtil):
                 r = True
         return r
 
-    def run(self, feed=None, **kwargs):
-        pass
+    def run(self, feeds, **kwargs):
+        outputs = {}
+        otensors = []
+        model = kwargs['model']
+        for layer in model:
+            otensors.append(self.get_tensor(layer.name))
+        for feed in feeds:
+            onefeed={}
+            for n, v in feed.items():
+                onefeed[self.get_tensor(n)] = v
+            outs = self.sess.run(otensors, onefeed)
+            for i, v in enumerate(outs):
+                n = model[i].name
+                if(len(v.shape) == 0): # bytes for wav input
+                    outputs[n] = None
+                    continue
+                if(n in outputs):
+                    outputs[n] = np.concatenate((outputs[n], v.data))
+                else:
+                    outputs[n] = v.data
+        return outputs
 
     def convert2onnx(self):
         inputs = ['%s:0'%(layer.name) for layer in self.lwnn_model if layer.op == 'Input']
@@ -526,11 +544,6 @@ class TfConverter(LWNNUtil):
             return self.lwnn_model
         # here a combination of tf2lwnn and tf2onnx to generate the lwnn model
         self.onnx_model = self.convert2onnx()
-        feeds = self.feeds
-        if(feeds != None):
-            feeds = {}
-            for k,v in self.feeds.items():
-                feeds['%s:0'%(k)] = v
         shapes = {}
         for node in self.onnx_model.graph.node:
             name = self.LN(node.name)
@@ -540,13 +553,24 @@ class TfConverter(LWNNUtil):
                 if('shape' in layer):
                     shape = layer.shape
                     shapes[node.name] = shape
-        converter = OnnxConverter(self.onnx_model, feeds, shapes=shapes)
+        converter = OnnxConverter(self.onnx_model, shapes=shapes)
         self.lwnn_modelo = converter.convert()
         return self.lwnn_modelo
 
+    @property
+    def inputs(self):
+        L = {}
+        for layer in self.lwnn_model:
+            if(layer.op == "Input"):
+                L[layer.name] = layer
+        return L
+
 def tf2lwnn(graph_def, name, feeds=None, **kwargs):
-    model = LWNNModel(TfConverter(graph_def, name, feeds, **kwargs), name,
+    model = LWNNModel(TfConverter(graph_def, name, **kwargs), name,
                       notRmIdentity=True, notPermuteReshapeSoftmax=True)
+
+    feeds = LWNNFeeder(feeds, model.converter.inputs, format='NHWC')
+
     model.gen_float_c(feeds)
     if(feeds != None):
         model.gen_quantized_c(feeds)
@@ -561,10 +585,10 @@ if(__name__ == '__main__'):
     parser.add_argument('--output_node', help='force which to be output node', nargs='+', default=None, required=False)
     parser.add_argument('--tf2onnx', help='if want to use tf2onnx instead of tf2lwnn', default=False, action='store_true', required=False)
     parser.add_argument('--dynamic_shape', help='dynamic shape support', default=False, action='store_true', required=False)
+    parser.add_argument('--feeds', help='a json file describe the feeds in dict format, e.g: {"input":["/path/to/input1", "/path/to/input2"]}', type=str, default=None, required=False)
     args = parser.parse_args()
     if(args.output == None):
         args.output = os.path.basename(args.input)[:-3]
-    feeds = None
     kwargs = {}
     if((args.shape is not None) and (len(args.shape)%2 == 0)):
         n = int(len(args.shape)/2)
@@ -580,4 +604,4 @@ if(__name__ == '__main__'):
         kwargs['input_node'] = args.input_node
     if(args.output_node != None):
         kwargs['output_node'] = args.output_node
-    tf2lwnn(args.input, args.output, feeds, **kwargs)
+    tf2lwnn(args.input, args.output, args.feeds, **kwargs)

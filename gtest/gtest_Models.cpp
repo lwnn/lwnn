@@ -316,7 +316,7 @@ static void* load_enet_input(nn_t* nn, const char* path, int id, size_t* sz)
 		return load_input(nn, path, id, sz);
 	}
 }
-
+/* http://truelogic.org/wordpress/2015/09/04/parsing-a-wav-file-in-c/ */
 static void* load_kws_input(nn_t* nn, const char* path, int id, size_t* sz)
 {
 	assert(g_InputImagePath != NULL);

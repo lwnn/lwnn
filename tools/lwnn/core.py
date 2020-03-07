@@ -102,7 +102,13 @@ class LWNNUtil():
                         num_layers = len(self.lwnn_model)
                         break
 
-    def toCstr(self, name):
+    def clone(self):
+        model = []
+        for ly in self.lwnn_model:
+            model.append(self.clone_layer(ly))
+        return model
+
+    def c_str(self, name):
         for s in ['/',':', '-', '.']:
             name = name.replace(s, '_')
         fc = name[0]
@@ -189,7 +195,7 @@ class LWNNModel(LWNNUtil):
             ]
         self.is_model_channel_first_cached=None
         self.converter = converter
-        self.name = self.toCstr(name)
+        self.name = self.c_str(name)
         self.converter.save(self.path)
         self.lwnn_model = self.converter.convert()
         # optimization and convert to NCHW if origin model is NHWC
@@ -230,7 +236,7 @@ class LWNNModel(LWNNUtil):
         O = self.converter.run(feed, model=model)
         outputs = {}
         for k,v in O.items():
-            outputs[self.toCstr(k)] = v
+            outputs[self.c_str(k)] = v
         return outputs
 
     def clone_layer(self, layer):
@@ -241,12 +247,6 @@ class LWNNModel(LWNNUtil):
             else:
                 L[k] = v
         return L
-
-    def clone(self):
-        model = []
-        for ly in self.lwnn_model:
-            model.append(self.clone_layer(ly))
-        return model
 
     def set(self, model):
         self.lwnn_model = model
@@ -785,10 +785,10 @@ class LWNNModel(LWNNUtil):
     def prepare(self):
         # everthing is fine, fix name
         for layer in self.lwnn_model:
-            layer['name'] = self.toCstr(layer['name'])
+            layer['name'] = self.c_str(layer['name'])
             if('inputs' in layer):
-                layer['inputs'] = [self.toCstr(inp) for inp in layer['inputs']]
-            layer['outputs'] = [self.toCstr(out) for out in layer['outputs']]
+                layer['inputs'] = [self.c_str(inp) for inp in layer['inputs']]
+            layer['outputs'] = [self.c_str(out) for out in layer['outputs']]
         self.is_model_channel_first()
 
     def __str__(self, model=None):
