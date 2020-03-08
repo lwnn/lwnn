@@ -271,8 +271,45 @@ class LWNNQFormatC(LWNNBaseC):
         self.gen_blobs(layer, blobs)
         self.fpC.write('L_BATCHNORM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def LSTMHelper(self, layer):
+        # according to onnx.backend.test.case.node.lstm.LSTM_Helper
+        def sigmoid(x):
+            return 1 / (1 + np.exp(-x))
+        min_value = 0
+        max_value = 0
+        X = self.outputs[layer.inputs[0]]
+        X = X.reshape(-1,1,X.shape[-1])
+        W,R,B = layer.W,layer.R,layer.B
+        I,H,O = X.shape[-1], int(B.shape[-1]/8), layer.shape[-1]
+        # currently only support 1 direction
+        W = W.reshape(4*H, I)
+        R = R.reshape(4*H, O)
+        B = layer.B[:, :4*H]+layer.B[:, 4*H:]
+        if('P' in layer):
+            p_i, p_o, p_f = layer.P
+        else:
+            p_i=p_o=p_f=np.zeros(H)
+        C_t = np.zeros((1,H))
+        H_t = np.zeros((1,O))
+        for x in X:
+            gates = np.dot(x, np.transpose(W)) + np.dot(H_t, np.transpose(R)) + B
+            i, o, f, c = np.split(gates, 4, -1)
+            i = sigmoid(i + p_i * C_t)
+            f = sigmoid(f + p_f * C_t)
+            c = np.tanh(c)
+            C = f * C_t + i * c
+            o = sigmoid(o + p_o * C)
+            H = o * np.tanh(C)
+            H_t = H
+            C_t = C
+            min_value = min(C_t.min(), min_value)
+            max_value = max(C_t.max(), max_value)
+        _, Cq = self.quantize(np.asarray([min_value, max_value]), only_needQ=True)
+        return Cq
+
     def gen_LayerLSTM(self, layer):
         n = layer.name
+        Cq = self.LSTMHelper(layer)
         W = np.concatenate([layer.W, layer.R], axis=2)
         H = int(layer.B.shape[-1]/8)
         Wb,Rb = layer.B[:, :4*H],layer.B[:, 4*H:]
@@ -280,7 +317,7 @@ class LWNNQFormatC(LWNNBaseC):
         W,Wq = self.quantize(W)
         B,Bq = self.quantize(B)
         blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), 
-                 ('%s_M'%(n), np.asarray([Wq,Bq], np.int8))]
+                 ('%s_M'%(n), np.asarray([Wq,Bq,Cq], np.int8))]
         extra_id = []
         extra_blobs = []
         for i,wn in [(0,'P'), (1,'PRJECTION')]:
