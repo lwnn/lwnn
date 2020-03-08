@@ -6,6 +6,9 @@
 #include "nn.h"
 #ifndef DISABLE_RUNTIME_OPENCL
 #include "runtime_opencl.h"
+#ifndef DISABLE_RTE_FALLBACK
+#include "runtime_cpu.h"
+#endif
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
@@ -754,8 +757,12 @@ int rte_cl_create_layer_context(
 		{
 			context->dtype = L_DT_FLOAT;
 		}
-		context->out = (void*)(((unsigned long long)context)+sz);
+		context->out = (void**)(((unsigned long long)context)+sz);
 		context->nout = nout;
+		if(nout > 0)
+		{
+			memset(context->out, 0, sizeof(void*)*nout);
+		}
 		r = layer_get_NHWC(layer, &context->nhwc);
 		if(0 != r)
 		{
@@ -983,16 +990,33 @@ int rte_cl_create_layer_common(const nn_t* nn, const layer_t* layer,
 }
 
 #ifndef DISABLE_RTE_FALLBACK
-extern void rte_cpuq_to_cpu_float_init_common(const nn_t* nn, const layer_t* layer);
-extern void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer);
 void rte_cl_to_cpu_float_init_common(const nn_t* nn, const layer_t* layer)
 {
-	if(L_OP_YOLOOUTPUT != layer->op)
-	{
-		rte_cpuq_to_cpu_float_init_common(nn, layer);
+	size_t scratch_size=0;
+	layer_cpu_context_t* context;
+	const layer_t* const* inputs;
+
+	if( IS_LAYER_WITH_REAL_BUFFER(layer) ) {
+		context = (layer_cpu_context_t*)layer->C->context;
+		scratch_size += sizeof(float)*NHWC_SIZE(context->nhwc) + sizeof(void*);
+		nn_request_scratch(nn, scratch_size);
 	}
 
+	if( IS_LAYER_WITH_INPUT_BUFFER_READY(layer) ) {
+		return;
+	}
+
+	inputs = layer->inputs;
+	while(NULL != (*inputs))
+	{
+		context = (layer_cpu_context_t*)(*inputs)->C->context;
+		scratch_size += sizeof(float)*NHWC_SIZE(context->nhwc) + sizeof(void*);
+		inputs++;
+	}
+
+	nn_request_scratch(nn, scratch_size);
 }
+
 int rte_cl_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer)
 {
 	int r=0;
@@ -1001,9 +1025,17 @@ int rte_cl_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer)
 	void** cl_inputs = (void**)nn->scratch.area;
 	float* pf;
 
-	if(L_OP_YOLOOUTPUT == layer->op)
-	{
-		return 0;
+	if( IS_LAYER_WITH_REAL_BUFFER(layer) ) {
+		context = (layer_cl_context_t*)layer->C->context;
+		*cl_inputs++ = context->out[0];
+		pf = (float*)cl_inputs;
+		context->out[0] = (void*)pf;
+		pf += NHWC_SIZE(context->nhwc);
+		cl_inputs = (void**)pf;
+	}
+
+	if( IS_LAYER_WITH_INPUT_BUFFER_READY(layer) ) {
+		return r;
 	}
 
 	inputs = layer->inputs;
@@ -1028,13 +1060,47 @@ int rte_cl_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer)
 
 	return r;
 }
+
 void rte_cl_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer)
 {
-	if(L_OP_YOLOOUTPUT != layer->op)
-	{
-		rte_cpuq_to_cpu_float_post_execute_common(nn, layer);
+	int r;
+	layer_cl_context_t* context;
+	const layer_t* const* inputs;
+	void** cl_inputs = (void**)nn->scratch.area;
+	float* pf;
+
+	if( IS_LAYER_WITH_REAL_BUFFER(layer) ) {
+		context = (layer_cl_context_t*)layer->C->context;
+		context->out[0] = *cl_inputs++;
+		pf = (float*)cl_inputs;
+		r = rte_cl_image2d_copy_in(nn, context->out[0], pf, &(context->nhwc));
+
+		if(0 != r) {
+			NNLOG(NN_ERROR, ("layer %s fallback to cpu float failed when copy in\n", layer->name));
+			assert(0);
+		}
+
+		pf += NHWC_SIZE(context->nhwc);
+		cl_inputs = (void**)pf;
 	}
 
+	if( IS_LAYER_WITH_INPUT_BUFFER_READY(layer) )
+	{
+		return;
+	}
+
+	inputs = layer->inputs;
+	while(NULL != (*inputs))
+	{
+		context = (layer_cl_context_t*)(*inputs)->C->context;
+		context->out[0] = *cl_inputs++;
+		inputs++;
+	}
+}
+
+void rte_cl_to_cpu_float_deinit_common(const nn_t* nn, const layer_t* layer)
+{
+	rte_cpuq_to_cpu_float_deinit_common(nn, layer);
 }
 #endif /* DISABLE_RTE_FALLBACK */
 #endif /* DISABLE_RUNTIME_OPENCL */

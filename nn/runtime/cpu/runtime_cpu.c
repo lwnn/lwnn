@@ -8,6 +8,9 @@
 #include "runtime_cpu.h"
 #ifndef DISABLE_RTE_FALLBACK
 #include "quantize.h"
+#ifndef DISABLE_RUNTIME_OPENCL
+#include "runtime_opencl.h"
+#endif
 #endif
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
@@ -349,6 +352,15 @@ int rte_cpu_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx
 	if(bsz > 0)
 	{
 		#ifndef DISABLE_RTE_FALLBACK
+		#ifndef DISABLE_RUNTIME_OPENCL
+		if((RUNTIME_OPENCL == nn->runtime_type) &&
+			IS_LAYER_WITH_REAL_BUFFER(layer)) {
+			context->out[0] = (cl_mem)rte_cl_alloc_image2d(nn, layer,
+							RTE_CL_NHWC_H(context->nhwc),
+							RTE_CL_NHWC_W(context->nhwc),
+							CL_FLOAT);
+		} else
+		#endif
 		if(RUNTIME_CPU != nn->runtime_type)
 		{
 			context->out[0] = malloc(bsz);
@@ -449,8 +461,7 @@ void rte_cpuq_to_cpu_float_init_common(const nn_t* nn, const layer_t* layer)
 	layer_cpu_context_t* context;
 	const layer_t* const* inputs;
 
-	if(L_OP_YOLOOUTPUT == layer->op)
-	{
+	if( IS_LAYER_WITH_INPUT_BUFFER_READY(layer) ) {
 		return;
 	}
 
@@ -470,11 +481,10 @@ int rte_cpuq_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* laye
 	int r=0;
 	layer_cpu_context_t* context;
 	const layer_t* const* inputs;
-	void** cl_inputs = (void**)nn->scratch.area;
+	void** l_inputs = (void**)nn->scratch.area;
 	float* pf;
 
-	if(L_OP_YOLOOUTPUT == layer->op)
-	{
+	if( IS_LAYER_WITH_INPUT_BUFFER_READY(layer) ) {
 		return r;
 	}
 
@@ -482,11 +492,11 @@ int rte_cpuq_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* laye
 	while(NULL != (*inputs))
 	{
 		context = (layer_cpu_context_t*)(*inputs)->C->context;
-		*cl_inputs++ = context->out[0];
+		*l_inputs++ = context->out[0];
 		inputs++;
 	}
 
-	pf = (float*)cl_inputs;
+	pf = (float*)l_inputs;
 
 	inputs = layer->inputs;
 	while((NULL != (*inputs)) && (0 == r))
@@ -528,10 +538,38 @@ void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* la
 {
 	layer_cpu_context_t* context;
 	const layer_t* const* inputs;
-	void** cl_inputs = (void**)nn->scratch.area;
+	void** l_inputs = (void**)nn->scratch.area;
 	float* pf;
 
-	if(L_OP_YOLOOUTPUT == layer->op)
+	if( IS_LAYER_WITH_REAL_BUFFER(layer) ) {
+		context = (layer_cpu_context_t*)layer->C->context;
+		switch(nn->network->type)
+		{
+			#if !defined(DISABLE_RUNTIME_CPU_Q8)
+			case NETWORK_TYPE_Q8:
+				quantize_q8((int8_t*)context->out[0], (float*)context->out[0], NHWC_SIZE(context->nhwc),
+						LAYER_Q((*inputs)));
+				break;
+			#endif
+			#if !defined(DISABLE_RUNTIME_CPU_S8)
+			case NETWORK_TYPE_S8:
+				quantize_s8((int8_t*)context->out[0], (float*)context->out[0], NHWC_SIZE(context->nhwc),
+						LAYER_Q((*inputs)), LAYER_S((*inputs)), LAYER_Z((*inputs)));
+				break;
+			#endif
+			#if !defined(DISABLE_RUNTIME_CPU_Q16)
+			case NETWORK_TYPE_Q16:
+				quantize_q16((int16_t*)context->out[0], (float*)context->out[0], NHWC_SIZE(context->nhwc),
+						LAYER_Q((*inputs)));
+				break;
+			#endif
+			default:
+				assert(0);
+				break;
+		}
+	}
+
+	if( IS_LAYER_WITH_INPUT_BUFFER_READY(layer) )
 	{
 		return;
 	}
@@ -540,8 +578,26 @@ void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* la
 	while(NULL != (*inputs))
 	{
 		context = (layer_cpu_context_t*)(*inputs)->C->context;
-		context->out[0] = *cl_inputs++;
+		context->out[0] = *l_inputs++;
 		inputs++;
+	}
+}
+
+void rte_cpuq_to_cpu_float_deinit_common(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_context_t* context = (layer_cpu_context_t*)layer->C->context;
+	if(NULL != context) {
+		#ifndef DISABLE_RUNTIME_OPENCL
+		if((RUNTIME_OPENCL == nn->runtime_type) &&
+			IS_LAYER_WITH_REAL_BUFFER(layer)) {
+			/* pass */
+		} else
+		#endif
+		if((RUNTIME_CPU != nn->runtime_type) &&
+			(FALSE == IS_LAYER_WITHOUT_BUFFER(layer))) {
+			free(context->out[0]);
+			context->out[0] = NULL;
+		}
 	}
 }
 #endif /* DISABLE_RTE_FALLBACK */

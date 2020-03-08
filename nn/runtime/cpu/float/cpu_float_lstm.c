@@ -87,6 +87,7 @@ int layer_cpu_float_LSTM_init(const nn_t* nn, const layer_t* layer)
 	int hidden_size;
 	int output_size;
 	int num_directions;
+	size_t scratch_size;
 	layer_cpu_float_lstm_context_t* context;
 	int r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_lstm_context_t), sizeof(float));
 
@@ -97,7 +98,14 @@ int layer_cpu_float_LSTM_init(const nn_t* nn, const layer_t* layer)
 		output_size = layer->blobs[1]->dims[2];
 		context->c = malloc(num_directions*sizeof(float)*(hidden_size+output_size));
 		context->h = context->c + num_directions*hidden_size;
-		nn_request_scratch(nn, 3*sizeof(float)*hidden_size);
+		scratch_size = 3*sizeof(float)*hidden_size;
+		#if !defined(DISABLE_RTE_FALLBACK) && !defined(DISABLE_RUNTIME_OPENCL)
+		if(RUNTIME_OPENCL == nn->runtime_type) { /* those are used for fallback */
+			scratch_size += sizeof(float)*NHWC_SIZE(layer->inputs[0]->C->context->nhwc) + sizeof(void*);
+			scratch_size += sizeof(float)*NHWC_SIZE(context->nhwc) + sizeof(void*);
+		}
+		#endif
+		nn_request_scratch(nn, scratch_size);
 		if(NULL == context->c) {
 			r = NN_E_NO_MEMORY;
 		} else {
@@ -186,6 +194,13 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 		}
 
 		it = (float*)nn->scratch.area;
+		#if !defined(DISABLE_RTE_FALLBACK) && !defined(DISABLE_RUNTIME_OPENCL)
+		if(RUNTIME_OPENCL == nn->runtime_type) { /* skip those which are used for fallback */
+			it = (float*)(((size_t)it)
+					+ sizeof(float)*NHWC_SIZE(input_context->nhwc) + sizeof(void*)
+					+ sizeof(float)*NHWC_SIZE(context->nhwc) + sizeof(void*));
+		}
+		#endif
 		ot = it;
 		ft = ot + hidden_size;
 		ct = ft + hidden_size;

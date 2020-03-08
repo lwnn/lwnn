@@ -731,7 +731,7 @@ void ModelTestMain(runtime_type_t runtime,
 		else
 		{
 			in = (float*)args->load_input(nn, input, i, &sz_in);
-			if(inputs[0]->layer->dtype != L_DT_STRING) {
+			if(inputs[0]->layer->op != L_OP_MFCC) {
 				EXPECT_EQ(sz_in, H*W*C*sizeof(float));
 			}
 			if(NULL == g_InputImagePath)
@@ -741,7 +741,7 @@ void ModelTestMain(runtime_type_t runtime,
 			}
 		}
 
-		if(inputs[0]->layer->dtype == L_DT_STRING)
+		if(inputs[0]->layer->op == L_OP_MFCC)
 		{
 			sz_in = sizeof(void*)*2;
 			IN = in;

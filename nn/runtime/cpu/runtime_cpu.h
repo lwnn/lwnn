@@ -31,6 +31,20 @@ extern "C" {
 #ifndef FLT_MAX
 #define FLT_MAX  3.40282347e+38F
 #endif
+
+#ifndef DISABLE_RTE_FALLBACK
+#define IS_LAYER_WITH_REAL_BUFFER(layer) \
+	( (L_OP_MFCC == layer->op) || \
+	  (L_OP_LSTM == layer->op) )
+
+#define IS_LAYER_WITH_INPUT_BUFFER_READY(layer) \
+	( (L_OP_YOLOOUTPUT == layer->op) || \
+	  (L_OP_MFCC == layer->op) )
+
+#define IS_LAYER_WITHOUT_BUFFER(layer) \
+	( (L_OP_YOLOOUTPUT == layer->op) || \
+	  (L_OP_DETECTIONOUTPUT == layer->op) )
+#endif /* DISABLE_RTE_FALLBACK */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
 {
@@ -79,6 +93,13 @@ int rte_cpu_dynamic_conv2d(const layer_t* layer,
 		int* padY, int* padX, int strideY, int strideX,
 		int knlY, int knlX, void** O, size_t* max, size_t type_sz);
 void rte_cpu_dynamic_free(const layer_t* layer);
+#endif
+
+#ifndef DISABLE_RTE_FALLBACK
+void rte_cpuq_to_cpu_float_init_common(const nn_t* nn, const layer_t* layer);
+int rte_cpuq_to_cpu_float_pre_execute_common(const nn_t* nn, const layer_t* layer);
+void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* layer);
+void rte_cpuq_to_cpu_float_deinit_common(const nn_t* nn, const layer_t* layer);
 #endif
 #ifdef __cplusplus
 }

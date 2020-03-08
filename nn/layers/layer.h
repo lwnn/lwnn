@@ -21,7 +21,7 @@ extern "C" {
 #define L_BLOB_DECLARE(type, name) static type name[l_blob_def_##name]
 #endif
 
-#define L_INPUT(name, dtype)							\
+#define L_LAYER_I(name, dtype, op)						\
 	static layer_context_container_t l_context_##name;	\
 	static LCONST int l_dims_##name[] = { name##_DIMS, 0 };	\
 	static LCONST layer_t l_layer_##name = {			\
@@ -30,9 +30,13 @@ extern "C" {
 		/* blobs */ l_blobs_##name,						\
 		/* dims */ l_dims_##name,						\
 		/* context */ &l_context_##name,				\
-		/* op */ L_OP_INPUT,							\
+		/* op */ L_OP_##op,						\
 		/* dtype */ dtype								\
 	}
+
+#define L_INPUT(name, dtype) L_LAYER_I(name, dtype, INPUT)
+#define L_MFCC(name)  L_LAYER_I(name, L_DT_AUTO, MFCC)
+
 
 #define L_LAYER_SI(name, input, op)						\
 	static layer_context_container_t l_context_##name;	\
@@ -78,7 +82,6 @@ extern "C" {
 #define L_DECONV2D(name, input)		L_LAYER_SI(name, input, DECONV2D)
 #define L_BATCHNORM(name, input)	L_LAYER_SI(name, input, BATCHNORM)
 #define L_DILCONV2D(name, input)	L_LAYER_SI(name, input, DILCONV2D)
-#define L_MFCC(name, input)			L_LAYER_SI(name, input, MFCC)
 #define L_LSTM(name, input)			L_LAYER_SI(name, input, LSTM)
 
 #define L_MAXIMUM(name, inputs)							\
@@ -176,6 +179,7 @@ void layer_##runtime##_##op##_deinit(const nn_t* nn, const layer_t* layer)	\
 extern void layer_##runtime##_to_##fb##_init_common(const nn_t*,const layer_t*);			\
 extern int layer_##runtime##_to_##fb##_pre_execute_common(const nn_t*,const layer_t*);		\
 extern void layer_##runtime##_to_##fb##_post_execute_common(const nn_t*,const layer_t*);	\
+extern void layer_##runtime##_to_##fb##_deinit_common(const nn_t*,const layer_t*);			\
 extern int layer_##fb##_##op##_init(const nn_t*, const layer_t*);			\
 extern int layer_##fb##_##op##_execute(const nn_t*, const layer_t*);		\
 extern void layer_##fb##_##op##_deinit(const nn_t*, const layer_t*);		\
@@ -200,6 +204,7 @@ int layer_##runtime##_##op##_execute(const nn_t* nn, const layer_t* layer)	\
 }																			\
 void layer_##runtime##_##op##_deinit(const nn_t* nn, const layer_t* layer)	\
 {																			\
+	layer_##runtime##_to_##fb##_deinit_common(nn, layer);					\
 	layer_##fb##_##op##_deinit(nn, layer);									\
 }
 #else

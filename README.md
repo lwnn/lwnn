@@ -36,12 +36,12 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | AvgPool2D | Y | Y | Y | Y | Y | |
 | Add | Y | Y | Y | Y | Y | |
 | PriorBox | Y | N | N | N | F | |
-| DetectionOutput | Y | N | N | N | F | |
+| DetectionOutput | Y | F | F | F | F | |
 | Upsample | Y | Y | Y | Y | Y | |
-| Yolo | Y | N | N | N | F | |
-| YoloOutput | Y | N | N | N | F | |
-| Mfcc | Y | N | N | N | N | |
-| LSTM | Y | N | N | N | N | |
+| Yolo | Y | F | F | F | F | |
+| YoloOutput | Y | F | F | F | F | |
+| Mfcc | Y | F | F | F | F | |
+| LSTM | Y | N | N | N | F | |
 
 * F means fallback to others runtime that supported that layer.
 

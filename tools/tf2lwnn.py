@@ -541,7 +541,7 @@ class TfConverter(LWNNUtil):
             for l in self.lwnn_model:
                 if('shape' in l):
                     self.convert_layer_to_nchw(l)
-            return self.lwnn_model
+            return self.clone()
         # here a combination of tf2lwnn and tf2onnx to generate the lwnn model
         self.onnx_model = self.convert2onnx()
         shapes = {}
@@ -569,7 +569,8 @@ def tf2lwnn(graph_def, name, feeds=None, **kwargs):
     model = LWNNModel(TfConverter(graph_def, name, **kwargs), name,
                       notRmIdentity=True, notPermuteReshapeSoftmax=True)
 
-    feeds = LWNNFeeder(feeds, model.converter.inputs, format='NHWC')
+    if(feeds != None):
+        feeds = LWNNFeeder(feeds, model.converter.inputs, format='NHWC')
 
     model.gen_float_c(feeds)
     if(feeds != None):

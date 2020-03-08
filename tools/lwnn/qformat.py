@@ -271,6 +271,29 @@ class LWNNQFormatC(LWNNBaseC):
         self.gen_blobs(layer, blobs)
         self.fpC.write('L_BATCHNORM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def gen_LayerLSTM(self, layer):
+        n = layer.name
+        W = np.concatenate([layer.W, layer.R], axis=2)
+        H = int(layer.B.shape[-1]/8)
+        Wb,Rb = layer.B[:, :4*H],layer.B[:, 4*H:]
+        B = Wb + Rb
+        W,Wq = self.quantize(W)
+        B,Bq = self.quantize(B)
+        blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), 
+                 ('%s_M'%(n), np.asarray([Wq,Bq], np.int8))]
+        extra_id = []
+        extra_blobs = []
+        for i,wn in [(0,'P'), (1,'PRJECTION')]:
+            if(wn in layer):
+                w,wq = self.quantize(layer[wn])
+                extra_id.append([i, wq])
+                extra_blobs.append(('%s_%s'%(n,wn), w))
+        if(len(extra_id) > 0):
+            blobs.append(('%s_ExtraId'%(n), np.asarray(extra_id, np.int32)))
+            blobs.extend(extra_blobs)
+        self.gen_blobs(layer, blobs)
+        self.fpC.write('L_LSTM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
 class LWNNQSFormatC(LWNNQFormatC):
     def __init__(self, model, feeds):
         try:

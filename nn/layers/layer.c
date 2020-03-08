@@ -31,6 +31,7 @@
 extern void rte_##gf##_to_##to##_init_common(const nn_t*, const layer_t*);				\
 extern int rte_##gf##_to_##to##_pre_execute_common(const nn_t*, const layer_t*);		\
 extern void rte_##gf##_to_##to##_post_execute_common(const nn_t*, const layer_t*);		\
+extern void rte_##gf##_to_##to##_deinit_common(const nn_t*, const layer_t*);			\
 void layer_##from##_to_##to##_init_common(const nn_t* nn, const layer_t* layer)			\
 {																						\
 	rte_##gf##_to_##to##_init_common(nn, layer);										\
@@ -42,6 +43,10 @@ int layer_##from##_to_##to##_pre_execute_common(const nn_t* nn, const layer_t* l
 void layer_##from##_to_##to##_post_execute_common(const nn_t* nn, const layer_t* layer)	\
 {																						\
 	rte_##gf##_to_##to##_post_execute_common(nn, layer);								\
+}																						\
+void layer_##from##_to_##to##_deinit_common(const nn_t* nn, const layer_t* layer)		\
+{																						\
+	rte_##gf##_to_##to##_deinit_common(nn, layer);										\
 }
 #else
 #define FALLBACK_TEMPLATE(from, to, gf)
@@ -240,15 +245,15 @@ UNSUPPORTED_LAYER_OPS(cpu_s8, PRELU)
 UNSUPPORTED_LAYER_OPS(cpu_q8, PRELU)
 UNSUPPORTED_LAYER_OPS(cpu_q16, PRELU)
 
-UNSUPPORTED_LAYER_OPS(cpu_s8, MFCC)
-UNSUPPORTED_LAYER_OPS(cpu_q8, MFCC)
-UNSUPPORTED_LAYER_OPS(cpu_q16, MFCC)
-UNSUPPORTED_LAYER_OPS(cl, MFCC)
+FALLBACK_LAYER_OPS_CPU_S8(MFCC, cpu_float)
+FALLBACK_LAYER_OPS_CPU_Q8(MFCC, cpu_float)
+FALLBACK_LAYER_OPS_CPU_Q16(MFCC, cpu_float)
+FALLBACK_LAYER_OPS_CL(MFCC, cpu_float)
 
 UNSUPPORTED_LAYER_OPS(cpu_s8, LSTM)
 UNSUPPORTED_LAYER_OPS(cpu_q8, LSTM)
 UNSUPPORTED_LAYER_OPS(cpu_q16, LSTM)
-UNSUPPORTED_LAYER_OPS(cl, LSTM)
+FALLBACK_LAYER_OPS_CL(LSTM, cpu_float)
 
 FALLBACK_LAYER_OPS_CPU_S8(DETECTIONOUTPUT, cpu_float)
 FALLBACK_LAYER_OPS_CPU_Q8(DETECTIONOUTPUT, cpu_float)

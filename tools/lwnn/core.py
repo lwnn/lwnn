@@ -102,6 +102,15 @@ class LWNNUtil():
                         num_layers = len(self.lwnn_model)
                         break
 
+    def clone_layer(self, layer):
+        L = LWNNLayer()
+        for k,v in layer.items():
+            if(type(v) in [list, tuple]):
+                L[k] = list(v)
+            else:
+                L[k] = v
+        return L
+
     def clone(self):
         model = []
         for ly in self.lwnn_model:
@@ -186,6 +195,7 @@ class LWNNModel(LWNNUtil):
             (self.opt_IsLayerClipRelu, self.opt_LayerClip2Relu, None),
             (self.opt_IsLayerFlatten, self.opt_LayerFlatten2Reshape, None),
             (self.opt_IsLayerPad, self.opt_LayerPad, None),
+            (self.opt_IsLayerMfcc, self.opt_LayerMfcc, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, 'PermuteReshapeSoftmax'),
             (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, 'RemoveTranspose'),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
@@ -238,15 +248,6 @@ class LWNNModel(LWNNUtil):
         for k,v in O.items():
             outputs[self.c_str(k)] = v
         return outputs
-
-    def clone_layer(self, layer):
-        L = LWNNLayer()
-        for k,v in layer.items():
-            if(type(v) in [list, tuple]):
-                L[k] = list(v)
-            else:
-                L[k] = v
-        return L
 
     def set(self, model):
         self.lwnn_model = model
@@ -768,6 +769,19 @@ class LWNNModel(LWNNUtil):
         if(layer['op'] in ['Dropout']):
             r = True
         return r
+
+    def opt_IsLayerMfcc(self, layer):
+        r = False
+        if((layer.op == 'Mfcc') and ('inputs' in layer)):
+            r = True
+        return r
+
+    def opt_LayerMfcc(self, layer):
+        inputs = self.get_layers(layer.inputs)
+        for inp in inputs:
+            self.lwnn_model.remove(inp)
+        del layer['inputs']
+        return True
 
     def check(self):
         for id,layer in enumerate(self.lwnn_model):
