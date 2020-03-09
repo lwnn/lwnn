@@ -95,7 +95,7 @@ int layer_cpu_float_LSTM_init(const nn_t* nn, const layer_t* layer)
 		context = (layer_cpu_float_lstm_context_t*)layer->C->context;
 		num_directions = layer->blobs[0]->dims[0];
 		hidden_size = layer->blobs[0]->dims[1]/4;
-		output_size = layer->blobs[1]->dims[2];
+		output_size = context->nhwc.C;
 		context->c = malloc(num_directions*sizeof(float)*(hidden_size+output_size));
 		context->h = context->c + num_directions*hidden_size;
 		scratch_size = 3*sizeof(float)*hidden_size;
@@ -109,7 +109,7 @@ int layer_cpu_float_LSTM_init(const nn_t* nn, const layer_t* layer)
 		if(NULL == context->c) {
 			r = NN_E_NO_MEMORY;
 		} else {
-			memset(context->c, 0, num_directions*sizeof(float)*(hidden_size+context->nhwc.C));
+			memset(context->c, 0, num_directions*sizeof(float)*(hidden_size+output_size));
 		}
 	}
 
@@ -145,6 +145,18 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 	NNLOG(NN_DEBUG, ("execute %s: B=%d, I=%d, H=%d, O=%d, D=%d\n", layer->name,
 			batch_size, input_size, hidden_size, output_size, num_directions));
 
+	it = (float*)nn->scratch.area;
+	#if !defined(DISABLE_RTE_FALLBACK) && !defined(DISABLE_RUNTIME_OPENCL)
+	if(RUNTIME_OPENCL == nn->runtime_type) { /* skip those which are used for fallback */
+		it = (float*)(((size_t)it)
+				+ sizeof(float)*NHWC_SIZE(input_context->nhwc) + sizeof(void*)
+				+ sizeof(float)*NHWC_SIZE(context->nhwc) + sizeof(void*));
+	}
+	#endif
+	ot = it;
+	ft = ot + hidden_size;
+	ct = ft + hidden_size;
+
 	for(d=0; d<num_directions; d++) {
 		c = context->c + d*hidden_size;
 		h = context->h + d*output_size;
@@ -165,7 +177,7 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 		Rc = Rf + hidden_size*output_size;
 
 		Wbi = (const float*) layer->blobs[2]->blob;
-		Ri += d*hidden_size*8;
+		Wbi += d*hidden_size*8;
 		Wbo = Wbi + hidden_size;
 		Wbf = Wbo + hidden_size;
 		Wbc = Wbf + hidden_size;
@@ -192,18 +204,6 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 				}
 			}
 		}
-
-		it = (float*)nn->scratch.area;
-		#if !defined(DISABLE_RTE_FALLBACK) && !defined(DISABLE_RUNTIME_OPENCL)
-		if(RUNTIME_OPENCL == nn->runtime_type) { /* skip those which are used for fallback */
-			it = (float*)(((size_t)it)
-					+ sizeof(float)*NHWC_SIZE(input_context->nhwc) + sizeof(void*)
-					+ sizeof(float)*NHWC_SIZE(context->nhwc) + sizeof(void*));
-		}
-		#endif
-		ot = it;
-		ft = ot + hidden_size;
-		ct = ft + hidden_size;
 
 		for(i=0; i<batch_size; i++) {
 			gate_calc(x, Wi, h, Ri, Wbi, Rbi, Pi, c, it, input_size, hidden_size, output_size, L_ACT_SIGMOID);

@@ -45,9 +45,14 @@ void quantize_q8(int8_t* out, float* in, size_t n, int32_t Q)
 {
 	size_t i;
 
-	for(i=0; i<n; i++)
-	{
-		out[i] = (int8_t)(in[i]*(1<<Q));
+	if(Q >= 0) {
+		for(i=0; i<n; i++) {
+			out[i] = (int8_t)(in[i]*(1<<Q));
+		}
+	} else {
+		for(i=0; i<n; i++) {
+			out[i] = (int8_t)(((int32_t)in[i])>>(-Q));
+		}
 	}
 }
 

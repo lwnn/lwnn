@@ -275,8 +275,10 @@ class LWNNQFormatC(LWNNBaseC):
         # according to onnx.backend.test.case.node.lstm.LSTM_Helper
         def sigmoid(x):
             return 1 / (1 + np.exp(-x))
-        min_value = 0
-        max_value = 0
+        cmin = 0
+        cmax = 0
+        gmin = 0
+        gmax = 0
         X = self.outputs[layer.inputs[0]]
         X = X.reshape(-1,1,X.shape[-1])
         W,R,B = layer.W,layer.R,layer.B
@@ -293,6 +295,8 @@ class LWNNQFormatC(LWNNBaseC):
         H_t = np.zeros((1,O))
         for x in X:
             gates = np.dot(x, np.transpose(W)) + np.dot(H_t, np.transpose(R)) + B
+            gmin = min(gates.min(), gmin)
+            gmax = max(gates.max(), gmax)
             i, o, f, c = np.split(gates, 4, -1)
             i = sigmoid(i + p_i * C_t)
             f = sigmoid(f + p_f * C_t)
@@ -302,14 +306,15 @@ class LWNNQFormatC(LWNNBaseC):
             H = o * np.tanh(C)
             H_t = H
             C_t = C
-            min_value = min(C_t.min(), min_value)
-            max_value = max(C_t.max(), max_value)
-        _, Cq = self.quantize(np.asarray([min_value, max_value]), only_needQ=True)
-        return Cq
+            cmin = min(C_t.min(), cmin)
+            cmax = max(C_t.max(), cmax)
+        _, Cq = self.quantize(np.asarray([cmin, cmax]), only_needQ=True)
+        _, Gq = self.quantize(np.asarray([gmin, gmax]), only_needQ=True)
+        return Cq,Gq
 
     def gen_LayerLSTM(self, layer):
         n = layer.name
-        Cq = self.LSTMHelper(layer)
+        Cq,Gq = self.LSTMHelper(layer)
         W = np.concatenate([layer.W, layer.R], axis=2)
         H = int(layer.B.shape[-1]/8)
         Wb,Rb = layer.B[:, :4*H],layer.B[:, 4*H:]
@@ -317,7 +322,7 @@ class LWNNQFormatC(LWNNBaseC):
         W,Wq = self.quantize(W)
         B,Bq = self.quantize(B)
         blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), 
-                 ('%s_M'%(n), np.asarray([Wq,Bq,Cq], np.int8))]
+                 ('%s_M'%(n), np.asarray([Wq,Bq,Cq,Gq], np.int8))]
         extra_id = []
         extra_blobs = []
         for i,wn in [(0,'P'), (1,'PRJECTION')]:

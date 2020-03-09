@@ -37,7 +37,7 @@ int layer_cpu_s8_DENSE_init(const nn_t* nn, const layer_t* layer)
 
 		if(NULL == context->bufferA)
 		{
-			rte_cpu_destory_layer_context(nn, layer);
+			r = NN_E_NO_MEMORY;
 		}
 		else
 		{

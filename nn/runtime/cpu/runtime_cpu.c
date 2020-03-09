@@ -548,19 +548,19 @@ void rte_cpuq_to_cpu_float_post_execute_common(const nn_t* nn, const layer_t* la
 			#if !defined(DISABLE_RUNTIME_CPU_Q8)
 			case NETWORK_TYPE_Q8:
 				quantize_q8((int8_t*)context->out[0], (float*)context->out[0], NHWC_SIZE(context->nhwc),
-						LAYER_Q((*inputs)));
+						LAYER_Q(layer));
 				break;
 			#endif
 			#if !defined(DISABLE_RUNTIME_CPU_S8)
 			case NETWORK_TYPE_S8:
 				quantize_s8((int8_t*)context->out[0], (float*)context->out[0], NHWC_SIZE(context->nhwc),
-						LAYER_Q((*inputs)), LAYER_S((*inputs)), LAYER_Z((*inputs)));
+						LAYER_Q(layer), LAYER_S(layer), LAYER_Z(layer));
 				break;
 			#endif
 			#if !defined(DISABLE_RUNTIME_CPU_Q16)
 			case NETWORK_TYPE_Q16:
 				quantize_q16((int16_t*)context->out[0], (float*)context->out[0], NHWC_SIZE(context->nhwc),
-						LAYER_Q((*inputs)));
+						LAYER_Q(layer));
 				break;
 			#endif
 			default:
