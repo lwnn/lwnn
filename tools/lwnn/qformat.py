@@ -319,9 +319,11 @@ class LWNNQFormatC(LWNNBaseC):
         H = int(layer.B.shape[-1]/8)
         Wb,Rb = layer.B[:, :4*H],layer.B[:, 4*H:]
         B = Wb + Rb
-        W,Wq = self.quantize(W)
+        Wt,Wq = self.quantize(W)
+        Wt = self.convert_to_x4_weights(Wt.reshape(Wt.shape[1],-1,1,1))
+        Wt = Wt.reshape(W.shape)
         B,Bq = self.quantize(B)
-        blobs = [('%s_W'%(n), W), ('%s_B'%(n), B), 
+        blobs = [('%s_W'%(n), Wt), ('%s_B'%(n), B), 
                  ('%s_M'%(n), np.asarray([Wq,Bq,Cq,Gq], np.int8))]
         extra_id = []
         extra_blobs = []

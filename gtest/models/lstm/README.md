@@ -19,4 +19,4 @@ with open('feeds.json', 'w') as f:
   json.dump({'wav_data': L }, f)
 ```
 
-python tf2lwnn.py -i ML-KWS-for-MCU/Pretrained_models/Basic_LSTM/Basic_LSTM_S.pb -o kws -s wav_data 1,32000 -r D:/tmp/kws/feeds.json
+python tf2lwnn.py -i ML-KWS-for-MCU/Pretrained_models/Basic_LSTM/Basic_LSTM_S.pb -o kws -s wav_data 1,32000 --feeds D:/tmp/kws/feeds.json

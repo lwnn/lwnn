@@ -1,4 +1,4 @@
-import sys
+import sys,os,glob,json
 import tensorflow as tf
 from tensorflow.python.ops import gen_audio_ops as contrib_audio
 from tensorflow.python.framework import graph_util
@@ -54,9 +54,28 @@ with tf.Session() as sess:
     if(len(sys.argv) > 1):
         wav_data = open(sys.argv[1], 'rb').read()
         features_o,mfccs_o, sample_rate = sess.run((features, mfccs, sample_rate), {'input:0': wav_data})
-        print(features_o.shape, mfccs_o.shape, sample_rate)
         features_o.tofile('features.raw')
-        mfccs_o.tofile('mfccs.raw')
+        n = int(int(features_o.shape[1])/16)
+        for i in range(n):
+            fs = features_o[:,16*i:16*(i+1),:,:]
+            fs.tofile('goldens/%s_%s.raw'%(os.path.basename(sys.argv[1])[:-4],i))
     constant_graph = graph_util.convert_variables_to_constants(sess, sess.graph_def, ['output'])
     with tf.gfile.FastGFile('./mfcc.pb', mode='wb') as f:
         f.write(constant_graph.SerializeToString())
+
+feeds = {'transpose':[],
+         'input_lengths':[],
+         'previous_state_c': [],
+         'previous_state_h':[],
+         'hidden-inputs': {'input_lengths':(1), 'previous_state_c':(1,2048), 'previous_state_h':(1,2048)},
+         'transpose:shape':(16,26,1,19) # override the shape by tf2lwnn, in NCHW format
+         }
+np.zeros((1,2048), np.float32).tofile('zeros.raw')
+zerop = os.path.abspath('zeros.raw')
+for e in glob.glob('goldens/*.raw'):
+    feeds['transpose'].append(os.path.abspath(e))
+    feeds['previous_state_c'].append(zerop)
+    feeds['previous_state_h'].append(zerop)
+    feeds['input_lengths'].append([16])
+with open('feeds.json', 'w') as f:
+  json.dump(feeds, f)

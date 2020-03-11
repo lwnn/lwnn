@@ -56,17 +56,35 @@ class LWNNFeeder():
         return False
 
     def is_string_input(self, layer):
+        if(layer.__class__.__name__ != 'LWNNLayer'):
+            return False
         if(('dtype' in layer) and (layer.dtype=='string')):
             return True
         else:
             return False
 
+    def get_shape(self, layer):
+        if(layer.__class__.__name__ == 'LWNNLayer'):
+            ks = '%s:shape'%(layer.name)
+            if(ks in self._feeds):
+                shape = self._feeds[ks]
+            else:
+                shape = layer.shape
+        else:
+            shape = layer
+        return shape
+
     def load(self, inp, layer):
         if(self.is_string_input(layer)):
             v = open(inp, 'rb').read()
         else:
-            if(len(layer.shape) == 4):
-                shape = [layer.shape[s] for s in [0,2,3,1]]
+            shape = self.get_shape(layer)
+            if(len(shape) == 4):
+                shape = [shape[s] for s in [0,2,3,1]]
+            elif(len(shape) == 2):
+                pass
+            elif(len(shape) == 1):
+                pass
             else:
                 raise
             if(self.isNHWC()):
@@ -86,4 +104,13 @@ class LWNNFeeder():
                     feed[n] = self.load(inp, layer)
                 else:
                     feed[n] = inp
+            if('hidden-inputs' in self._feeds): # for those inputs ignored by lwnn
+                for n, shape in self._feeds['hidden-inputs'].items():
+                    inp = self._feeds[n][i]
+                    if(type(inp) == str):
+                        feed[n] = self.load(inp, shape)
+                    elif(type(inp) == list):
+                        feed[n] = np.asarray(inp)
+                    else:
+                        feed[n] = inp
             yield feed
