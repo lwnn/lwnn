@@ -99,7 +99,11 @@ class VinoConverter():
             'ReLU': 'Relu',
             'SoftMax': 'Softmax',
             }
-        self.opt_lwnn_model = None
+        self.convert()
+
+    @property
+    def model(self):
+        return self.lwnn_model
 
     def read(self, offset, num, type='f'):
         sz = 4
@@ -298,7 +302,7 @@ class VinoConverter():
                 ly['outputs'] = [ly['name']]
             else:
                 ly['outputs'] = [ly['name']+o for o in ly['outputs']]
-        return lwnn_model
+        self.lwnn_model = lwnn_model
 
     @property
     def inputs(self):
@@ -316,18 +320,16 @@ def vino2lwnn(model, name, **kargs):
         weights = kargs['weights']
     else:
         weights = None
-    model = LWNNModel(VinoConverter(model, weights), name)
+    converter = VinoConverter(model, weights)
     if('feeds' in kargs):
         feeds = kargs['feeds']
     else:
         feeds = None
 
     if(type(feeds) == str):
-        feeds = load_feeds(feeds, model.converter.inputs)
-
-    model.gen_float_c(feeds)
-    if(feeds != None):
-        model.gen_quantized_c(feeds)
+        feeds = load_feeds(feeds, converter.inputs)
+    model = LWNNModel(converter, name, feeds=feeds)
+    model.generate()
 
 if(__name__ == '__main__'):
     import argparse

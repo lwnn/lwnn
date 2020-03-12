@@ -1,12 +1,14 @@
-
+from keras2lwnn import *
+from onnx2lwnn import *
+import onnx
+import onnx.helper
+import onnx.numpy_helper
+import numpy as np
 import keras
 from keras.models import Model
 from keras.models import load_model
 from keras.layers import *
 import numpy as np
-
-from keras2lwnn import *
-
 import os
 
 os.environ['LWNN_GTEST'] = '1'
@@ -228,19 +230,20 @@ def uci_inception():
         x_test.tofile('models/uci_inception/golden/input.raw')
         y_test.tofile('models/uci_inception/golden/output.raw')
 
-def lstm():
-    from keras.datasets import imdb
-    from keras.preprocessing import sequence
-    if(not os.path.exists('models/lstm/lstm.h5')):
-        return
-    os.makedirs('models/lstm/golden', exist_ok=True)
-    model = load_model('models/lstm/lstm.h5')
-    (_, _), (x_test, y_test) = imdb.load_data(num_words=20000)
-    x_test = sequence.pad_sequences(x_test, maxlen=80)
-    x_test = np.asarray(x_test, np.float32)
-    keras2lwnn(model, 'lstm', {model.inputs[0]:x_test[0:100]})
-    x_test.tofile('models/lstm/golden/input.raw')
-    y_test.tofile('models/lstm/golden/output.raw')
+def lstm(name, n_steps=8, input_size=32, hidden_size=12):
+    x = onnx.helper.make_tensor_value_info('input', onnx.TensorProto.FLOAT,(1,n_steps,input_size))
+    y = onnx.helper.make_tensor_value_info('output', onnx.TensorProto.FLOAT,(1,1,n_steps,hidden_size))
+    W,R,B = [np.random.uniform(low=-0.1,high=0.2,size=(1,4*hidden_size,input_size)).astype(np.float32),
+               np.random.uniform(low=-0.1,high=0.2,size=(1,4*hidden_size,hidden_size)).astype(np.float32),
+               np.random.uniform(low=-0.1,high=0.2,size=(1,8*hidden_size)).astype(np.float32)]
+    W = onnx.numpy_helper.from_array(W, 'W')
+    R = onnx.numpy_helper.from_array(R, 'R')
+    B = onnx.numpy_helper.from_array(B, 'B')
+    node = onnx.helper.make_node('LSTM', name='lstm', outputs=['output'], inputs=['input', 'W', 'R', 'B'], hidden_size=hidden_size)
+    graph = onnx.helper.make_graph(nodes=[node], inputs=[x], outputs=[y], initializer=[W,R,B], name=name)
+    model = onnx.helper.make_model(graph)
+    feeds = {'input':np.random.uniform(low=-1,high=1,size=[1,n_steps,input_size]).astype(np.float32)}
+    onnx2lwnn(model, name, feeds)
 
 # https://keras-cn.readthedocs.io/en/latest/other/application/
 def resnet50():
@@ -253,7 +256,7 @@ def mobilenetv2():
     keras2lwnn(model, 'mobilenetv2')
 
 if(__name__ == '__main__'):
-    lstm()
+    lstm('lstm_1')
     transpose()
     conv2d('conv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), strides=(1,1), padding="same")
     conv2d('conv2d_2')

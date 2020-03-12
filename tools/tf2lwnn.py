@@ -67,9 +67,9 @@ class TfConverter(LWNNUtil):
         self.sess = tfSession()
         _ = tf.import_graph_def(self.graph_def, name=self.name)
         if(IS_TF_V2):
-            tf.summary.create_file_writer('./graphs')
+            pass #tf.summary.create_file_writer('./graphs')
         else:
-            tf.summary.FileWriter('./graphs', self.sess.graph)
+            #tf.summary.FileWriter('./graphs', self.sess.graph)
             self.sess.run(tf.global_variables_initializer())
         self.tensors = {}
         for node in self.graph_def.node:
@@ -80,6 +80,11 @@ class TfConverter(LWNNUtil):
             self.dynamic_shape = self.kwargs
         else:
             self.dynamic_shape = False
+        self.convert()
+
+    @property
+    def model(self):
+        return self.lwnn_model
 
     def eval(self, layer):
         return self.sess.run(self.tensors[self.c_str(layer.name)])
@@ -450,9 +455,13 @@ class TfConverter(LWNNUtil):
             outs = self.sess.run(otensors, onefeed)
             for i, v in enumerate(outs):
                 n = model[i].name
-                if(len(v.shape) == 0): # bytes for wav input
-                    outputs[n] = None
-                    continue
+                if(len(v.shape) == 0):
+                    if(type(v) == np.ndarray): # bytes for wav input
+                        print('warning: %s shape is empty'%(n))
+                        outputs[n] = None
+                        continue
+                    else:
+                        v= np.asanyarray([v])
                 if(n in outputs):
                     outputs[n] = np.concatenate((outputs[n], v.data))
                 else:
@@ -566,15 +575,12 @@ class TfConverter(LWNNUtil):
         return L
 
 def tf2lwnn(graph_def, name, feeds=None, **kwargs):
-    model = LWNNModel(TfConverter(graph_def, name, **kwargs), name,
+    converter = TfConverter(graph_def, name, **kwargs)
+    if(feeds != None):
+        feeds = LWNNFeeder(feeds, converter.inputs, format='NHWC')
+    model = LWNNModel(converter, name, feeds = feeds,
                       notRmIdentity=True, notPermuteReshapeSoftmax=True)
-
-    if(feeds != None):
-        feeds = LWNNFeeder(feeds, model.converter.inputs, format='NHWC')
-
-    model.gen_float_c(feeds)
-    if(feeds != None):
-        model.gen_quantized_c(feeds)
+    model.generate()
 
 if(__name__ == '__main__'):
     import argparse

@@ -28,6 +28,11 @@ class OnnxConverter(LWNNUtil):
         self.feeds = feeds
         self.kwargs = kwargs
         self.shapes = self.eval_shapes()
+        self.convert()
+
+    @property
+    def model(self):
+        return self.lwnn_model
 
     @property
     def input(self):
@@ -81,19 +86,15 @@ class OnnxConverter(LWNNUtil):
                     oT = onnx.TensorProto.FLOAT
                 newoutputs.append(onnx.helper.make_tensor_value_info(output, oT, None))
         self.onnx_model.graph.output.extend(newoutputs)
-
-        onnx.save(self.onnx_model, '.tmp.onnx')
+        sess = onnxruntime.InferenceSession(self.onnx_model.SerializeToString())
         del self.onnx_model.graph.output[:]
         self.onnx_model.graph.output.extend(oldoutputs)
-
-        sess = onnxruntime.InferenceSession('.tmp.onnx')
         if(feed == None):
             feed = {}
             for inp in sess.get_inputs():
                 shape = list(inp.shape)
                 if((str(shape[0]) == 'None') or (shape[0] == 'N')):
                     shape[0] = 1
-                print(inp, shape)
                 data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
                 feed[inp.name] = data
         else:
@@ -293,7 +294,6 @@ class OnnxConverter(LWNNUtil):
             else:
                 print('WARNINING: layer %s is ignored:\n%s\n'%(node.name, node))
         for out in self.onnx_model.graph.output:
-            print(out)
             inp = None
             for ly in self.lwnn_model:
                 if(out.name in ly['outputs']):
@@ -305,16 +305,13 @@ class OnnxConverter(LWNNUtil):
                      outputs=[out.name],
                      shape=inp['shape'])
             self.lwnn_model.append(layer)
-        return self.lwnn_model
 
 def onnx2lwnn(model, name, feeds=None):
     '''
     feeds: mainly used to do quantization
     '''
-    model = LWNNModel(OnnxConverter(model, feeds), name)
-    model.gen_float_c(feeds)
-    if(feeds != None):
-        model.gen_quantized_c(feeds)
+    model = LWNNModel(OnnxConverter(model, feeds), name, feeds=feeds)
+    model.generate()
 
 
 if(__name__ == '__main__'):

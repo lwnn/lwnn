@@ -4,23 +4,23 @@
 from .base import *
 
 class LWNNQFormatC(LWNNBaseC):
-    def __init__(self, model, T, feeds):
+    def __init__(self, model, T):
         try:
-            super().__init__(model, T, feeds)
+            super().__init__(model, T)
         except:
-            LWNNBaseC.__init__(self, model, T, feeds)
+            LWNNBaseC.__init__(self, model, T)
         lwnn_model = self.model.clone()
-        self.model.optimize(['RemoveReshape'])
+        self.model.optimize(['RemoveReshape', 'RemoveMin'])
         if(T == 's8'):
             self.model.optimize(['MergeReLUConv','MergeReLUDense'])
-        self.calculate_output_encoding(feeds)
+        self.calculate_output_encoding()
         self.fix_linked_to_the_same_Q()
         self.generate()
         self.model.set(lwnn_model)
 
-    def calculate_output_encoding(self, feeds):
+    def calculate_output_encoding(self):
         self.output_encodings = {}
-        self.outputs = self.model.run(feeds)
+        self.outputs = self.model.outputs
         for n,v in self.outputs.items():
             _,vq = self.quantize(v, True)
             self.output_encodings[n] = vq
@@ -240,7 +240,8 @@ class LWNNQFormatC(LWNNBaseC):
         else:
             const,constQ = self.quantize(const)
             Q = self.get_encoding(layer)
-            assert(constQ == Q)
+            if(constQ != Q):
+                raise Exception('%s: constQ %s != Q %s'%(layer, constQ, Q))
         self.gen_blobs(layer, [('%s_CONST'%(layer['name']), const)])
         self.fpC.write('L_CONST ({0});\n\n'.format(layer['name']))
 
@@ -279,10 +280,14 @@ class LWNNQFormatC(LWNNBaseC):
         cmax = 0
         gmin = 0
         gmax = 0
-        X = self.outputs[layer.inputs[0]]
+        if(layer.inputs[0] in self.outputs):
+            X = self.outputs[layer.inputs[0]]
+        else:
+            inp = self.model.get_layers(layer.inputs[0])
+            X = self.outputs[inp.outputs[0]]
         X = X.reshape(-1,1,X.shape[-1])
         W,R,B = layer.W,layer.R,layer.B
-        I,H,O = X.shape[-1], int(B.shape[-1]/8), layer.shape[-1]
+        I,H,O = X.shape[-1], int(B.shape[-1]/8), R.shape[-1]
         # currently only support 1 direction
         W = W.reshape(4*H, I)
         R = R.reshape(4*H, O)
@@ -339,11 +344,11 @@ class LWNNQFormatC(LWNNBaseC):
         self.fpC.write('L_LSTM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
 class LWNNQSFormatC(LWNNQFormatC):
-    def __init__(self, model, feeds):
+    def __init__(self, model):
         try:
-            super().__init__(model, 's8', feeds)
+            super().__init__(model, 's8')
         except:
-            LWNNQFormatC.__init__(self, model, 's8', feeds)
+            LWNNQFormatC.__init__(self, model, 's8')
 
     def quantize_QSZ(self, v):
         if(v is None): # layer fallback to float
@@ -370,11 +375,11 @@ class LWNNQSFormatC(LWNNQFormatC):
         VQ = np.clip(VQ-Z, cmin, cmax).astype(np.int8)
         return VQ, scale, vq, Z
 
-    def calculate_output_encoding(self, feeds):
+    def calculate_output_encoding(self):
         self.output_encodings = {}
         self.output_offsets = {}
         self.output_scales = {}
-        self.outputs = self.model.run(feeds)
+        self.outputs = self.model.outputs
         for n,v in self.outputs.items():
             _,scale,Q,Z = self.quantize_QSZ(v)
             self.output_offsets[n] = Z

@@ -16,9 +16,9 @@ class CaffeConverter():
         self.net = caffe_pb2.NetParameter()
         text_format.Merge(open(caffe_model,'r').read(),self.net)
         if(caffe_weights is None):
-            self.model = caffe.Net(caffe_model,caffe.TEST)
+            self.caffe_model = caffe.Net(caffe_model,caffe.TEST)
         else:
-            self.model = caffe.Net(caffe_model,caffe_weights,caffe.TEST)
+            self.caffe_model = caffe.Net(caffe_model,caffe_weights,caffe.TEST)
         if(len(self.net.layer)==0):    #some prototxts use "layer", some use "layers"
             self.layers = self.net.layers
         else:
@@ -43,10 +43,15 @@ class CaffeConverter():
             'BN':'BatchNormalization',
             'Deconvolution':'ConvTranspose',
             }
+        self.convert()
+
+    @property
+    def model(self):
+        return self.lwnn_model
 
     def to_LayerCommon(self, cly, op=None):
         name = str(cly.name)
-        blob = self.model.blobs[cly.top[0]]
+        blob = self.caffe_model.blobs[cly.top[0]]
         layer = LWNNLayer(name=name,
                   outputs=[str(o) for o in cly.top],
                   inputs=[str(o) for o in cly.bottom],
@@ -91,7 +96,7 @@ class CaffeConverter():
     def to_LayerConv(self, cly):
         layer = self.to_LayerCommon(cly, 'Conv')
         name = layer['name']
-        params = self.model.params[name]
+        params = self.caffe_model.params[name]
         layer['weights'] = params[0].data
         layer['bias'] = params[1].data
         padW,padH = self.get_field_hw(cly.convolution_param, 'pad', 'pad_h', 'pad_w', [0,0])
@@ -110,7 +115,7 @@ class CaffeConverter():
     def to_LayerDeconvolution(self, cly):
         layer = self.to_LayerCommon(cly)
         name = layer['name']
-        params = self.model.params[name]
+        params = self.caffe_model.params[name]
         layer['weights'] = params[0].data
         layer['bias'] = params[1].data
         padW,padH = self.get_field_hw(cly.convolution_param, 'pad', 'pad_h', 'pad_w', [0,0])
@@ -178,7 +183,7 @@ class CaffeConverter():
     def to_LayerBN(self, cly):
         layer = self.to_LayerCommon(cly)
         name = layer['name']
-        params = self.model.params[name]
+        params = self.caffe_model.params[name]
         C = layer['shape'][1]
         layer['scale'] = params[0].data.reshape(C)
         layer['bias'] = params[1].data.reshape(C)
@@ -204,7 +209,7 @@ class CaffeConverter():
 
     def to_LayerPReLU(self, cly):
         layer = self.to_LayerCommon(cly)
-        params = self.model.params[layer['name']]
+        params = self.caffe_model.params[layer['name']]
         layer['weights'] = params[0].data
         return layer
 
@@ -215,9 +220,9 @@ class CaffeConverter():
         outputs = {}
         if(feed == None):
             feed = {}
-            for iname in self.model.inputs:
+            for iname in self.caffe_model.inputs:
                 iname = str(iname)
-                shape = self.model.blobs[iname].data.shape
+                shape = self.caffe_model.blobs[iname].data.shape
                 data = np.random.uniform(low=-1,high=1,size=shape).astype(np.float32)
                 feed[iname] = data
         nbr = 0
@@ -226,9 +231,9 @@ class CaffeConverter():
             break
         for i in range(nbr):
             for n, v in feed.items():
-                self.model.blobs[n].data[...] = v[i]
-            _ = self.model.forward()
-            for n, v in self.model.blobs.items():
+                self.caffe_model.blobs[n].data[...] = v[i]
+            _ = self.caffe_model.forward()
+            for n, v in self.caffe_model.blobs.items():
                 if(n in outputs):
                     try:
                         outputs[n] = np.concatenate((outputs[n], v.data))
@@ -243,7 +248,7 @@ class CaffeConverter():
                             raise(e)
                 else:
                     outputs[n] = v.data
-        for oname in self.model.outputs:
+        for oname in self.caffe_model.outputs:
             outputs['%s_O'%(oname)] = outputs[oname]
 #         for n,v in outputs.items():
 #             if(len(v.shape) == 4):
@@ -287,16 +292,16 @@ class CaffeConverter():
                 translator = self.to_LayerCommon
             layer = translator(ly)
             lwnn_model.append(layer)
-        for iname in self.model.inputs:
+        for iname in self.caffe_model.inputs:
             iname = str(iname)
             layers = self.get_layers([iname], lwnn_model)
             if(len(layers) == 0):
                 layer = LWNNLayer(name=iname, 
                           op='Input',
                           outputs=[iname],
-                          shape=self.model.blobs[iname].data.shape)
+                          shape=self.caffe_model.blobs[iname].data.shape)
                 lwnn_model.insert(0, layer)
-        for oname in self.model.outputs:
+        for oname in self.caffe_model.outputs:
             oname = str(oname)
             inp = None
             for ly in lwnn_model:
@@ -313,13 +318,13 @@ class CaffeConverter():
             if('inputs' in ly):
                 inputs = self.get_inputs(ly, lwnn_model[:id])
                 ly['inputs'] = inputs
-        return lwnn_model
+        self.lwnn_model = lwnn_model
 
     @property
     def inputs(self):
         L = {}
-        for iname in self.model.inputs:
-            L[iname] = self.model.blobs[iname].data.shape
+        for iname in self.caffe_model.inputs:
+            L[iname] = self.caffe_model.blobs[iname].data.shape
         return L
 
 def caffe2lwnn(model, name, **kargs):
@@ -327,18 +332,20 @@ def caffe2lwnn(model, name, **kargs):
         weights = kargs['weights']
     else:
         weights = None
-    model = LWNNModel(CaffeConverter(model, weights), name)
+
+    converter = CaffeConverter(model, weights)
+
     if('feeds' in kargs):
         feeds = kargs['feeds']
     else:
         feeds = None
 
     if(type(feeds) == str):
-        feeds = load_feeds(feeds, model.converter.inputs)
+        feeds = load_feeds(feeds, converter.inputs)
 
-    model.gen_float_c(feeds)
-    if(feeds != None):
-        model.gen_quantized_c(feeds)
+    model = LWNNModel(converter, name, feeds=feeds)
+
+    model.generate()
 
 if(__name__ == '__main__'):
     import argparse

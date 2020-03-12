@@ -35,6 +35,11 @@ class DarknetConverter():
             'shortcut': 'Add',
             'maxpool': 'MaxPool',
             }
+        self.convert()
+
+    @property
+    def model(self):
+        return self.lwnn_model
 
     def read(self, num, type='f'):
         sz = 4
@@ -287,7 +292,6 @@ class DarknetConverter():
         if(len(anymore) != 0):
             raise Exception('weights %s mismatched with the cfg %s'%(self.weightsFile, self.cfgFile))
         self.weights.close()
-        return self.lwnn_model
 
     def run(self, feeds, **kwargs):
         outputs = lwnn2torch(kwargs['model'], feeds)
@@ -301,15 +305,12 @@ def dartnet2lwnn(cfg, name, **kargs):
         weights = kargs['weights']
     else:
         weights = None
-    model = LWNNModel(DarknetConverter(cfg, weights), name)
     if('feeds' in kargs):
         feeds = kargs['feeds']
     else:
         feeds = None
-    model.gen_float_c(feeds)
-    if(feeds != None):
-        model.gen_quantized_c(feeds)
-
+    model = LWNNModel(DarknetConverter(cfg, weights), name, feeds=feeds)
+    model.generate()
 
 if(__name__ == '__main__'):
     import argparse

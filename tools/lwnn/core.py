@@ -95,7 +95,8 @@ class LWNNUtil():
             layer = self.lwnn_model[id]
             for isopt, optact, oname in self.OPTIMIER:
                 if((((oname == None) and (len(additions) == 0)) 
-                    or (oname in additions)) and isopt(layer)):
+                    or (oname in additions) or (isopt == self.opt_IsLayerUnused))
+                    and isopt(layer)):
                     r = optact(layer)
                     if(True == r): # if there is remove action, restart optimization
                         id = -1
@@ -145,7 +146,10 @@ class LWNNLayer(dict):
         def kv2s(k, v):
             cstr = ''
             try:
-                cstr += '%s=t%s, '%(k, v.shape)
+                if((len(v.shape)==1) and (v.shape[0] < 4)):
+                    cstr += '%s=t%s, '%(k, v)
+                else:
+                    cstr += '%s=t%s, '%(k, v.shape)
             except:
                 if(k in ['top', 'topq']):
                     cstr += '%s=[ '%(k)
@@ -202,12 +206,13 @@ class LWNNModel(LWNNUtil):
             (self.opt_IsLayerReshape, self.opt_RemoveLayer, 'RemoveReshape'),
             (self.opt_IsLayerReLUConv, self.opt_MergeReLUConv, 'MergeReLUConv'),
             (self.opt_IsLayerReLUDense, self.opt_MergeReLUDense, 'MergeReLUDense'),
+            (self.opt_IsLayerMinCanBeRemoved, self.opt_RemoveLayer, 'RemoveMin'),
             ]
         self.is_model_channel_first_cached=None
         self.converter = converter
         self.name = self.c_str(name)
         self.converter.save(self.path)
-        self.lwnn_model = self.converter.convert()
+        self.lwnn_model = self.converter.model
         # optimization and convert to NCHW if origin model is NHWC
         self.prepare()
         self.omodel = self.clone()
@@ -215,6 +220,12 @@ class LWNNModel(LWNNUtil):
             self.optimize(['RemoveIdentity'])
         if(not (('notPermuteReshapeSoftmax' in kwargs) and (kwargs['notPermuteReshapeSoftmax']==True))):
             self.optimize(['PermuteReshapeSoftmax'])
+        if('feeds' in kwargs):
+            self.feeds = kwargs['feeds']
+        else:
+            self.feeds = None
+        self.outputs = None
+        self.try_calculate_outputs()
         self.omodel = self.clone()
         self.optimize()
         self.omodel = self.clone()
@@ -222,6 +233,18 @@ class LWNNModel(LWNNUtil):
         self.optimize(['RemoveTranspose'])
         self.check()
         print(self)
+
+    def try_calculate_outputs(self):
+        if(self.feeds is None):
+            return
+        self.outputs = self.run(self.feeds)
+        for n,v in self.outputs.items():
+            if(v is not None):
+                for layer in self.lwnn_model:
+                    if(n == layer.outputs[0]):
+                        layer.q_min = float(v.min())
+                        layer.q_max = float(v.max())
+                        break
 
     def save(self):
         try:
@@ -266,13 +289,18 @@ class LWNNModel(LWNNUtil):
                 raise Exception('Fatal Error: can\'t create directory <%s>'%(d))
         return p
 
-    def gen_float_c(self, feeds=None):
-        LWNNFloatC(self, feeds)
+    def gen_float_c(self):
+        LWNNFloatC(self)
 
-    def gen_quantized_c(self, feeds):
-        LWNNQFormatC(self, 'q8', feeds)
-        LWNNQFormatC(self, 'q16', feeds)
-        LWNNQSFormatC(self, feeds)
+    def gen_quantized_c(self):
+        LWNNQFormatC(self, 'q8')
+        LWNNQFormatC(self, 'q16')
+        LWNNQSFormatC(self)
+
+    def generate(self):
+        self.gen_float_c()
+        if(self.outputs != None):
+            self.gen_quantized_c()
 
     def nchw_IsInputAdjustLayer(self, layer):
         r = False
@@ -420,6 +448,16 @@ class LWNNModel(LWNNUtil):
 
     def opt_MergeReLUDense(self, layer):
         return self.opt_MergeActivation(layer, 'Relu')
+
+    def opt_IsLayerMinCanBeRemoved(self, layer):
+        r = False
+        if((layer.op == 'Min') and ('q_max' in layer)):
+            inputs = self.get_layers(layer.inputs)
+            for inp in inputs:
+                if((inp.op == 'Constant') and (layer.q_max <= inp.q_min)):
+                    r = True
+                    break
+        return r
 
     def opt_IsLayerConvBeforeBN(self, layer):
         r = False

@@ -29,6 +29,7 @@ class LWNNBaseC():
                 'Constant': self.gen_LayerConst,
                 'Mfcc': self.gen_LayerMfcc,
                 'LSTM': self.gen_LayerLSTM,
+                'Transpose': self.gen_LayerTranspose,
                 'Output': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -172,7 +173,7 @@ class LWNNBaseC():
 
     def gen_blobs(self, layer, blobs):
         if((self.T in ['q8', 's8', 'q16']) and
-           (layer['op'] not in ['DetectionOutput', 'Yolo', 'YoloOutput'])):
+           (layer['op'] not in ['DetectionOutput', 'Yolo', 'YoloOutput', 'Transpose'])):
             # for float and those fallback to float layers, no Q blob
             blobs = [self.get_Q_blob(layer)] + blobs
         for blob in blobs:
@@ -190,6 +191,8 @@ class LWNNBaseC():
             return 'float'
         elif((blob.dtype == np.int32) or (blob.dtype == np.int64)):
             return 'int32_t'
+        elif(blob.dtype == np.uint32):
+            return 'uint32_t'
         elif(blob.dtype == np.int16):
             return 'int16_t'
         elif(blob.dtype == np.int8):
@@ -443,6 +446,26 @@ class LWNNBaseC():
 
     def gen_LayerLSTM(self, layer):
         raise NotImplementedError()
+
+    def gen_LayerTranspose(self, layer):
+        perm = list(layer.perm)
+        if(len(perm) == 3):
+            if(perm == [0,2,1]):
+                ptype = 0
+            else:
+                raise
+        elif(len(perm) == 4):
+            if(perm == [0,3,1,2]): # from NHWC to NCHW
+                ptype = 0
+            elif(perm == [0,2,3,1]): # from NCHW to NHWC
+                ptype = 0x8000
+            else:
+                raise
+        else:
+            raise
+        M = np.asarray([ptype], np.uint32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_TRANSPOSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerOutput(self, layer):
         self.gen_no_blobs(layer)
