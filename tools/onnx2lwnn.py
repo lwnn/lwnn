@@ -7,7 +7,7 @@ from onnx.shape_inference import infer_shapes
 import onnxruntime
 import numpy as np
 
-__all__ = ['onnx2lwnn', 'OnnxConverter']
+__all__ = ['onnx2lwnn', 'OnnxConverter', 'cstr']
 
 class OnnxConverter(LWNNUtil):
     def __init__(self, onnx_model, feeds=None, **kwargs):

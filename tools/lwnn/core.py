@@ -8,7 +8,15 @@ from lwnn2onnx import *
 import pickle
 import traceback
 
-__all__ = ['LWNNUtil', 'LWNNLayer', 'LWNNModel', 'load_feeds', 'LWNNFeeder']
+__all__ = ['LWNNUtil', 'LWNNLayer', 'LWNNModel', 'load_feeds', 'LWNNFeeder', 'cstr']
+
+def cstr(name):
+    for s in ['/',':', '-', '.']:
+        name = name.replace(s, '_')
+    fc = name[0]
+    if(fc.isdigit()):
+        name = '_' + name
+    return name
 
 class LWNNUtil():
     def LN(self, name):
@@ -121,12 +129,7 @@ class LWNNUtil():
         return model
 
     def c_str(self, name):
-        for s in ['/',':', '-', '.']:
-            name = name.replace(s, '_')
-        fc = name[0]
-        if(fc.isdigit()):
-            name = '_' + name
-        return name
+        return cstr(name)
 
 class LWNNLayer(dict):
     def __init__(self, **kwargs):
