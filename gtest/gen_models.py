@@ -233,9 +233,9 @@ def uci_inception():
 def lstm(name, n_steps=8, input_size=32, hidden_size=12):
     x = onnx.helper.make_tensor_value_info('input', onnx.TensorProto.FLOAT,(1,n_steps,input_size))
     y = onnx.helper.make_tensor_value_info('output', onnx.TensorProto.FLOAT,(1,1,n_steps,hidden_size))
-    W,R,B = [np.random.uniform(low=-0.1,high=0.2,size=(1,4*hidden_size,input_size)).astype(np.float32),
-               np.random.uniform(low=-0.1,high=0.2,size=(1,4*hidden_size,hidden_size)).astype(np.float32),
-               np.random.uniform(low=-0.1,high=0.2,size=(1,8*hidden_size)).astype(np.float32)]
+    W,R,B = [np.random.uniform(low=-0.1,high=0.1,size=(1,4*hidden_size,input_size)).astype(np.float32),
+               np.random.uniform(low=-0.1,high=0.1,size=(1,4*hidden_size,hidden_size)).astype(np.float32),
+               np.random.uniform(low=-0.1,high=0.1,size=(1,8*hidden_size)).astype(np.float32)]
     W = onnx.numpy_helper.from_array(W, 'W')
     R = onnx.numpy_helper.from_array(R, 'R')
     B = onnx.numpy_helper.from_array(B, 'B')
@@ -257,6 +257,8 @@ def mobilenetv2():
 
 if(__name__ == '__main__'):
     lstm('lstm_1')
+    lstm('lstm_2',32,32,32)
+    lstm('lstm_3',1,1024,1024)
     transpose()
     conv2d('conv2d_1',shape=[5,5,3], filters=1, kernel_size=(2,2), strides=(1,1), padding="same")
     conv2d('conv2d_2')

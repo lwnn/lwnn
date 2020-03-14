@@ -26,7 +26,7 @@ class Lwnn2Onnx():
     def to_LayerCommon(self, layer, initializer=[], **kwargs):
         name = layer['name']
         attr = {}
-        inputs = list(layer['inputs'])
+        inputs = list(layer['inputs']) if 'inputs' in layer else []
         for k,v in layer.items():
             if((type(v) == np.ndarray) and (k not in initializer)):
                 initializer.append(k)

@@ -84,7 +84,7 @@ class TfConverter(LWNNUtil):
 
     @property
     def model(self):
-        return self.lwnn_model
+        return self.lwnn_modelo
 
     def eval(self, layer):
         return self.sess.run(self.tensors[self.c_str(layer.name)])
@@ -550,7 +550,8 @@ class TfConverter(LWNNUtil):
             for l in self.lwnn_model:
                 if('shape' in l):
                     self.convert_layer_to_nchw(l)
-            return self.clone()
+            self.lwnn_modelo = self.clone()
+            return
         # here a combination of tf2lwnn and tf2onnx to generate the lwnn model
         self.onnx_model = self.convert2onnx()
         shapes = {}
@@ -563,8 +564,7 @@ class TfConverter(LWNNUtil):
                     shape = layer.shape
                     shapes[node.name] = shape
         converter = OnnxConverter(self.onnx_model, shapes=shapes)
-        self.lwnn_modelo = converter.convert()
-        return self.lwnn_modelo
+        self.lwnn_modelo = converter.model
 
     @property
     def inputs(self):

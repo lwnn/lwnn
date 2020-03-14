@@ -268,6 +268,10 @@ class OnnxConverter(LWNNUtil):
         layer['R'] = self.get_initializer(node.input[2])
         if(len(node.input) > 3):
             layer['B'] = self.get_initializer(node.input[3])
+        if(len(layer.shape) == 4):
+            layer.shape = [layer.shape[s] for s in [0,2,1,3]]
+        self.convert_layer_to_nchw(layer)
+        self.convert_layer_to_nchw(self.get_layers(layer.inputs[0]))
         return layer
 
     def convert(self):

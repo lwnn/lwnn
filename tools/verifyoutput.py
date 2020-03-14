@@ -4,6 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+import re
 
 def show(mts):
     if(mts is None):
@@ -94,6 +95,25 @@ if(__name__ == '__main__'):
         print('please give Scale/Zero Point parameter')
         parser.print_help()
         exit()
+
+    reQ = re.compile(r'-Q(\d+|-\d+)')
+    reS = re.compile(r'-S(\d+|-\d+)')
+    reZ = re.compile(r'-Z(\d+|-\d+)')
+
+    try:
+        if('q8' in args.input):
+            args.Q = eval(reQ.search(args.input).groups()[0])
+            args.type = 'q8'
+        elif('q16' in args.input):
+            args.Q = eval(reQ.search(args.input).groups()[0])
+            args.type = 'q16'
+        elif('s8' in args.input):
+            args.Q = eval(reQ.search(args.input).groups()[0])
+            args.S = eval(reS.search(args.input).groups()[0])
+            args.Z = eval(reZ.search(args.input).groups()[0])
+            args.type = 's8'
+    except:
+        pass
 
     if(args.type == 'float'):
         inp = np.fromfile(args.input, dtype=np.float32)

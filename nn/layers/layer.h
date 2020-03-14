@@ -83,6 +83,7 @@ extern "C" {
 #define L_BATCHNORM(name, input)	L_LAYER_SI(name, input, BATCHNORM)
 #define L_DILCONV2D(name, input)	L_LAYER_SI(name, input, DILCONV2D)
 #define L_LSTM(name, input)			L_LAYER_SI(name, input, LSTM)
+#define L_TRANSPOSE(name, input)	L_LAYER_SI(name, input, TRANSPOSE)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\

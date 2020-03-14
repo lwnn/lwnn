@@ -35,6 +35,7 @@ extern "C" {
 #ifndef DISABLE_RTE_FALLBACK
 #define IS_LAYER_WITH_REAL_BUFFER(layer) \
 	( (L_OP_MFCC == layer->op) || \
+	  (L_OP_TRANSPOSE == layer->op) || \
 	  (L_OP_LSTM == layer->op) )
 
 #define IS_LAYER_WITH_INPUT_BUFFER_READY(layer) \

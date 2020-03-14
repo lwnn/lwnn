@@ -29,10 +29,10 @@ class LWNNQFormatC(LWNNBaseC):
         Q = self.output_encodings[layer['outputs'][at]]
         if('inputs' in layer):
             inputs = self.model.get_layers(layer['inputs'])
-        if((layer['op'] == 'Softmax') or
+        if((layer['op'] in ['Softmax', 'LSTM']) or
            ((layer['op'] == 'Output') and 
             (len(inputs) == 1) and 
-            (inputs[0]['op'] == 'Softmax'))):
+            (inputs[0]['op'] in ['Softmax', 'LSTM']))):
             Q = eval(self.T[1:])-1
         return Q
 

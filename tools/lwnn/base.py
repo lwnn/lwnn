@@ -173,7 +173,7 @@ class LWNNBaseC():
 
     def gen_blobs(self, layer, blobs):
         if((self.T in ['q8', 's8', 'q16']) and
-           (layer['op'] not in ['DetectionOutput', 'Yolo', 'YoloOutput', 'Transpose'])):
+           (layer['op'] not in ['DetectionOutput', 'Yolo', 'YoloOutput'])):
             # for float and those fallback to float layers, no Q blob
             blobs = [self.get_Q_blob(layer)] + blobs
         for blob in blobs:
@@ -463,7 +463,7 @@ class LWNNBaseC():
                 raise
         else:
             raise
-        M = np.asarray([ptype], np.uint32)
+        M = np.asarray([ptype], np.int32)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_TRANSPOSE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
