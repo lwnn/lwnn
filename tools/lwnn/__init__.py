@@ -5,6 +5,8 @@ import glob
 import numpy as np
 import json
 
+__all__ = ['load_feeds', 'LWNNFeeder']
+
 def load_feeds(feeds_path, inputs):
     feeds_ = {}
     for rawF in glob.glob('%s/*.raw'%(feeds_path)):

@@ -41,7 +41,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | Yolo | Y | F | F | F | F | |
 | YoloOutput | Y | F | F | F | F | |
 | Mfcc | Y | F | F | F | F | |
-| LSTM | Y | N | N | N | F | |
+| LSTM | Y | N | Y | N | F | |
 
 * F means fallback to others runtime that supported that layer.
 

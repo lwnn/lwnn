@@ -8,6 +8,8 @@ from lwnn2onnx import *
 import pickle
 import traceback
 
+__all__ = ['LWNNUtil', 'LWNNLayer', 'LWNNModel', 'load_feeds', 'LWNNFeeder']
+
 class LWNNUtil():
     def LN(self, name):
         '''return lwnn type layer name'''
@@ -596,13 +598,13 @@ class LWNNModel(LWNNUtil):
         r = False
         if(layer['op'] == 'Conv'):
             r = True
+        if('WeightsReordered' in layer):
+            r = False
         return r
 
     def opt_LayerConvWeightsReorder(self, layer):
         # Conv: [M x C/group x kH x kW] -> [M x kH x kW x C/group]
         # DwConv: [M x C/group x kH x kW] -> [C/group x kH x kW x M]
-        if('WeightsReordered' in layer):
-            return False
         W = layer['weights']
         if(len(W.shape)==4):
             W = W.transpose(0,2,3,1)
@@ -758,8 +760,8 @@ class LWNNModel(LWNNUtil):
     def opt_IsLayerConcatWithOneOnly(self, layer):
         r = False
         if(layer['op'] == 'Concat'):
-            inputs = self.get_layers(layer['inputs'])
-            if(len(inputs) == 1):
+            inputs = layer['inputs']
+            if(len(inputs) == inputs.count(inputs[0])):
                 r = True
         return r
 
@@ -826,11 +828,11 @@ class LWNNModel(LWNNUtil):
             if('inputs' in layer):
                 # check that inputs are before me
                 LI = layer['inputs']
-                inputs = self.get_layers(LI,self.lwnn_model[:id])
                 eLI = []
                 for inp in LI:
                     if(inp not in eLI):
                         eLI.append(inp)
+                inputs = self.get_layers(eLI,self.lwnn_model[:id])
                 if(len(eLI) != len(inputs)):
                     raise Exception('layer %s inputs is not before me:\n%s'%(layer['name'], self))
 

@@ -23,6 +23,18 @@ typedef struct {
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
+static void concate_xh(int8_t* xh,int8_t*  x, int8_t Q, int8_t* h, int input_size, int output_size)
+{
+	int i;
+	memcpy(xh, x, input_size);
+	assert(7>=Q);
+	if(7 > Q) {
+		for(i=0; i<output_size; i++) {
+			h[i] = h[i] >> (7-Q);
+		}
+	}
+	memcpy(xh+input_size, h, output_size);
+}
 static void activation_q8_ref(int8_t * data, uint16_t size, int8_t Q, arm_nn_activation_type type)
 {
 	uint16_t  i = size;
@@ -89,7 +101,7 @@ static void output_calc(int8_t* h, int8_t* Ct, int8_t cQ, int8_t* ot, int hidden
 	memcpy(h, Ct, hidden_size);
 	activation_q8_ref(h, hidden_size, cQ, ARM_TANH);
 	for(i=0; i<hidden_size; i++){
-		out =(int32_t)ot[i]*h[i];
+		out =(int32_t)ot[i]*h[i] + NN_ROUND(7);
 		h[i] =(int8_t) __SSAT(out>>7, 8);
 	}
 }
@@ -191,12 +203,10 @@ int layer_cpu_q8_LSTM_execute(const nn_t* nn, const layer_t* layer)
 
 		assert(wQ+LAYER_Q(input)-bQ>=0);
 		assert(wQ+LAYER_Q(input)-gQ>=0);
-		assert(7==LAYER_Q(input));
 		assert(7==LAYER_Q(layer));
 
 		for(i=0; (i<batch_size) && (0==r); i++) {
-			memcpy(xh, x, input_size);
-			memcpy(xh+input_size, h, output_size);
+			concate_xh(xh, x, LAYER_Q(input), h, input_size, output_size);
 			r = arm_fully_connected_q7_opt(xh,
 					W,
 					(input_size+output_size),
