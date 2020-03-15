@@ -156,7 +156,7 @@ class LWNNLayer(dict):
                 else:
                     cstr += '%s=t%s, '%(k, v.shape)
             except:
-                if(k in ['top', 'topq']):
+                if(k in ['top', 'topq', 'klweights']):
                     cstr += '%s=[ '%(k)
                     for top in v:
                         try:
