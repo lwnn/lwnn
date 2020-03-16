@@ -49,11 +49,11 @@ class LWNNBaseC():
         fp.close()
 
     def get_activation(self, layer):
-        actMap = { 'linear':0, 'Relu':1, 'leaky':2, }
+        actMap = { 'linear':0, 'relu':1, 'leaky':2, }
         if('activation' not in layer):
             act = 0 # 0 means no activation
         else:
-            act = actMap[layer['activation']]
+            act = actMap[layer['activation'].lower()]
         return act
 
     def generate(self):
