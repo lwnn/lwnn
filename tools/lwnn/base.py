@@ -16,6 +16,7 @@ class LWNNBaseC():
                 'Min': self.gen_LayerMin,
                 'AveragePool': self.gen_LayerAveragePool,
                 'Reshape': self.gen_LayerReshape,
+                'Squeeze': self.gen_LayerReshape,
                 'Dense': self.gen_LayerDense,
                 'Concat': self.gen_LayerConcat,
                 'Pad': self.gen_LayerPad,
@@ -30,6 +31,10 @@ class LWNNBaseC():
                 'Mfcc': self.gen_LayerMfcc,
                 'LSTM': self.gen_LayerLSTM,
                 'Transpose': self.gen_LayerTranspose,
+                'Detection': self.gen_LayerDetection,
+                'Proposal': self.gen_LayerProposal,
+                'PyramidROIAlign': self.gen_LayerPyramidROIAlign,
+                'Slice': self.gen_LayerSlice,
                 'Output': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -49,7 +54,7 @@ class LWNNBaseC():
         fp.close()
 
     def get_activation(self, layer):
-        actMap = { 'linear':0, 'relu':1, 'leaky':2, }
+        actMap = { 'linear':0, 'relu':1, 'leaky':2, 'sigmoid':3, 'tanh':4 }
         if('activation' not in layer):
             act = 0 # 0 means no activation
         else:
@@ -446,6 +451,20 @@ class LWNNBaseC():
 
     def gen_LayerLSTM(self, layer):
         raise NotImplementedError()
+
+    def gen_LayerDetection(self, layer):
+        raise NotImplementedError()
+
+    def gen_LayerProposal(self, layer):
+        raise NotImplementedError()
+
+    def gen_LayerPyramidROIAlign(self, layer):
+        raise NotImplementedError()
+
+    def gen_LayerSlice(self, layer):
+        M = np.asarray([layer.starts, layer.ends, layer.axes], np.int32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_SLICE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerTranspose(self, layer):
         perm = list(layer.perm)

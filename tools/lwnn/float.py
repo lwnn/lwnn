@@ -100,3 +100,20 @@ class LWNNFloatC(LWNNBaseC):
             blobs.extend(extra_blobs)
         self.gen_blobs(layer, blobs)
         self.fpC.write('L_LSTM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerDetection(self, layer):
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_DETECTION ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
+
+    def gen_LayerProposal(self, layer):
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_PROPOSAL ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
+
+    def gen_LayerPyramidROIAlign(self, layer):
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_PYRAMID_ROI_ALIGN ({0}, {0}_INPUTS);\n\n'.format(layer['name']))

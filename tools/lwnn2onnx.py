@@ -113,7 +113,11 @@ class Lwnn2Onnx():
             B = onnx.numpy_helper.from_array(layer['bias'], bname)
             self._initializer.append(B)
         conv_name = name
-        if(('activation' in layer) and (layer['activation'] != 'linear')):
+        if('activation' in layer):
+            activation = layer['activation'].lower()
+        else:
+            activation = 'linear'
+        if(activation != 'linear'):
             conv_name = name + '_o'
         x = onnx.helper.make_node(
             op,
@@ -122,9 +126,8 @@ class Lwnn2Onnx():
             outputs = [conv_name],
             **attr)
         self._nodes.append(x)
-        if(('activation' in layer) and (layer['activation'] != 'linear')):
-            activation = layer['activation']
-            if(activation == 'Relu'):
+        if(activation != 'linear'):
+            if(activation == 'relu'):
                 x = onnx.helper.make_node(
                         'Relu',
                         name = name,
@@ -137,6 +140,12 @@ class Lwnn2Onnx():
                         inputs = [conv_name],
                         outputs = [name],
                         alpha=self.get_attr(layer, 'alpha', 0.1))
+            elif(activation == 'sigmoid'):
+                x = onnx.helper.make_node(
+                        'Sigmoid',
+                        name = name,
+                        inputs = [conv_name],
+                        outputs = [name])
             else:
                 raise NotImplementedError('activation %s is not supported'%(activation))
             self._nodes.append(x)

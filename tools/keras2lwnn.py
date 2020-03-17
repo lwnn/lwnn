@@ -16,6 +16,10 @@ class KerasConverter(LWNNUtil):
             'ZeroPadding2D': 'Pad',
             'BatchNorm': 'BatchNormalization',
             'Concatenate': 'Concat',
+            'MaxPooling2D': 'MaxPool',
+            'UpSampling2D': 'Upsample',
+            'ProposalLayer': 'Proposal',
+            'DetectionLayer': 'Detection',
             }
         self.TRANSLATOR = {
             'Input': self.to_LayerInput,
@@ -28,6 +32,7 @@ class KerasConverter(LWNNUtil):
             'ConvTranspose': self.to_LayerConvTranspose,
             'Dense': self.to_LayerDense,
             'Concat': self.to_LayerConcat,
+            'MaxPool': self.to_LayerMaxPool,
              }
         self.keras_model = keras_model
         if('shape_infers' in kwargs):
@@ -48,8 +53,10 @@ class KerasConverter(LWNNUtil):
         for i in range(1024):
             try:
                 inp = klayer.get_input_at(i)
-                if(type(inp) == list): inp=inp[0]
-                inputs.append(inp)
+                if(type(inp) == list):
+                    inputs.extend(inp)
+                else:
+                    inputs.append(inp)
             except ValueError:
                 pass
         return inputs
@@ -59,8 +66,10 @@ class KerasConverter(LWNNUtil):
         for i in range(1024):
             try:
                 out = klayer.get_output_at(i)
-                if(type(out) == list): out=out[0]
-                outputs.append(out)
+                if(type(out) == list):
+                    outputs.extend(out)
+                else:
+                    outputs.append(out)
             except ValueError:
                 pass
         return outputs
@@ -120,33 +129,17 @@ class KerasConverter(LWNNUtil):
             layer.shape = inp.shape
 
     def to_LayerConv(self, layer):
-        inputs = self.get_layers(layer.inputs)
         klconfig = layer.klconfig
         klweights = layer.klweights
         layer.weights = W = klweights[0].transpose(3,2,0,1)
+        layer.kernel_shape = [W.shape[2], W.shape[3]]
         if(len(klweights) == 2):
             layer.bias = klweights[1]
         layer.strides = klconfig['strides']
         layer.dilations = klconfig['dilation_rate']
         layer.activation = klconfig['activation']
-        layer.padding = klconfig['padding']
-        _,hi,wi,_ = inputs[0].shape[-4:]
-        if(None in layer.shape):
-            if(layer.padding == 'valid'):
-                ho = int((hi-W.shape[2])/layer.strides[0])+1
-                wo = int((wi-W.shape[3])/layer.strides[1])+1
-            else:
-                ho = int(hi/layer.strides[0])
-                wo = int(wi/layer.strides[1])
-            layer.shape = [layer.shape[0], ho, wo, layer.shape[3]]
-        _,ho,wo,_ = layer.shape[-4:]
-        if(list(layer.dilations) == [1,1]):
-            pad_h = int(((ho-1)*layer.strides[0] +  W.shape[2]  -hi) /2)
-            pad_w = int(((wo-1)*layer.strides[1] +  W.shape[3]  -wi) /2)
-        else:
-            pad_h = int(((ho -1)*layer.strides[0] - hi + (1 + (W.shape[2] - 1) * (layer.dilations[0] + 1))) / 2) 
-            pad_w = int(((ho -1)*layer.strides[1] - wi + (1 + (W.shape[3] - 1) * (layer.dilations[1] + 1))) / 2)
-        layer.pads = [pad_h, pad_w, pad_h, pad_w]
+        layer.padding = klconfig['padding'].upper()
+        self.infer_conv_or_pool_shape_and_padding(layer)
         layer.group = 1
 
     def to_LayerConvTranspose(self, layer):
@@ -166,6 +159,13 @@ class KerasConverter(LWNNUtil):
                 dims += inp.shape[layer.axis]
             layer.shape[layer.axis] = dims
 
+    def to_LayerMaxPool(self, layer):
+        klconfig = layer.klconfig
+        layer.kernel_shape = klconfig['pool_size']
+        layer.padding = klconfig['padding'].upper()
+        layer.strides = klconfig['strides']
+        self.infer_conv_or_pool_shape_and_padding(layer)
+
     def to_LayerBatchNormalization(self, layer):
         klconfig = layer.klconfig
         klweights = layer.klweights
@@ -173,8 +173,8 @@ class KerasConverter(LWNNUtil):
         layer.epsilon = klconfig['epsilon']
         layer.scale = klweights[0]
         layer.bias = klweights[1]
-        layer.var = klweights[2]
-        layer.mean = klweights[3]
+        layer.mean = klweights[2]
+        layer.var = klweights[3]
 
     def to_LayerActivation(self, layer):
         klconfig = layer.klconfig
@@ -193,7 +193,7 @@ class KerasConverter(LWNNUtil):
         op1 = layer.outputs[0].split('/')[-1].split(':')[0]
         op = op1.split('_')[0]
         if(op in ['Reshape', 'Squeeze']):
-            layer.op = 'Reshape'
+            layer.op = op
             if(None in layer.shape):
                 inp = self.get_layers(layer.inputs[0])
                 dims = 1
@@ -204,7 +204,7 @@ class KerasConverter(LWNNUtil):
                         dims = int(dims/s)
                     else:
                         axis = i
-                layer.shape[axis] = i
+                layer.shape[axis] = dims
         elif(op1 == 'strided_slice'):
             layer.op = 'Slice'
             inp = self.get_layers(layer.inputs[0])
@@ -263,7 +263,8 @@ class KerasConverter(LWNNUtil):
                 layer = self.to_LayerCommon(klayer)
                 self.lwnn_model.append(layer)
         for out in self.get_outputs(self.keras_model):
-            layer = LWNNLayer(name=out.name, op='Output', inputs=[out.name])
+            layer = LWNNLayer(name=out.name, op='Output', inputs=[out.name], outputs=[out.name+'_O'])
+            self.lwnn_model.append(layer)
         for layer in self.lwnn_model:
             inputs = self.get_layer_inputs(layer)
             layer.inputs = [l.name for l in inputs]
@@ -274,7 +275,12 @@ class KerasConverter(LWNNUtil):
             else:
                 del layer['klweights']
                 del layer['klconfig']
-            print('$', layer)
+            if(('TimeDistributed' in layer) or (len(layer.shape) == 5)):
+                layer.shape = layer.shape[1:]
+        for layer in self.lwnn_model:
+            layer.shape = [int(s) for s in layer.shape]
+            if(layer.op in ['Squeeze']):  continue
+            self.convert_layer_to_nchw(layer)
 
 def keras2lwnn(model, name, feeds=None, **kwargs):
     if(type(model) == str):

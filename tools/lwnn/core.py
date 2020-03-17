@@ -25,6 +25,31 @@ class LWNNUtil():
             name,_ = name.split(':')
         return name
 
+    def infer_conv_or_pool_shape_and_padding(self, layer):
+        inputs = self.get_layers(layer.inputs)
+        kernel_shape = layer.kernel_shape
+        if('dilations' in layer):
+            dilations = list(layer.dilations)
+        else:
+            dilations = [1,1]
+        _,hi,wi,_ = inputs[0].shape[-4:]
+        if(None in layer.shape):
+            if(layer.padding == 'VALID'):
+                ho = int((hi-kernel_shape[0])/layer.strides[0])+1
+                wo = int((wi-kernel_shape[1])/layer.strides[1])+1
+            else:
+                ho = int(hi/layer.strides[0])
+                wo = int(wi/layer.strides[1])
+            layer.shape = [layer.shape[0], ho, wo, layer.shape[3]]
+        _,ho,wo,_ = layer.shape[-4:]
+        if(dilations == [1,1]):
+            pad_h = int(((ho-1)*layer.strides[0] + kernel_shape[0] -hi) /2)
+            pad_w = int(((wo-1)*layer.strides[1] + kernel_shape[1] -wi) /2)
+        else:
+            pad_h = int(((ho -1)*layer.strides[0] - hi + (1 + (kernel_shape[0] - 1) * (dilations[0] + 1))) / 2) 
+            pad_w = int(((ho -1)*layer.strides[1] - wi + (1 + (kernel_shape[1] - 1) * (dilations[1] + 1))) / 2)
+        layer.pads = [pad_h, pad_w, pad_h, pad_w]
+
     def get_layers(self, names, model=None):
         layers = []
         if(model == None):
@@ -141,6 +166,8 @@ class LWNNLayer(dict):
             self[k] = v
 
     def __getattr__(self, key):
+        if(key not in self):
+            raise Exception('%s has no attr %s'%(self, key))
         return self[key]
 
     def __setattr__(self, key, v):
