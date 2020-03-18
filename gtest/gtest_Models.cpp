@@ -35,6 +35,9 @@
 #define NNT_DS_NOT_FOUND_OKAY TRUE
 #define NNT_DS_TOP1 0.9
 
+#define NNT_MASKRCNN_NOT_FOUND_OKAY TRUE
+#define NNT_MASKRCNN_TOP1 0.9
+
 #define ARGS_PREFETCH_ALL 0x01
 #define ARGS_COMPARE_ALL_AT_END 0x02
 /* ============================ [ TYPES     ] ====================================================== */
@@ -59,6 +62,7 @@ static void* load_vehicle_attributes_recognition_barrier_0039_input(nn_t* nn, co
 static void* load_enet_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_kws_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz);
+static void* load_maskrcnn_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
 static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
@@ -66,6 +70,7 @@ static int vehicle_attributes_recognition_barrier_0039_compare(nn_t* nn, int id,
 static int enet_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int kws_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int ds_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
+static int maskrcnn_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
 const char* g_InputImagePath = NULL;
 
@@ -178,6 +183,19 @@ NNT_CASE_DEF(DS) =
 {
 	NNT_CASE_DESC_ARGS(deepspeech),
 };
+
+static const nnt_model_args_t nnt_maskrcnn_args =
+{
+	load_maskrcnn_input,
+	load_output,
+	maskrcnn_compare,
+	1
+};
+
+NNT_CASE_DEF(MASKRCNN) =
+{
+	NNT_CASE_DESC_ARGS(maskrcnn),
+};
 /* ============================ [ LOCALS    ] ====================================================== */
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz)
 {
@@ -234,7 +252,7 @@ static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz)
 		printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
 		im = image_open(g_InputImagePath);
 		assert(im != NULL);
-		resized_im = image_letterbox(im, context->nhwc.W, context->nhwc.H);
+		resized_im = image_letterbox(im, context->nhwc.W, context->nhwc.H, 127);
 		assert(resized_im != NULL);
 		float* input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
 
@@ -382,6 +400,34 @@ static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 	return outputs;
 }
 
+static void* load_maskrcnn_input(nn_t* nn, const char* path, int id, size_t* sz)
+{
+	image_t* im;
+	image_t* resized_im;
+	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
+
+	EXPECT_EQ(context->nhwc.C, 3);
+
+	assert(g_InputImagePath != NULL);
+
+	printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
+	im = image_open(g_InputImagePath);
+	assert(im != NULL);
+	resized_im = image_letterbox(im, context->nhwc.W, context->nhwc.H, 0);
+	assert(resized_im != NULL);
+	float* input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
+	for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc); i+=3)
+	{
+		input[i] = resized_im->data[i]-123.7;
+		input[i+1] = resized_im->data[i+1]-116.8;
+		input[i+2] = resized_im->data[i+2]-103.9;
+	}
+	image_close(im);
+	image_close(resized_im);
+
+	*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);
+	return (void*) input;
+}
 static void* load_output(const char* path, int id, size_t* sz)
 {
 	char name[256];
@@ -652,6 +698,11 @@ static int ds_compare(nn_t* nn, int id, float * output, size_t szo, float* glode
 		}
 	}
 	printf("\n");
+	return 0;
+}
+
+static int maskrcnn_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg)
+{
 	return 0;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -937,3 +988,5 @@ NNT_MODEL_TEST_ALL(ENET)
 NNT_MODEL_TEST_ALL(KWS)
 
 NNT_MODEL_TEST_ALL(DS)
+
+NNT_MODEL_TEST_ALL(MASKRCNN)

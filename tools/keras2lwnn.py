@@ -20,6 +20,7 @@ class KerasConverter(LWNNUtil):
             'UpSampling2D': 'Upsample',
             'ProposalLayer': 'Proposal',
             'DetectionLayer': 'Detection',
+            'PyramidROIAlign': 'RoiAlign',
             }
         self.TRANSLATOR = {
             'Input': self.to_LayerInput,
@@ -98,8 +99,11 @@ class KerasConverter(LWNNUtil):
         outs = model.predict(feeds)
         for i, inp in enumerate(self.keras_model.input):
             shapes[inp.name] = feeds[i].shape
+            #feeds[i].tofile('tmp/%s.raw'%(inp.name))
         for i, out in enumerate(outputs):
             shapes[out.name] = outs[i].shape
+            #os.makedirs(os.path.dirname('tmp/%s.raw'%(out.name)), exist_ok=True)
+            #outs[i].tofile('tmp/%s.raw'%(out.name))
         with open(CACHED_SHAPES, 'w') as f:
             json.dump(shapes, f)
         return shapes

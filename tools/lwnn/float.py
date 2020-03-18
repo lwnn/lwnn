@@ -102,18 +102,21 @@ class LWNNFloatC(LWNNBaseC):
         self.fpC.write('L_LSTM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerDetection(self, layer):
+        self.gen_no_blobs(layer)
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_DETECTION ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
 
     def gen_LayerProposal(self, layer):
+        self.gen_no_blobs(layer)
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_PROPOSAL ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
 
-    def gen_LayerPyramidROIAlign(self, layer):
+    def gen_LayerRoiAlign(self, layer):
+        self.gen_no_blobs(layer)
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
-        self.fpC.write('L_PYRAMID_ROI_ALIGN ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+        self.fpC.write('L_ROI_ALIGN ({0}, {0}_INPUTS);\n\n'.format(layer['name']))

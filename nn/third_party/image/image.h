@@ -27,7 +27,7 @@ void image_close(image_t *im);
 void image_save(image_t* im, const char *filename);
 void image_fill(image_t* im, uint8_t color);
 image_t* image_resize(image_t* im, int w, int h);
-image_t* image_letterbox(image_t* im, int w, int h);
+image_t* image_letterbox(image_t* im, int w, int h, uint8_t fill_color);
 
 void image_draw(image_t* dest, image_t* source, int dx, int dy);
 void image_draw_pixel(image_t* im, int x, int y, uint32_t color);

@@ -33,7 +33,7 @@ class LWNNBaseC():
                 'Transpose': self.gen_LayerTranspose,
                 'Detection': self.gen_LayerDetection,
                 'Proposal': self.gen_LayerProposal,
-                'PyramidROIAlign': self.gen_LayerPyramidROIAlign,
+                'RoiAlign': self.gen_LayerRoiAlign,
                 'Slice': self.gen_LayerSlice,
                 'Output': self.gen_LayerOutput }
         self.model = model
@@ -458,7 +458,7 @@ class LWNNBaseC():
     def gen_LayerProposal(self, layer):
         raise NotImplementedError()
 
-    def gen_LayerPyramidROIAlign(self, layer):
+    def gen_LayerRoiAlign(self, layer):
         raise NotImplementedError()
 
     def gen_LayerSlice(self, layer):

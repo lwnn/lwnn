@@ -84,6 +84,7 @@ extern "C" {
 #define L_DILCONV2D(name, input)	L_LAYER_SI(name, input, DILCONV2D)
 #define L_LSTM(name, input)			L_LAYER_SI(name, input, LSTM)
 #define L_TRANSPOSE(name, input)	L_LAYER_SI(name, input, TRANSPOSE)
+#define L_SLICE(name, input)		L_LAYER_SI(name, input, SLICE)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\
@@ -104,6 +105,21 @@ extern "C" {
 	static LCONST layer_t* l_inputs_##name[] = {		\
 			inputs, NULL };								\
 	L_LAYER_MI(name, CONCAT)
+
+#define L_DETECTION(name, inputs)						\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, DETECTION)
+
+#define L_PROPOSAL(name, inputs)						\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, PROPOSAL)
+
+#define L_ROI_ALIGN(name, inputs)						\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, ROI_ALIGN)
 
 #define L_CONST(name)									\
 	static layer_context_container_t l_context_##name;	\

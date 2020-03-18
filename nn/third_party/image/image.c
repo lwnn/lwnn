@@ -224,7 +224,7 @@ void image_draw_rectange(image_t* im, int x, int y, int w, int h, uint32_t color
 	image_draw_line(im, x+w, y, x+w, y+h, color);
 }
 
-image_t* image_letterbox(image_t* im, int w, int h)
+image_t* image_letterbox(image_t* im, int w, int h, uint8_t fill_color)
 {
 	image_t* boxed;
 	image_t* resized;
@@ -241,7 +241,7 @@ image_t* image_letterbox(image_t* im, int w, int h)
 
 	resized = image_resize(im, new_w, new_h);
 	boxed = image_create(w, h, im->c);
-	image_fill(boxed, 127);
+	image_fill(boxed, fill_color);
 	image_draw(boxed, resized, (w-new_w)/2, (h-new_h)/2);
 	image_close(resized);
 
