@@ -156,6 +156,28 @@ class LWNNBaseC():
         self.gen_layers()
         self.gen_models()
 
+    def create_blobs_from_attrs(self, layer, attrs):
+        n = layer.name
+        blobs = []
+        for k in attrs:
+            V = layer[k]
+            if(type(V) in [list, tuple]):
+                if(all(isinstance(v, int) for v in V)):
+                    blobs.append(('%s_%s'%(n,k), np.asarray(V, np.int32)))
+                else:
+                    blobs.append(('%s_%s'%(n,k), np.asarray(V, np.float32)))
+            elif(type(V)==np.ndarray):
+                if(V.dtype == np.float64):
+                    V = V.astype(np.float32)
+                elif(V.dtype == np.int64):
+                    V = V.astype(np.int32)
+                blobs.append(('%s_%s'%(n,k), V))
+            elif(type(V)==int):
+                blobs.append(('%s_%s'%(n,k), np.asarray([V], np.int32)))
+            else:
+                blobs.append(('%s_%s'%(n,k), np.asarray([V], np.float32)))
+        return blobs
+
     def gen_blob(self, name, blob):
         T = self.get_blob_type(blob)
         self.fpW.write('#define l_blob_def_%s {'%(name))

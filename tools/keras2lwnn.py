@@ -34,12 +34,14 @@ class KerasConverter(LWNNUtil):
             'Dense': self.to_LayerDense,
             'Concat': self.to_LayerConcat,
             'MaxPool': self.to_LayerMaxPool,
+            'Proposal': self.to_LayerProposal,
              }
         self.keras_model = keras_model
         if('shape_infers' in kwargs):
             self.shapes = self.eval_shapes(kwargs['shape_infers'])
         else:
             self.shapes = {}
+        self.kwargs = kwargs
         self.convert()
 
     @property
@@ -169,6 +171,16 @@ class KerasConverter(LWNNUtil):
         layer.padding = klconfig['padding'].upper()
         layer.strides = klconfig['strides']
         self.infer_conv_or_pool_shape_and_padding(layer)
+
+    def to_LayerProposal(self, layer):
+        config = self.kwargs['rpnconfig']
+        layer.RPN_BBOX_STD_DEV = config.RPN_BBOX_STD_DEV
+        layer.RPN_ANCHOR_SCALES = config.RPN_ANCHOR_SCALES
+        layer.RPN_ANCHOR_RATIOS = config.RPN_ANCHOR_RATIOS
+        layer.BACKBONE_STRIDES = config.BACKBONE_STRIDES
+        layer.IMAGE_SHAPE = config.IMAGE_SHAPE
+        layer.RPN_ANCHOR_STRIDE = config.RPN_ANCHOR_STRIDE
+        layer.inputs = layer.inputs[:2]
 
     def to_LayerBatchNormalization(self, layer):
         klconfig = layer.klconfig

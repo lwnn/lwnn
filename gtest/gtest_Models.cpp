@@ -433,6 +433,10 @@ static void* load_maskrcnn_input(nn_t* nn, const char* path, int id, size_t* sz)
 		image_close(resized_im);
 		*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);
 	}
+
+	float* input_anchors = nn->network->inputs[1]->data;
+	/* anchors are constant according to the shapes and configuration */
+
 	return (void*) input;
 }
 static void* load_output(const char* path, int id, size_t* sz)

@@ -6,6 +6,7 @@
 #include "nn.h"
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 #include "../runtime_cpu.h"
+/* ref https://github.com/wkentaro/call-python-from-cpp/blob/master/src/example_004.cpp */
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {

@@ -37,6 +37,10 @@ class Lwnn2Onnx():
             inputs.append('%s_%s'%(name, i))
         for k,v in layer.items():
             if(k not in ['name', 'outputs', 'inputs', 'op', 'shape']+initializer):
+                if(type(v) in [list, tuple]):
+                    types = [type(x) for x in v]
+                    if((float in types) and (int in types)):
+                        v = [float(x) for x in v]
                 attr[k] = v
         for k,v in kwargs.items(): # handle default attr
             if(k not in layer):
