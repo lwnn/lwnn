@@ -405,27 +405,34 @@ static void* load_maskrcnn_input(nn_t* nn, const char* path, int id, size_t* sz)
 	image_t* im;
 	image_t* resized_im;
 	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
+	char* pos;
+	float* input;
 
 	EXPECT_EQ(context->nhwc.C, 3);
 
 	assert(g_InputImagePath != NULL);
 
 	printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
-	im = image_open(g_InputImagePath);
-	assert(im != NULL);
-	resized_im = image_letterbox(im, context->nhwc.W, context->nhwc.H, 0);
-	assert(resized_im != NULL);
-	float* input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
-	for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc); i+=3)
-	{
-		input[i] = resized_im->data[i]-123.7;
-		input[i+1] = resized_im->data[i+1]-116.8;
-		input[i+2] = resized_im->data[i+2]-103.9;
-	}
-	image_close(im);
-	image_close(resized_im);
 
-	*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);
+	pos = strstr((char*)g_InputImagePath, ".raw");
+	if(NULL != pos) {
+		input = (float*)nnt_load(g_InputImagePath, sz);
+	} else {
+		im = image_open(g_InputImagePath);
+		assert(im != NULL);
+		resized_im = image_letterbox(im, context->nhwc.W, context->nhwc.H, 0);
+		assert(resized_im != NULL);
+		input = (float*)malloc(sizeof(float)*NHWC_BATCH_SIZE(context->nhwc));
+		for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc); i+=3)
+		{
+			input[i] = resized_im->data[i]-123.7;
+			input[i+1] = resized_im->data[i+1]-116.8;
+			input[i+2] = resized_im->data[i+2]-103.9;
+		}
+		image_close(im);
+		image_close(resized_im);
+		*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);
+	}
 	return (void*) input;
 }
 static void* load_output(const char* path, int id, size_t* sz)

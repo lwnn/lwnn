@@ -223,8 +223,8 @@ class KerasConverter(LWNNUtil):
 
     def to_LayerPad(self, layer):
         klconfig = layer.klconfig
-        pads = klconfig['padding']
-        layer.pads = list(pads[0]) + list(pads[1])
+        (padding_top, padding_bottom),(padding_left, padding_right) = klconfig['padding']
+        layer.pads = [0,padding_top,padding_left,0, 0,padding_bottom,padding_right, 0]
 
     def convert_sub_model(self, submodel):
         # For MaskRcnn, the submodel 'rpn_model' repreated over 5 inputs
