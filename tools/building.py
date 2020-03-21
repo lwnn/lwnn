@@ -385,6 +385,32 @@ def SrcRemove(src, remove):
             if(os.path.basename(item.rstr()) in remove):
                 src.remove(item)
 
+def AddPythonDev(env):
+    pyp = sys.executable
+    if(IsPlatformWindows()):
+        pyp = pyp.replace(os.sep, '/')[:-10]
+        pylib = 'python'+sys.version[0]+sys.version[2]
+        if(pylib in env['LIBS']): return
+        pf = '%s/libs/lib%s.a'%(pyp, pylib)
+        if(not os.path.exists(pf)):
+            RunCommand('cp {0}/libs/{1}.lib {0}/libs/lib{1}.a'.format(pyp, pylib))
+        env.Append(CPPDEFINES=['_hypot=hypot'])
+        env.Append(CPPPATH=['%s/include'%(pyp)])
+        env.Append(LIBPATH=['%s/libs'%(pyp)])
+        istr = 'set'
+    else:
+        pyp = os.sep.join(pyp.split(os.sep)[:-2])
+        if(sys.version[0:3] == '2.7'):
+            pylib = 'python'+sys.version[0:3]
+        else:
+            pylib = 'python'+sys.version[0:3]+'m'
+        if(pylib in env['LIBS']): return
+        env.Append(CPPPATH=['%s/include/%s'%(pyp,pylib)])
+        env.Append(LIBPATH=['%s/lib'%(pyp)])
+        istr = 'export'
+    print('%s PYTHONHOME=%s if see error " Py_Initialize: unable to load the file system codec"'%(istr, pyp))
+    env.Append(LIBS=[pylib, 'stdc++', 'dl', 'm'])
+
 def scons(script):
     base = 'build'
     if(GetOption('android')):

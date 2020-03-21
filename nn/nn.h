@@ -66,7 +66,6 @@ extern "C" {
 #define LAYER_Z(layer) RTE_FETCH_INT32((layer)->blobs[0]->blob, 1)
 #define LAYER_S(layer) RTE_FETCH_INT32((layer)->blobs[0]->blob, 2)
 
-
 #define NN_MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define NN_MIN(a, b) (((a) < (b)) ? (a) : (b))
 
@@ -151,6 +150,7 @@ enum {
 	NN_E_INVALID_PARAMETER = -20,
 	NN_E_INPUT_TOO_SMALL = -21,
 	NN_E_INVALID_WEIGHTS_LOADER = -22,
+	NN_E_NOT_IMPLEMENTED = -23,
 };
 /* ============================ [ DECLARES  ] ====================================================== */
 extern int nn_log_level;

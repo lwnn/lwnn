@@ -31,4 +31,8 @@ if(not GetOption('android') and (not DISABLE_MKLDNN)):
         asenv.Append(LIBS=['dnnl','mkldnn'])
     objs += Glob('mkldnn_interface/*.cpp')
 
+DISABLE_RCNN = True if os.getenv('DISABLE_RCNN') == 'True' else False
+if(not DISABLE_RCNN):
+    objs += Glob('rcnn/*.cpp')
+    AddPythonDev(asenv)
 Return('objs')

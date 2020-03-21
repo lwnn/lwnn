@@ -6,19 +6,32 @@
 #include "nn.h"
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 #include "../runtime_cpu.h"
-/* ref https://github.com/wkentaro/call-python-from-cpp/blob/master/src/example_004.cpp */
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
+	float* anchors;
 } layer_cpu_float_proposal_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
+int __weak rpn_generate_anchors(const nn_t* nn, const layer_t* layer, float** anchors)
+{
+	return NN_E_NOT_IMPLEMENTED;
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_float_PROPOSAL_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_proposal_context_t), sizeof(float));
+	layer_cpu_float_proposal_context_t * context;
+
+	int r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_proposal_context_t), sizeof(float));
+
+	if(0 == r) {
+		context = (layer_cpu_float_proposal_context_t*) layer->C->context;
+		r = rpn_generate_anchors(nn, layer, &context->anchors);
+	}
+
+	return r;
 }
 
 int layer_cpu_float_PROPOSAL_execute(const nn_t* nn, const layer_t* layer)
@@ -29,6 +42,13 @@ int layer_cpu_float_PROPOSAL_execute(const nn_t* nn, const layer_t* layer)
 }
 void layer_cpu_float_PROPOSAL_deinit(const nn_t* nn, const layer_t* layer)
 {
+	layer_cpu_float_proposal_context_t * context = (layer_cpu_float_proposal_context_t*) layer->C->context;
+
+	if(context != NULL) {
+		if(context->anchors != NULL) {
+			free(context->anchors);
+		}
+	}
 	rte_cpu_destory_layer_context(nn, layer);
 }
 
