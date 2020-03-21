@@ -4,7 +4,7 @@
 import math
 import numpy as np
 
-__all__ = ['generate_pyramid_anchors']
+__all__ = ['generate_pyramid_anchors', 'proposal_forward']
 
 # code copied from https://github.com/matterport/Mask_RCNN 
 def compute_backbone_shapes(config, image_shape):
@@ -95,3 +95,6 @@ def generate_pyramid_anchors(config):
                                              config['RPN_ANCHOR_STRIDE'])
     anchors = norm_boxes(a, config['IMAGE_SHAPE'][:2])
     return anchors
+
+def proposal_forward(RPN_BBOX_STD_DEV, scores, deltas, anchors, proposal_count, nms_threshold):
+    deltas = deltas * np.reshape(RPN_BBOX_STD_DEV, [1, 1, 4])

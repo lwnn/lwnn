@@ -11,11 +11,16 @@
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
 	float* anchors;
+	size_t n_anchors;
 } layer_cpu_float_proposal_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-int __weak rpn_generate_anchors(const nn_t* nn, const layer_t* layer, float** anchors)
+int __weak rpn_generate_anchors(const nn_t* nn, const layer_t* layer, float** anchors, size_t* n_anchors)
+{
+	return NN_E_NOT_IMPLEMENTED;
+}
+int __weak rpn_proposal_forward(const nn_t* nn, const layer_t* layer, float* anchors, size_t n_anchors)
 {
 	return NN_E_NOT_IMPLEMENTED;
 }
@@ -28,7 +33,7 @@ int layer_cpu_float_PROPOSAL_init(const nn_t* nn, const layer_t* layer)
 
 	if(0 == r) {
 		context = (layer_cpu_float_proposal_context_t*) layer->C->context;
-		r = rpn_generate_anchors(nn, layer, &context->anchors);
+		r = rpn_generate_anchors(nn, layer, &context->anchors, &context->n_anchors);
 	}
 
 	return r;
@@ -36,9 +41,9 @@ int layer_cpu_float_PROPOSAL_init(const nn_t* nn, const layer_t* layer)
 
 int layer_cpu_float_PROPOSAL_execute(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-
-	return r;
+	layer_cpu_float_proposal_context_t* context = (layer_cpu_float_proposal_context_t*) layer->C->context;
+	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
+	return rpn_proposal_forward(nn, layer, context->anchors, context->n_anchors);
 }
 void layer_cpu_float_PROPOSAL_deinit(const nn_t* nn, const layer_t* layer)
 {

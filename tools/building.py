@@ -390,7 +390,7 @@ def AddPythonDev(env):
     if(IsPlatformWindows()):
         pyp = pyp.replace(os.sep, '/')[:-10]
         pylib = 'python'+sys.version[0]+sys.version[2]
-        if(pylib in env['LIBS']): return
+        if(pylib in env.get('LIBS',[])): return
         pf = '%s/libs/lib%s.a'%(pyp, pylib)
         if(not os.path.exists(pf)):
             RunCommand('cp {0}/libs/{1}.lib {0}/libs/lib{1}.a'.format(pyp, pylib))
@@ -404,7 +404,7 @@ def AddPythonDev(env):
             pylib = 'python'+sys.version[0:3]
         else:
             pylib = 'python'+sys.version[0:3]+'m'
-        if(pylib in env['LIBS']): return
+        if(pylib in env.get('LIBS',[])): return
         env.Append(CPPPATH=['%s/include/%s'%(pyp,pylib)])
         env.Append(LIBPATH=['%s/lib'%(pyp)])
         istr = 'export'
