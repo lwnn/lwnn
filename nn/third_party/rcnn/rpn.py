@@ -96,5 +96,173 @@ def generate_pyramid_anchors(config):
     anchors = norm_boxes(a, config['IMAGE_SHAPE'][:2])
     return anchors
 
+def TopK(X, k, axis=-1, largest=True):
+    # ref https://github.com/onnx/onnx/blob/master/onnx/backend/test/case/node/topk.py
+    sorted_indices = np.argsort(X, axis=axis) # order from small to big
+    sorted_values = np.sort(X, axis=axis)
+    if(largest==True):
+        sorted_indices = np.flip(sorted_indices, axis=axis) # order frim big to small
+        sorted_values = np.flip(sorted_values, axis=axis)
+    topk_sorted_indices = np.take(sorted_indices, np.arange(k), axis=axis)
+    topk_sorted_values = np.take(sorted_values, np.arange(k), axis=axis)
+    return topk_sorted_values, topk_sorted_indices
+
+# ## Batch Slicing
+# Some custom layers support a batch size of 1 only, and require a lot of work
+# to support batches greater than 1. This function slices an input tensor
+# across the batch dimension and feeds batches of size 1. Effectively,
+# an easy way to support batches > 1 quickly with little code modification.
+# In the long run, it's more efficient to modify the code to support large
+# batches and getting rid of this function. Consider this a temporary solution
+def batch_slice(inputs, graph_fn):
+    """Splits inputs into slices and feeds each slice to a copy of the given
+    computation graph and then combines the results. It allows you to run a
+    graph on a batch of inputs even if the graph is written to support one
+    instance only.
+
+    inputs: list of tensors. All must have the same first dimension length
+    graph_fn: A function that returns a TF tensor that's part of a graph.
+    batch_size: number of slices to divide the data into.
+    names: If provided, assigns names to the resulting tensors.
+    """
+    if not isinstance(inputs, list):
+        inputs = [inputs]
+
+    batch_size = inputs[0].shape[0]
+    outputs = []
+    for i in range(batch_size):
+        inputs_slice = [x[i] for x in inputs]
+        output_slice = graph_fn(*inputs_slice)
+        if not isinstance(output_slice, (tuple, list)):
+            output_slice = [output_slice]
+        outputs.append(output_slice)
+    # Change outputs from a list of slices where each is
+    # a list of outputs to a list of outputs and each has
+    # a list of slices
+    outputs = list(zip(*outputs))
+
+    result = [np.stack(o, axis=0) for o in outputs]
+    if len(result) == 1:
+        result = result[0]
+
+    return result
+
+def Gather(data, indices, axis=0):
+    return np.take(data, indices, axis=axis)
+
+def apply_box_deltas_graph(boxes, deltas):
+    """Applies the given deltas to the given boxes.
+    boxes: [N, (y1, x1, y2, x2)] boxes to update
+    deltas: [N, (dy, dx, log(dh), log(dw))] refinements to apply
+    """
+    # Convert to y, x, h, w
+    height = boxes[:, 2] - boxes[:, 0]
+    width = boxes[:, 3] - boxes[:, 1]
+    center_y = boxes[:, 0] + 0.5 * height
+    center_x = boxes[:, 1] + 0.5 * width
+    # Apply deltas
+    center_y += deltas[:, 0] * height
+    center_x += deltas[:, 1] * width
+    height *= np.exp(deltas[:, 2])
+    width *= np.exp(deltas[:, 3])
+    # Convert back to y1, x1, y2, x2
+    y1 = center_y - 0.5 * height
+    x1 = center_x - 0.5 * width
+    y2 = y1 + height
+    x2 = x1 + width
+    result = np.stack([y1, x1, y2, x2], axis=1)
+    return result
+
+def clip_boxes_graph(boxes, window):
+    """
+    boxes: [N, (y1, x1, y2, x2)]
+    window: [4] in the form y1, x1, y2, x2
+    """
+    # Split
+    wy1, wx1, wy2, wx2 = np.split(window, 4)
+    y1, x1, y2, x2 = np.split(boxes, 4, axis=1)
+    # Clip
+    y1 = np.maximum(np.minimum(y1, wy2), wy1)
+    x1 = np.maximum(np.minimum(x1, wx2), wx1)
+    y2 = np.maximum(np.minimum(y2, wy2), wy1)
+    x2 = np.maximum(np.minimum(x2, wx2), wx1)
+    clipped = np.concatenate([y1, x1, y2, x2], axis=1)
+    clipped.reshape((clipped.shape[0], 4))
+    return clipped
+
+def non_max_suppression_fast(boxes, scores, keep, nms_threshold):
+    # ref https://github.com/bruceyang2012/nms_python/blob/master/nms.py
+    # initialize the list of picked indexes
+    indices = []
+
+    # grab the coordinates of the bounding boxes
+    y1 = boxes[:, 0]
+    x1 = boxes[:, 1]
+    y2 = boxes[:, 2]
+    x2 = boxes[:, 3]
+
+    # compute the area of the bounding boxes and grab the indexes to sort
+    # (in the case that no probabilities are provided, simply sort on the
+    # bottom-left y-coordinate)
+    area = (x2 - x1 + 1) * (y2 - y1 + 1)
+
+    # sort the indexes
+    idxs = np.argsort(scores)
+
+    # keep looping while some indexes still remain in the indexes list
+    while len(idxs) > 0:
+        # grab the last index in the indexes list and add the index value
+        # to the list of picked indexes
+        last = len(idxs) - 1
+        i = idxs[last]
+        indices.append(i)
+
+        # find the largest (x, y) coordinates for the start of the bounding
+        # box and the smallest (x, y) coordinates for the end of the bounding
+        # box
+        xx1 = np.maximum(x1[i], x1[idxs[:last]])
+        yy1 = np.maximum(y1[i], y1[idxs[:last]])
+        xx2 = np.minimum(x2[i], x2[idxs[:last]])
+        yy2 = np.minimum(y2[i], y2[idxs[:last]])
+
+        # compute the width and height of the bounding box
+        w = np.maximum(0, xx2 - xx1 + 1)
+        h = np.maximum(0, yy2 - yy1 + 1)
+
+        # compute the ratio of overlap
+        overlap = (w * h) / area[idxs[:last]]
+
+        # delete all indexes from the index list that have overlap greater
+        # than the provided overlap threshold
+        idxs = np.delete(idxs, np.concatenate(([last],
+            np.where(overlap > nms_threshold)[0])))
+
+    return indices[:keep]
+
 def proposal_forward(RPN_BBOX_STD_DEV, scores, deltas, anchors, proposal_count, nms_threshold):
+    # Box Scores. Use the foreground class confidence. [Batch, num_rois, 1]
+    scores = scores[:, :, 1]
     deltas = deltas * np.reshape(RPN_BBOX_STD_DEV, [1, 1, 4])
+    pre_nms_limit = min(6000, anchors.shape[1])
+    _,ix = TopK(scores, pre_nms_limit, largest=True)
+    scores = batch_slice([scores, ix], lambda x, y: Gather(x, y))
+    deltas = batch_slice([deltas, ix], lambda x, y: Gather(x, y))
+    pre_nms_anchors = batch_slice([anchors, ix], lambda a, x: Gather(a, x))
+
+    # Apply deltas to anchors to get refined anchors.
+    # [batch, N, (y1, x1, y2, x2)]
+    boxes = batch_slice([pre_nms_anchors, deltas], lambda x, y: apply_box_deltas_graph(x, y))
+
+    # Clip to image boundaries. Since we're in normalized coordinates,
+    # clip to 0..1 range. [batch, N, (y1, x1, y2, x2)]
+    window = np.array([0, 0, 1, 1], dtype=np.float32)
+    boxes = batch_slice(boxes, lambda x: clip_boxes_graph(x, window))
+    def nms(boxes, scores):
+        indices = non_max_suppression_fast(boxes, scores, proposal_count, nms_threshold)
+        proposals = Gather(boxes, indices)
+        # Pad if needed
+        padding = np.maximum(proposal_count - proposals.shape[0], 0)
+        proposals = np.pad(proposals, [(0, padding), (0, 0)], 'constant', constant_values=0)
+        return proposals
+    proposals = batch_slice([boxes, scores], nms)
+    return proposals

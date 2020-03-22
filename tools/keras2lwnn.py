@@ -180,6 +180,7 @@ class KerasConverter(LWNNUtil):
         layer.BACKBONE_STRIDES = config.BACKBONE_STRIDES
         layer.IMAGE_SHAPE = config.IMAGE_SHAPE
         layer.RPN_ANCHOR_STRIDE = config.RPN_ANCHOR_STRIDE
+        layer.RPN_NMS_THRESHOLD = config.RPN_NMS_THRESHOLD
         layer.inputs = layer.inputs[:2]
 
     def to_LayerBatchNormalization(self, layer):

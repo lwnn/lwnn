@@ -111,7 +111,8 @@ class LWNNFloatC(LWNNBaseC):
     def gen_LayerProposal(self, layer):
         blobs = self.create_blobs_from_attrs(layer, 
                 ['RPN_BBOX_STD_DEV','RPN_ANCHOR_SCALES','RPN_ANCHOR_RATIOS',
-                 'BACKBONE_STRIDES','IMAGE_SHAPE','RPN_ANCHOR_STRIDE'])
+                 'BACKBONE_STRIDES','IMAGE_SHAPE','RPN_ANCHOR_STRIDE',
+                 'RPN_NMS_THRESHOLD'])
         self.gen_blobs(layer, blobs)
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))

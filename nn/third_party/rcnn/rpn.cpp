@@ -155,8 +155,9 @@ extern "C" int rpn_proposal_forward(const nn_t* nn, const layer_t* layer, float*
   auto scores = create_array(layer->inputs[0]);
   auto deltas = create_array(layer->inputs[1]);
   auto anchors_ = create_3d_array<float>(anchors, 1, n_anchors, 4);
+  float nms_threshold = RTE_FETCH_FLOAT(layer->blobs[6]->blob, 0);
 
-  py::array roi = _rpn.attr("proposal_forward")(RPN_BBOX_STD_DEV, scores, deltas, anchors_, context->nhwc.H, 0.7);
+  py::array roi = _rpn.attr("proposal_forward")(RPN_BBOX_STD_DEV, scores, deltas, anchors_, context->nhwc.H, nms_threshold);
   py::buffer_info arr_info = roi.request();
 
   if((3==arr_info.ndim) && (context->nhwc.N==arr_info.shape[0]) &&
