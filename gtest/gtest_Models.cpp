@@ -407,6 +407,7 @@ static void* load_maskrcnn_input(nn_t* nn, const char* path, int id, size_t* sz)
 	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
 	char* pos;
 	float* input;
+	float* meta = (float*)nn->network->inputs[1]->data;
 
 	EXPECT_EQ(context->nhwc.C, 3);
 
@@ -429,6 +430,22 @@ static void* load_maskrcnn_input(nn_t* nn, const char* path, int id, size_t* sz)
 			input[i+1] = resized_im->data[i+1]-116.8;
 			input[i+2] = resized_im->data[i+2]-103.9;
 		}
+
+		float scale = std::min((float)resized_im->h/im->h, (float)resized_im->w/im->w);
+		int y_top = (resized_im->h-scale*im->h)/2;
+		int x_top = (resized_im->w-scale*im->w)/2;
+		int y_bottom = y_top + scale*im->h;
+		int x_bottom = x_top + scale*im->w;
+		meta[0] = 0; /* image_id */
+		meta[1] = im->h; /* original_image_shape */
+		meta[1] = im->w;
+		meta[2] = resized_im->h; /* image_shape */
+		meta[3] = resized_im->w;
+		meta[4] = y_top; /* window */
+		meta[5] = x_top;
+		meta[6] = y_bottom;
+		meta[7] = x_bottom;
+		meta[8] = scale;
 		image_close(im);
 		image_close(resized_im);
 		*sz = sizeof(float)*NHWC_BATCH_SIZE(context->nhwc);

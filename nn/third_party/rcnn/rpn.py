@@ -204,7 +204,7 @@ def non_max_suppression_fast(boxes, scores, keep, nms_threshold):
     # compute the area of the bounding boxes and grab the indexes to sort
     # (in the case that no probabilities are provided, simply sort on the
     # bottom-left y-coordinate)
-    area = (x2 - x1 + 1) * (y2 - y1 + 1)
+    area = (x2 - x1) * (y2 - y1)
 
     # sort the indexes
     idxs = np.argsort(scores)
@@ -226,8 +226,8 @@ def non_max_suppression_fast(boxes, scores, keep, nms_threshold):
         yy2 = np.minimum(y2[i], y2[idxs[:last]])
 
         # compute the width and height of the bounding box
-        w = np.maximum(0, xx2 - xx1 + 1)
-        h = np.maximum(0, yy2 - yy1 + 1)
+        w = np.maximum(0, xx2 - xx1)
+        h = np.maximum(0, yy2 - yy1)
 
         # compute the ratio of overlap
         overlap = (w * h) / area[idxs[:last]]
@@ -260,9 +260,6 @@ def proposal_forward(RPN_BBOX_STD_DEV, scores, deltas, anchors, proposal_count, 
     def nms(boxes, scores):
         indices = non_max_suppression_fast(boxes, scores, proposal_count, nms_threshold)
         proposals = Gather(boxes, indices)
-        # Pad if needed
-        padding = np.maximum(proposal_count - proposals.shape[0], 0)
-        proposals = np.pad(proposals, [(0, padding), (0, 0)], 'constant', constant_values=0)
         return proposals
     proposals = batch_slice([boxes, scores], nms)
     return proposals

@@ -12,6 +12,10 @@ typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
 } layer_cpu_float_roi_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
+int __weak ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer)
+{
+	return NN_E_NOT_IMPLEMENTED;
+}
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -22,9 +26,7 @@ int layer_cpu_float_ROI_ALIGN_init(const nn_t* nn, const layer_t* layer)
 
 int layer_cpu_float_ROI_ALIGN_execute(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-
-	return r;
+	return ROIAlign_forward_cpu(nn, layer);
 }
 void layer_cpu_float_ROI_ALIGN_deinit(const nn_t* nn, const layer_t* layer)
 {

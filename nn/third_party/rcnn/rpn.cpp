@@ -161,10 +161,11 @@ extern "C" int rpn_proposal_forward(const nn_t* nn, const layer_t* layer, float*
   py::buffer_info arr_info = roi.request();
 
   if((3==arr_info.ndim) && (context->nhwc.N==arr_info.shape[0]) &&
-     (context->nhwc.H==arr_info.shape[1]) && (context->nhwc.C==arr_info.shape[2])) {
+     (layer->dims[1]>=arr_info.shape[1]) && (context->nhwc.C==arr_info.shape[2])) {
     float* data = (float*)arr_info.ptr;
     float* O = (float*)context->out[0];
     std::copy(data, data+arr_info.size, O);
+    context->nhwc.H = arr_info.shape[1];
   } else {
     r = NN_E_INVALID_DIMENSION;
   }
