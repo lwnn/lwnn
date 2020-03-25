@@ -20,7 +20,6 @@ class KerasConverter(LWNNUtil):
             'UpSampling2D': 'Upsample',
             'ProposalLayer': 'Proposal',
             'DetectionLayer': 'Detection',
-            'PyramidROIAlign': 'RoiAlign',
             }
         self.TRANSLATOR = {
             'Input': self.to_LayerInput,

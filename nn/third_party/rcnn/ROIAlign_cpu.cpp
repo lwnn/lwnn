@@ -7,6 +7,8 @@
 #include <math.h>
 #include <vector>
 
+extern "C" void rte_save_raw(const char* name, void* data, size_t sz);
+
 // implementation taken from Caffe2
 template <typename T>
 struct PreCalc {
@@ -106,8 +108,6 @@ void pre_calc_for_bilinear_interpolate(
           pc.w3 = w3;
           pc.w4 = w4;
           pre_calc[pre_calc_index] = pc;
-          //NNLOG(NN_DEBUG, (" PC[%d] W=[%f %f %f %f] P=[%d %d %d %d]\n", pre_calc_index, w1, w2, w3, w4, pc.y1, pc.x1, pc.y2, pc.x2));
-
           pre_calc_index += 1;
         }
       }
@@ -127,7 +127,6 @@ void ROIAlignForward_cpu_kernel(
     const int pooled_width,
     const int sampling_ratio,
     const T* bottom_rois,
-    //int roi_cols,
     T* top_data) {
   const int roi_cols = 4;
 
@@ -184,6 +183,7 @@ void ROIAlignForward_cpu_kernel(
         roi_bin_grid_h,
         roi_bin_grid_w,
         pre_calc);
+    NNDDO(NN_DEBUG, rte_save_raw("tmp/pre_calc.raw", pre_calc.data(), pre_calc.size()*32));
 
       for (int c = 0; c < channels; c++) {
       int pre_calc_index = 0;
@@ -226,7 +226,36 @@ int calc_roi_level(float y1, float x1, float y2, float x2, float image_area, int
   return roi_level;
 }
 
-extern "C" int ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer)
+extern "C" int ROIAlign_forward_cpu(float* o, const float* in,
+                                    const float* boxes, const int* indices,
+                                    NHWC_t* onhwc, NHWC_t* inhwc)
+{
+  int r = 0;
+  int feature_size = NHWC_BATCH_SIZE(*inhwc);
+  int roi_size = NHWC_BATCH_SIZE(*onhwc);
+  int num_rois = onhwc->N;
+  int channels = onhwc->C;
+  int pooled_height = onhwc->H;
+  int pooled_width = onhwc->W;
+  int height = inhwc->H;
+  int width = inhwc->W;
+  int i;
+  const float* feature;
+
+  NNLOG(NN_DEBUG, ("ROTAlign: image_shape=[%d %d %d %d], pool=[%d %d], %d features\n",
+              inhwc->N, height, width, channels, pooled_height, pooled_width, num_rois));
+
+  for(i=0; i<num_rois; i++) {
+    feature = in+indices[i]*feature_size;
+    ROIAlignForward_cpu_kernel(roi_size, feature, 1.0f, channels,
+            height, width, pooled_height, pooled_width, 0,
+            (float*)&boxes[4*i], o+roi_size*i);
+  }
+
+  return r;
+}
+
+extern "C" int Pyramid_ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer)
 {
   int r = 0;
   layer_context_t* context = layer->C->context;
@@ -277,7 +306,6 @@ extern "C" int ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer)
               output+roi_size*i);
     }
   }
-
 
   return r;
 }

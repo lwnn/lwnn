@@ -33,7 +33,9 @@ int pooling(const float * Im_in,
 		const int dim_im_out_y,
 		layer_operation_t op,
 		uint8_t* Mask_out);
-extern int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size, uint8_t* pmask);
+int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size, uint8_t* pmask);
+int ROIAlign_forward_cpu(float* o, const float* in, const float* boxes, const int* indices,
+		NHWC_t* onhwc, NHWC_t* inhwc);
 }
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
@@ -359,9 +361,63 @@ py::array_t<float> PriorBox(py::array_t<int> feature_shape, /* NCHW */
 
 	return result;
 }
-PYBIND11_PLUGIN(liblwnn)
+
+py::array_t<float> ROIAlign(py::array_t<float> X, /* NCHW */
+		py::array_t<float> rois, /* (num_rois,4) */
+		py::array_t<int> batch_indices, /* (num_rois) */
+		int output_height, int output_width) {
+	py::buffer_info buf_in = X.request();
+	py::buffer_info buf_rois = rois.request();
+	py::buffer_info buf_batch_ind = batch_indices.request();
+
+	if (buf_in.ndim != 4)
+		throw std::runtime_error("Number of dimensions of X must be 4");
+	if (buf_rois.ndim != 2)
+		throw std::runtime_error("Number of dimensions of rois must be 2");
+	if (buf_batch_ind.ndim != 1)
+		throw std::runtime_error("Number of dimensions of batch_indices must be 1");
+	if (buf_rois.shape[0] != buf_batch_ind.shape[0])
+		throw std::runtime_error("shape[0] of rois and batch_indices must be equal");
+
+	int iN = buf_in.shape[0];
+	int iH = buf_in.shape[2];
+	int iW = buf_in.shape[3];
+	int iC = buf_in.shape[1];
+
+	int oN = buf_rois.shape[0];
+	int oH = output_height;
+	int oW = output_width;
+	int oC = iC;
+
+	auto result = py::array_t<float>({(size_t)oN, (size_t)oC, (size_t)oH, (size_t)oW});
+
+	py::buffer_info buf_out = result.request();
+
+	float *IN = (float *) buf_in.ptr;
+	float *O = (float *) buf_out.ptr;
+	float *boxes = (float *) buf_rois.ptr;
+	int* indices = (int *) buf_batch_ind.ptr;
+
+	float * in = new float[iN*iH*iW*iC];
+	float * o  = new float[oN*oH*oW*oC];
+	uint8_t * pmask = NULL;
+
+	NHWC_t inhwc = { iN, iH, iW, iC };
+
+	alg_transpose(in, IN, &inhwc, sizeof(float), ALG_TRANSPOSE_FROM_NCHW_TO_NHWC);
+
+	NHWC_t onhwc = { oN, oH, oW, oC };
+	ROIAlign_forward_cpu(o, in, boxes, indices, &onhwc, &inhwc);
+	alg_transpose(O, o, &onhwc, sizeof(float), ALG_TRANSPOSE_FROM_NHWC_TO_NCHW);
+
+	delete in;
+	delete o;
+
+	return result;
+}
+PYBIND11_MODULE(liblwnn, m)
 {
-	py::module m("liblwnn", "pybind11 lwnn plugin");
+	m.doc() = "pybind11 lwnn plugin";
 	m.def("set_log_level", &set_log_level, "set lwnn log level");
 	m.def("MaxPool2d", &MaxPool2d, "lwnn functional MaxPool2d",
 			py::arg("input"), py::arg("kernel_size"), py::arg("stride"),
@@ -374,5 +430,9 @@ PYBIND11_PLUGIN(liblwnn)
 			py::arg("max_sizes"), py::arg("min_sizes"), py::arg("aspect_ratio"),
 			py::arg("clip"), py::arg("flip"), py::arg("step"), py::arg("offset"),
 			py::arg("output_shape"));
-	return m.ptr();
+	m.def("ROIAlign", &ROIAlign, "lwnn functional ROTAlign",
+			py::arg("X"), py::arg("rois"), py::arg("batch_indices"),
+			py::arg("output_height")=1, py::arg("output_width")=1);
 }
+
+

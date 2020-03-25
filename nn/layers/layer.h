@@ -116,10 +116,10 @@ extern "C" {
 			inputs, NULL };								\
 	L_LAYER_MI(name, PROPOSAL)
 
-#define L_ROI_ALIGN(name, inputs)						\
+#define L_PYRAMID_ROI_ALIGN(name, inputs)				\
 	static LCONST layer_t* l_inputs_##name[] = {		\
 			inputs, NULL };								\
-	L_LAYER_MI(name, ROI_ALIGN)
+	L_LAYER_MI(name, PYRAMID_ROI_ALIGN)
 
 #define L_CONST(name)									\
 	static layer_context_container_t l_context_##name;	\
