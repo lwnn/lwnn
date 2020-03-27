@@ -58,6 +58,8 @@ int layer_cpu_float_DENSE_execute(const nn_t* nn, const layer_t* layer)
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
 
+	rte_cpu_dynamic_batch(layer, input_context);
+
 	NNLOG(NN_DEBUG, ("execute %s: [%d %d]\n", layer->name, dim_vec, num_of_rows));
 
 	for(batch=0; batch<input_context->nhwc.N; batch++)

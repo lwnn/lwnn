@@ -89,11 +89,18 @@ void* rte_cpu_fetch_out0(const nn_t* nn, const layer_t* layer);
 
 #ifndef DISABLE_DYNAMIC_SHAPE
 void rte_cpu_dynamic_reshape(const layer_t* layer, layer_cpu_context_t* input_context);
+void rte_cpu_dynamic_batch(const layer_t* layer, layer_cpu_context_t* input_context);
 int rte_cpu_dynamic_conv2d(const layer_t* layer,
 		layer_cpu_context_t* context, layer_cpu_context_t* input_context,
 		int* padY, int* padX, int strideY, int strideX,
 		int knlY, int knlX, void** O, size_t* max, size_t type_sz);
 void rte_cpu_dynamic_free(const layer_t* layer);
+#else
+#define rte_cpu_dynamic_reshape(layer, input_context)
+#define rte_cpu_dynamic_batch(layer, input_context)
+#define rte_cpu_dynamic_conv2d(layer, context, input_context, \
+	padY, padX, strideY, strideX, knlY, knlX, O, max, type_sz) 0
+#define rte_cpu_dynamic_free(layer)
 #endif
 
 #ifndef DISABLE_RTE_FALLBACK

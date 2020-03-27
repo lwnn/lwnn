@@ -77,9 +77,11 @@ int layer_cpu_float_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;
 	float *IN = (float*)input_context->out[0];
 	float *O = (float*)context->out[0];
-	size_t n_block = context->nhwc.N*context->nhwc.H*context->nhwc.W;
+	size_t n_block = input_context->nhwc.N*context->nhwc.H*context->nhwc.W;
 	size_t stride = context->nhwc.C;
 	size_t i;
+
+	rte_cpu_dynamic_batch(layer, input_context);
 
 	if(NULL == O)
 	{

@@ -110,12 +110,10 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	strideX = ints[5];
 	act = ints[6];
 
-#ifndef DISABLE_DYNAMIC_SHAPE
 	r = rte_cpu_dynamic_conv2d(layer, (layer_cpu_context_t*)context, input_context,
 				&padY, &padX, strideY, strideX, knlY, knlX,
 				(void**)&O, &context->max, sizeof(float));
 	if(0 == r) {
-#endif
 
 	batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
@@ -140,16 +138,12 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			context->nhwc.H,
 			act);
 	}
-#ifndef DISABLE_DYNAMIC_SHAPE
 	}
-#endif
 	return r;
 }
 void layer_cpu_float_CONV2D_deinit(const nn_t* nn, const layer_t* layer)
 {
-#ifndef DISABLE_DYNAMIC_SHAPE
 	rte_cpu_dynamic_free(layer);
-#endif
 	rte_cpu_destory_layer_context(nn, layer);
 }
 

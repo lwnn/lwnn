@@ -221,6 +221,10 @@ class KerasConverter(LWNNUtil):
                     else:
                         axis = i
                 layer.shape[axis] = dims
+            # special handling for MaskRCNN
+            consumers = self.get_consumers(layer)
+            if((len(consumers) > 0) and all('TimeDistributed' in l for l in consumers)):
+                layer.shape = layer.shape[1:]
         elif(op1 == 'strided_slice'):
             layer.op = 'Slice'
             inp = self.get_layers(layer.inputs[0])
@@ -284,6 +288,7 @@ class KerasConverter(LWNNUtil):
         for layer in self.lwnn_model:
             inputs = self.get_layer_inputs(layer)
             layer.inputs = [l.name for l in inputs]
+        for layer in self.lwnn_model:
             if(layer.op in self.TRANSLATOR):
                 self.TRANSLATOR[layer.op](layer)
             if(layer.op == 'Output'):
@@ -295,7 +300,6 @@ class KerasConverter(LWNNUtil):
                 layer.shape = layer.shape[1:]
         for layer in self.lwnn_model:
             layer.shape = [int(s) for s in layer.shape]
-            if(layer.op in ['Squeeze']):  continue
             self.convert_layer_to_nchw(layer)
 
 def keras2lwnn(model, name, feeds=None, **kwargs):

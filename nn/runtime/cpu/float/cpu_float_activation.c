@@ -69,11 +69,11 @@ static int layer_cpu_float_activation_execute(const nn_t* nn, const layer_t* lay
 	int r = 0;
 	layer_cpu_float_actvation_context_t* context = (layer_cpu_float_actvation_context_t*)layer->C->context;
 	const layer_t* input = layer->inputs[0];
-	layer_cpu_context_t* input_context;
-	size_t sz = NHWC_SIZE(context->nhwc);
+	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;
+	size_t sz = NHWC_SIZE(input_context->nhwc);
 	float* IN;
 
-	input_context = (layer_cpu_context_t*)input->C->context;
+	rte_cpu_dynamic_reshape(layer, input_context);
 
 	IN = (float*)input_context->out[0];
 
