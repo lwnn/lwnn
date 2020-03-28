@@ -20,11 +20,9 @@ int layer_cpu_float_DETECTION_init(const nn_t* nn, const layer_t* layer)
 	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_detection_context_t), sizeof(float));
 }
 
-int layer_cpu_float_DETECTION_execute(const nn_t* nn, const layer_t* layer)
+int __weak layer_cpu_float_DETECTION_execute(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-
-	return r;
+	return NN_E_NOT_SUPPORTED;
 }
 void layer_cpu_float_DETECTION_deinit(const nn_t* nn, const layer_t* layer)
 {

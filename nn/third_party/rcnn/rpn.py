@@ -150,7 +150,7 @@ def batch_slice(inputs, graph_fn):
 def Gather(data, indices, axis=0):
     return np.take(data, indices, axis=axis)
 
-def apply_box_deltas_graph(boxes, deltas):
+def apply_box_deltas(boxes, deltas):
     """Applies the given deltas to the given boxes.
     boxes: [N, (y1, x1, y2, x2)] boxes to update
     deltas: [N, (dy, dx, log(dh), log(dw))] refinements to apply
@@ -173,7 +173,7 @@ def apply_box_deltas_graph(boxes, deltas):
     result = np.stack([y1, x1, y2, x2], axis=1)
     return result
 
-def clip_boxes_graph(boxes, window):
+def clip_boxes(boxes, window):
     """
     boxes: [N, (y1, x1, y2, x2)]
     window: [4] in the form y1, x1, y2, x2
@@ -251,12 +251,12 @@ def proposal_forward(RPN_BBOX_STD_DEV, scores, deltas, anchors, proposal_count, 
 
     # Apply deltas to anchors to get refined anchors.
     # [batch, N, (y1, x1, y2, x2)]
-    boxes = batch_slice([pre_nms_anchors, deltas], lambda x, y: apply_box_deltas_graph(x, y))
+    boxes = batch_slice([pre_nms_anchors, deltas], lambda x, y: apply_box_deltas(x, y))
 
     # Clip to image boundaries. Since we're in normalized coordinates,
     # clip to 0..1 range. [batch, N, (y1, x1, y2, x2)]
     window = np.array([0, 0, 1, 1], dtype=np.float32)
-    boxes = batch_slice(boxes, lambda x: clip_boxes_graph(x, window))
+    boxes = batch_slice(boxes, lambda x: clip_boxes(x, window))
     def nms(boxes, scores):
         indices = non_max_suppression_fast(boxes, scores, proposal_count, nms_threshold)
         proposals = Gather(boxes, indices)

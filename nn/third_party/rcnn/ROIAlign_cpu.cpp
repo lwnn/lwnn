@@ -293,9 +293,8 @@ extern "C" int Pyramid_ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer
     y2 = boxes[4*i+2];
     x2 = boxes[4*i+3];
     roi_level = calc_roi_level(y1,x1,y2,x2,image_area, n_features);
-    NNLOG(NN_DEBUG, (" ROI @[%d %d %d %d] from feature %d [%d %d %d %d]\n",
-                    (int)(y1*image_height), (int)(x1*image_width),
-                    (int)(y2*image_height), (int)(x2*image_width), roi_level,
+    NNLOG(NN_DEBUG, (" ROI @[%.2f,%.2f,%.2f,%.2f] from feature %d [%d %d %d %d]\n",
+                    y1, x1, y2, x2, roi_level,
                     L_SHAPES(features[roi_level>0?roi_level:0])));
     if(roi_level >= 0) {
       feature_context = features[roi_level]->C->context;

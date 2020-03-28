@@ -24,7 +24,7 @@ static pthread_once_t _once = PTHREAD_ONCE_INIT;
 static py::module _rpn;
 /* ============================ [ LOCALS    ] ====================================================== */
 template<typename T>
-static py::array create_1d_array(T* data, size_t ndim) {
+static py::array create_1d_array(const T* data, size_t ndim) {
     auto arr = py::array_t<T>({ndim});
     py::buffer_info arr_info = arr.request();
     T* arr_data = (T*) arr_info.ptr;
@@ -33,7 +33,16 @@ static py::array create_1d_array(T* data, size_t ndim) {
 }
 
 template<typename T>
-static py::array create_3d_array(T* data, size_t dim0, size_t dim1, size_t dim2) {
+static py::array create_2d_array(const T* data, size_t dim0, size_t dim1) {
+    auto arr = py::array_t<T>({dim0, dim1});
+    py::buffer_info arr_info = arr.request();
+    T* arr_data = (T*) arr_info.ptr;
+    std::copy(data, data+arr_info.size, arr_data);
+    return arr;
+}
+
+template<typename T>
+static py::array create_3d_array(const T* data, size_t dim0, size_t dim1, size_t dim2) {
     auto arr = py::array_t<T>({dim0, dim1, dim2});
     py::buffer_info arr_info = arr.request();
     T* arr_data = (T*) arr_info.ptr;

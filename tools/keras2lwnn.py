@@ -34,6 +34,7 @@ class KerasConverter(LWNNUtil):
             'Concat': self.to_LayerConcat,
             'MaxPool': self.to_LayerMaxPool,
             'Proposal': self.to_LayerProposal,
+            'Detection': self.to_LayerDetection,
              }
         self.keras_model = keras_model
         if('shape_infers' in kwargs):
@@ -182,6 +183,9 @@ class KerasConverter(LWNNUtil):
         layer.RPN_NMS_THRESHOLD = config.RPN_NMS_THRESHOLD
         layer.inputs = layer.inputs[:2]
 
+    def to_LayerDetection(self, layer):
+        layer.shape[-1] = 7
+
     def to_LayerBatchNormalization(self, layer):
         klconfig = layer.klconfig
         klweights = layer.klweights
@@ -297,6 +301,8 @@ class KerasConverter(LWNNUtil):
                 del layer['klweights']
                 del layer['klconfig']
             if(('TimeDistributed' in layer) or (len(layer.shape) == 5)):
+                layer.shape = layer.shape[1:]
+            elif(('inputs' in layer) and all('TimeDistributed' in l for l in self.get_layers(layer.inputs))):
                 layer.shape = layer.shape[1:]
         for layer in self.lwnn_model:
             layer.shape = [int(s) for s in layer.shape]
