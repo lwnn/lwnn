@@ -31,7 +31,9 @@ int layer_cpu_float_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
 
 	input_context = (layer_cpu_context_t*)input->C->context;
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
+	rte_cpu_dynamic_reshape(layer, input_context);
+
+	NNLOG(NN_DEBUG, ("execute %s:[%d %d %d %d]\n", layer->name, L_SHAPES(layer)));
 
 	data = (float*) nn_get_output_data(nn, layer);
 	if(NULL != data)

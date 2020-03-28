@@ -264,8 +264,7 @@ extern "C" int Pyramid_ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer
   const layer_t** features = &layer->inputs[2];
   layer_context_t* feature_context;
   int n_features = 0; while(features[n_features] != NULL) n_features++;
-  assert(roi_context->nhwc.N == 1); /* batch mode is not supported */
-  int num_rois = roi_context->nhwc.H;
+  int num_rois;
   int channels = context->nhwc.C;
   int pooled_height = context->nhwc.H;
   int pooled_width = context->nhwc.W;
@@ -280,7 +279,19 @@ extern "C" int Pyramid_ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer
   int roi_level;
   int roi_size = channels*pooled_width*pooled_height;
   float* output = (float*)context->out[0];
+  int roi_stride = 4;
 
+  if(roi_context->nhwc.C == 4) {
+    assert(roi_context->nhwc.N == 1); /* batch mode is not supported */
+    num_rois = roi_context->nhwc.H;
+  } else if(roi_context->nhwc.C == 7) {
+    assert(layer->inputs[0]->op == L_OP_DETECTION);
+    num_rois = roi_context->nhwc.N;
+    roi_stride = 7;
+    boxes += 3;
+  } else {
+    assert(0);
+  }
   context->nhwc.N = num_rois;
 
   NNLOG(NN_DEBUG, ("execute %s [%d %d %d %d]: image_shape=[%d %d], pool=[%d %d], %d features\n",
@@ -288,10 +299,10 @@ extern "C" int Pyramid_ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer
        pooled_height, pooled_width, n_features));
 
   for(i=0; i<num_rois; i++) {
-    y1 = boxes[4*i+0];
-    x1 = boxes[4*i+1];
-    y2 = boxes[4*i+2];
-    x2 = boxes[4*i+3];
+    y1 = boxes[roi_stride*i+0];
+    x1 = boxes[roi_stride*i+1];
+    y2 = boxes[roi_stride*i+2];
+    x2 = boxes[roi_stride*i+3];
     roi_level = calc_roi_level(y1,x1,y2,x2,image_area, n_features);
     NNLOG(NN_DEBUG, (" ROI @[%.2f,%.2f,%.2f,%.2f] from feature %d [%d %d %d %d]\n",
                     y1, x1, y2, x2, roi_level,
@@ -301,7 +312,7 @@ extern "C" int Pyramid_ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer
       feature = (float*)feature_context->out[0];
       ROIAlignForward_cpu_kernel(roi_size, feature, 1.0f, channels,
               feature_context->nhwc.H, feature_context->nhwc.W,
-              pooled_height, pooled_width, 0, (float*)&boxes[4*i],
+              pooled_height, pooled_width, 0, (float*)&boxes[roi_stride*i],
               output+roi_size*i);
     }
   }

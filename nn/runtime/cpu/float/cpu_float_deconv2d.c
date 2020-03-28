@@ -102,6 +102,8 @@ int layer_cpu_float_DECONV2D_execute(const nn_t* nn, const layer_t* layer)
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
 
+	rte_cpu_dynamic_batch(layer, input_context);
+
 	ints = (int*)layer->blobs[0]->dims;
 	knlY = ints[1];
 	knlX = ints[2];

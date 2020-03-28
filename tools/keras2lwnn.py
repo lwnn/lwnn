@@ -9,6 +9,9 @@ __all__ = ['keras2lwnn']
 
 class KerasConverter(LWNNUtil):
     def __init__(self, keras_model, **kwargs):
+        self.OPTIMIER = [
+            (self.opt_IsLayerSliceBeforeROIAfterDetection, self.opt_LayerSliceBeforeROIAfterDetection, None),
+            ]
         self.opMap = {
             'InputLayer': 'Input',
             'Conv2D': 'Conv',
@@ -275,6 +278,18 @@ class KerasConverter(LWNNUtil):
         layer.klconfig=tlayer['config']
         self.lwnn_model.append(layer)
 
+    def opt_IsLayerSliceBeforeROIAfterDetection(self, layer):
+        r = False
+        if(layer.op == 'Slice'):
+            inp = self.get_layers(layer.inputs[0])
+            consumers = self.get_consumers(layer)
+            if((len(consumers)==1) and (inp.op=='Detection') and (consumers[0].op=='PyramidROIAlign')):
+                r = True
+        return r
+
+    def opt_LayerSliceBeforeROIAfterDetection(self, layer):
+        return self.opt_RemoveLayer(layer)
+
     def convert(self):
         self.lwnn_model = []
         for klayer in self.keras_model.layers:
@@ -292,21 +307,25 @@ class KerasConverter(LWNNUtil):
         for layer in self.lwnn_model:
             inputs = self.get_layer_inputs(layer)
             layer.inputs = [l.name for l in inputs]
+            if(layer.op == 'Output'):
+                layer.shape = inputs[0].shape
         for layer in self.lwnn_model:
             if(layer.op in self.TRANSLATOR):
                 self.TRANSLATOR[layer.op](layer)
-            if(layer.op == 'Output'):
-                layer.shape = inputs[0].shape
-            else:
-                del layer['klweights']
-                del layer['klconfig']
             if(('TimeDistributed' in layer) or (len(layer.shape) == 5)):
                 layer.shape = layer.shape[1:]
             elif(('inputs' in layer) and all('TimeDistributed' in l for l in self.get_layers(layer.inputs))):
                 layer.shape = layer.shape[1:]
+            if(layer.op == 'Output'):
+                inputs = self.get_layers(layer.inputs)
+                layer.shape = inputs[0].shape
+            else:
+                del layer['klweights']
+                del layer['klconfig']
         for layer in self.lwnn_model:
             layer.shape = [int(s) for s in layer.shape]
             self.convert_layer_to_nchw(layer)
+        self.optimize()
 
 def keras2lwnn(model, name, feeds=None, **kwargs):
     if(type(model) == str):
