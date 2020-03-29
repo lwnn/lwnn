@@ -1050,7 +1050,7 @@ extern "C" int detection_output_forward(
 
 	// Decode all loc predictions to bboxes.
 	vector<LabelBBox> all_decode_bboxes;
-	const bool clip_bbox = false;
+	const bool clip_bbox = true;
 	DecodeBBoxesAll(all_loc_preds, prior_bboxes, prior_variances, num,
 			share_location_, num_loc_classes_, background_label_id_, code_type_,
 			variance_encoded_in_target_, clip_bbox, &all_decode_bboxes);

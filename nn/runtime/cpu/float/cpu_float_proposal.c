@@ -42,7 +42,6 @@ int layer_cpu_float_PROPOSAL_init(const nn_t* nn, const layer_t* layer)
 int layer_cpu_float_PROPOSAL_execute(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_float_proposal_context_t* context = (layer_cpu_float_proposal_context_t*) layer->C->context;
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 	return rpn_proposal_forward(nn, layer, context->anchors, context->n_anchors);
 }
 void layer_cpu_float_PROPOSAL_deinit(const nn_t* nn, const layer_t* layer)
