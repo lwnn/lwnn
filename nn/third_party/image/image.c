@@ -115,12 +115,19 @@ void image_draw(image_t* dest, image_t* source, int dx, int dy)
 
 void image_draw_pixel(image_t* im, int x, int y, uint32_t color)
 {
+	uint32_t alpha = 0xFF&(color>>24);
 	if( (x>=0) && (y>=0) &&
 		(x<im->w) && (y<im->h) ) {
 		if(3 == im->c) {
-			im->data[(y*im->w+x)*3] = 0xFF&(color>>16);
-			im->data[(y*im->w+x)*3+1] = 0xFF&(color>>8);
-			im->data[(y*im->w+x)*3+2] = 0xFF&(color);
+			if(0 == alpha) {
+				im->data[(y*im->w+x)*3] = 0xFF&(color>>16);
+				im->data[(y*im->w+x)*3+1] = 0xFF&(color>>8);
+				im->data[(y*im->w+x)*3+2] = 0xFF&(color);
+			} else {
+				im->data[(y*im->w+x)*3] = ((0xFF&(color>>16))*alpha + im->data[(y*im->w+x)*3]*(255-alpha))/255;
+				im->data[(y*im->w+x)*3+1] = ((0xFF&(color>>8))*alpha + im->data[(y*im->w+x)*3+1]*(255-alpha))/255;
+				im->data[(y*im->w+x)*3+2] = ((0xFF&(color))*alpha + im->data[(y*im->w+x)*3+2]*(255-alpha))/255;
+			}
 		} else if(1 == im->c) {
 			im->data[(y*im->w+x)*3] = 0xFF&(color);
 		}

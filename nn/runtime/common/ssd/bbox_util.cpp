@@ -1243,8 +1243,6 @@ extern "C" int layer_cpu_float_DETECTION_execute(const nn_t* nn, const layer_t* 
 	layer_context_t* rois_c = layer->inputs[0]->C->context;
 	layer_context_t* scores_c = layer->inputs[1]->C->context;
 	layer_context_t* bbox_c = layer->inputs[2]->C->context;
-	layer_context_t* input_image_meta_c = layer->inputs[3]->C->context;
-	const float* meta = (const float*) input_image_meta_c->out[0];
 
 	const float* loc_data = (float*) bbox_c->out[0];
 	const float* conf_data = (float*) scores_c->out[0];

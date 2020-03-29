@@ -38,6 +38,7 @@ class KerasConverter(LWNNUtil):
             'MaxPool': self.to_LayerMaxPool,
             'Proposal': self.to_LayerProposal,
             'Detection': self.to_LayerDetection,
+            'PyramidROIAlign': self.to_LayerPyramidROIAlign,
              }
         self.keras_model = keras_model
         if('shape_infers' in kwargs):
@@ -188,6 +189,10 @@ class KerasConverter(LWNNUtil):
 
     def to_LayerDetection(self, layer):
         layer.shape[-1] = 7
+        layer.inputs = layer.inputs[:-1]
+
+    def to_LayerPyramidROIAlign(self, layer):
+        layer.inputs = layer.inputs[:1] + layer.inputs[2:]
 
     def to_LayerBatchNormalization(self, layer):
         klconfig = layer.klconfig
