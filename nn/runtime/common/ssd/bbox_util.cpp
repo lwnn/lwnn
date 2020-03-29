@@ -468,11 +468,13 @@ void DecodeBBox(const NormalizedBBox& prior_bbox,
 		const vector<float>& prior_variance, const CodeType code_type,
 		const bool variance_encoded_in_target, const bool clip_bbox,
 		const NormalizedBBox& bbox, NormalizedBBox* decode_bbox) {
+#if 0
 	NNLOG(NN_DEBUG, ("DecodeBBox: code=%d, in target %s, box=[%.2f,%.2f,%.2f,%.2f] delta=[%.2f,%.2f,%.2f,%.2f] var=[%.2f,%.2f,%.2f,%.2f]\n",
 			code_type, variance_encoded_in_target?"true":"false",
 			prior_bbox.xmin(), prior_bbox.ymin(), prior_bbox.xmax(), prior_bbox.ymax(),
 			bbox.xmin(), bbox.ymin(), bbox.xmax(), bbox.ymax(),
 			prior_variance[0], prior_variance[1], prior_variance[2], prior_variance[3]));
+#endif
 	if (code_type == PriorBoxParameter_CodeType_CORNER) {
 		if (variance_encoded_in_target) {
 			// variance is encoded in target, we simply need to add the offset
@@ -1024,12 +1026,12 @@ extern "C" int detection_output_forward(
 		CodeType code_type_,
 		bool variance_encoded_in_target_,
 		int eta_,
-		layer_context_t* context
+		const layer_t* layer
 		)
 {
 	int r = 0;
 	int num_loc_classes_ = share_location_ ? 1 : num_classes_;
-	int num = context->nhwc.N;
+	int num = layer->C->context->nhwc.N;
 
 	// Retrieve all location predictions.
 	vector<LabelBBox> all_loc_preds;
@@ -1125,13 +1127,17 @@ extern "C" int detection_output_forward(
 	top_shape.push_back(num_kept);
 	top_shape.push_back(7);
 
-	if(num_kept > (context->nhwc.N*context->nhwc.H)) {
-		num_kept =  (context->nhwc.N*context->nhwc.H);
+	if(num_kept > (layer->C->context->nhwc.N*layer->C->context->nhwc.H)) {
+		num_kept =  (layer->C->context->nhwc.N*layer->C->context->nhwc.H);
 	}
 
-	context->nhwc.N = num_kept;
-	context->nhwc.H = 1;
-
+	if (L_OP_PROPOSAL == layer->op) {
+		layer->C->context->nhwc.N = 1;
+		layer->C->context->nhwc.H = num_kept;
+	} else {
+		layer->C->context->nhwc.N = num_kept;
+		layer->C->context->nhwc.H = 1;
+	}
 	int count = 0;
 	for (int i = 0; i < num; ++i) {
 		const map<int, vector<float> >& conf_scores = all_conf_scores[i];
@@ -1156,19 +1162,25 @@ extern "C" int detection_output_forward(
 			vector<int>& indices = it->second;
 			for (int j = 0; j < indices.size(); ++j) {
 				int idx = indices[j];
-				top_data[count * 7] = i;
-				top_data[count * 7 + 1] = label;
-				top_data[count * 7 + 2] = scores[idx];
 				const NormalizedBBox& bbox = bboxes[idx];
-				top_data[count * 7 + 3] = bbox.xmin();
-				top_data[count * 7 + 4] = bbox.ymin();
-				top_data[count * 7 + 5] = bbox.xmax();
-				top_data[count * 7 + 6] = bbox.ymax();
-				++count;
-
+				if (L_OP_PROPOSAL == layer->op) {
+					top_data[count * 4 + 0] = bbox.xmin();
+					top_data[count * 4 + 1] = bbox.ymin();
+					top_data[count * 4 + 2] = bbox.xmax();
+					top_data[count * 4 + 3] = bbox.ymax();
+				} else {
+					top_data[count * 7] = i;
+					top_data[count * 7 + 1] = label;
+					top_data[count * 7 + 2] = scores[idx];
+					top_data[count * 7 + 3] = bbox.xmin();
+					top_data[count * 7 + 4] = bbox.ymin();
+					top_data[count * 7 + 5] = bbox.xmax();
+					top_data[count * 7 + 6] = bbox.ymax();
+				}
 				NNLOG(NN_DEBUG, (" detect B=%d L=%d P=%.2f @ [%.2f,%.2f,%.2f,%.2f]\n",
 						i, label, scores[idx],
 						bbox.xmin(), bbox.ymin(), bbox.xmax(), bbox.ymax()));
+				++count;
 			}
 		}
 	}
@@ -1230,7 +1242,7 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 			code_type_,
 			variance_encoded_in_target_,
 			eta_,
-			(layer_context_t*)context);
+			layer);
 	}
 
 	return r;
@@ -1284,7 +1296,59 @@ extern "C" int layer_cpu_float_DETECTION_execute(const nn_t* nn, const layer_t* 
 		code_type_,
 		variance_encoded_in_target_,
 		eta_,
-		(layer_context_t*)context);
+		layer);
+
+	return r;
+}
+
+extern "C" int rpn_proposal_forward(const nn_t* nn, const layer_t* layer, float* anchors, size_t n_anchors)
+{
+	int r;
+	layer_cpu_context_t* context = (layer_cpu_context_t*) layer->C->context;
+	layer_context_t* scores_c = layer->inputs[0]->C->context;
+	layer_context_t* bbox_c = layer->inputs[1]->C->context;
+
+	const float* loc_data = (float*) bbox_c->out[0];
+	const float* conf_data = (float*) scores_c->out[0];
+	const float* prior_data = anchors;
+	float* top_data = (float*)context->out[0];
+
+	const float* var_data = (float*)layer->blobs[0]->blob;
+	int num_priors_ = n_anchors;
+	float nms_threshold_ = RTE_FETCH_FLOAT(layer->blobs[6]->blob, 0);;
+	float confidence_threshold_ = 0.7;
+	int num_classes_ = scores_c->nhwc.C;
+	bool share_location_ = true;
+	int background_label_id_ = 0;
+	int top_k_ = layer->dims[1];
+	int keep_top_k_ = layer->dims[1];
+	CodeType code_type_ = PriorBoxParameter_CodeType_CENTER_SIZE;
+	int num_loc_classes_ = share_location_ ? 1 : num_classes_;
+	bool variance_encoded_in_target_ = false;
+	int eta_ = 1.0;
+
+	NNLOG(NN_DEBUG,("execute %s: %d rois %d classes\n", layer->name, num_priors_, num_classes_));
+	layer_get_NHWC(layer, &context->nhwc);
+
+	r = detection_output_forward(
+		loc_data,
+		conf_data,
+		prior_data,
+		var_data,
+		top_data,
+		num_priors_,
+		1,
+		nms_threshold_,
+		confidence_threshold_,
+		num_classes_,
+		share_location_,
+		background_label_id_,
+		top_k_,
+		keep_top_k_,
+		code_type_,
+		variance_encoded_in_target_,
+		eta_,
+		layer);
 
 	return r;
 }

@@ -10,11 +10,11 @@ before_script:
   - sudo apt-get update
   - python3 --version
   - python2 --version
-  - "sudo apt-get install -qq python3-pip python-tk scons git cmake || true"
+  - "sudo apt-get install -qq python3-pip python-tk git cmake || true"
   - "sudo pip3 install setuptools || true"
   - "sudo pip3 install tensorflow keras keras2onnx onnxruntime==1.1.0 || true"
-  - "sudo pip3 install pybind11 || true"
-  - "sudo apt-get install -qq libboost-dev pybind11-dev || true"
+  - "sudo pip3 install pybind11 scons || true"
+  - "sudo apt-get install -qq libboost-dev || true"
 
 script:
   - git clone https://github.com/google/googletest.git
@@ -22,9 +22,9 @@ script:
   - cd ../..
   - mkdir -p gtest/models
   - wget https://github.com/lwnn/lwnn/releases/download/v0.1/mnist.h5 -O gtest/models/mnist.h5
-  - scons
+  - PYTHONPATH=/usr/local/lib/python`python3 --version | cut -d" " -f 2 | cut -d. -f 1,2`/dist-packages/scons python3 -c "import SCons.Script; SCons.Script.main()"
   - LD_LIBRARY_PATH=./nn/third_party/mkl-dnn/build/src ./lwnn_gtest
 
 env:
-  - DISABLE_OPENCL=True DISABLE_MKLDNN=True DISABLE_RCNN=True
+  - DISABLE_OPENCL=True DISABLE_MKLDNN=True
 

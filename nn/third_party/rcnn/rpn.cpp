@@ -155,7 +155,7 @@ extern "C" int rpn_generate_anchors(const nn_t* nn, const layer_t* layer, float*
   return r;
 }
 
-extern "C" int rpn_proposal_forward(const nn_t* nn, const layer_t* layer, float* anchors, size_t n_anchors)
+extern "C" int _rpn_proposal_forward(const nn_t* nn, const layer_t* layer, float* anchors, size_t n_anchors)
 {
   int r = 0;
   pthread_once(&_once, setup_pyenv);

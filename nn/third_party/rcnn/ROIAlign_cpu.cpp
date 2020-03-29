@@ -117,7 +117,7 @@ void pre_calc_for_bilinear_interpolate(
 
 template <typename T>
 void ROIAlignForward_cpu_kernel(
-    const int nthreads,
+    const int n_rois,
     const T* bottom_data,
     const T& spatial_scale,
     const int channels,
@@ -130,13 +130,10 @@ void ROIAlignForward_cpu_kernel(
     T* top_data) {
   const int roi_cols = 4;
 
-  int n_rois = nthreads / channels / pooled_width / pooled_height;
   // (n, c, ph, pw) is an element in the pooled output
   // can be parallelized using omp
   // #pragma omp parallel for num_threads(32)
   for (int n = 0; n < n_rois; n++) {
-    int index_n = n * channels * pooled_width * pooled_height;
-
     const T* offset_bottom_rois = bottom_rois + n * roi_cols;
 
     // Do not using rounding; this implementation detail is critical
@@ -211,6 +208,71 @@ void ROIAlignForward_cpu_kernel(
   } // for n
 }
 
+/* from https://github.com/longcw/RoIAlign.pytorch */
+template <typename T>
+void CropAndResizeForward_cpu_kernel(
+    const int n_rois,
+    const T* bottom_data,
+    const T& spatial_scale,
+    const int channels,
+    const int height,
+    const int width,
+    const int pooled_height,
+    const int pooled_width,
+    const int sampling_ratio,
+    const T* bottom_rois,
+    T* top_data
+) {
+    const int roi_cols = 4;
+    //#pragma omp parallel for
+    for (int n = 0; n < n_rois; n++) {
+        const T* offset_bottom_rois = bottom_rois + n * roi_cols;
+
+        T roi_start_h = offset_bottom_rois[0] * spatial_scale * height;
+        T roi_start_w = offset_bottom_rois[1] * spatial_scale * width;
+        T roi_end_h = offset_bottom_rois[2] * spatial_scale * height;
+        T roi_end_w = offset_bottom_rois[3] * spatial_scale * width;
+
+        T roi_width = std::max(roi_end_w - roi_start_w, (T)1.);
+        T roi_height = std::max(roi_end_h - roi_start_h, (T)1.);
+
+        const T height_scale = (pooled_height>1) ? (roi_height)/pooled_height : 0;
+        const T width_scale = (pooled_width>1) ? (roi_width)/pooled_width : 0;
+
+        for (int y = 0; y < pooled_height; ++y)
+        {
+            const T in_y = (pooled_height>1) ? (roi_start_h+y*height_scale) : (0.5*(roi_start_h+roi_end_h));
+
+            const int top_y_index = floorf(in_y);
+            const int bottom_y_index = ceilf(in_y);
+            const T y_lerp = in_y - top_y_index;
+
+            for (int x = 0; x < pooled_width; ++x)
+            {
+                const T in_x = (pooled_width>1) ? (roi_start_w+x*width_scale) : (0.5*(roi_start_w+roi_end_w));
+
+                const int left_x_index = floorf(in_x);
+                const int right_x_index = ceilf(in_x);
+                const T x_lerp = in_x - left_x_index;
+
+                for (int c = 0; c < channels; c++)
+                {
+                    const T top_left = bottom_data[(top_y_index*width+left_x_index)*channels+c];
+                    const T top_right = bottom_data[(top_y_index*width+right_x_index)*channels+c];
+                    const T bottom_left = bottom_data[(bottom_y_index*width+left_x_index)*channels+c];
+                    const T bottom_right = bottom_data[(bottom_y_index*width+right_x_index)*channels+c];
+
+                    const T top = top_left + (top_right - top_left) * x_lerp;
+                    const T bottom = bottom_left + (bottom_right - bottom_left) * x_lerp;
+
+                    top_data[(y*pooled_width+x)*channels+c] = top + (bottom - top) * y_lerp;
+                }
+            }
+        }
+    }
+
+}
+
 int calc_roi_level(float y1, float x1, float y2, float x2, float image_area, int n_features) {
   int roi_level = -1;
   float level;
@@ -247,7 +309,7 @@ extern "C" int ROIAlign_forward_cpu(float* o, const float* in,
 
   for(i=0; i<num_rois; i++) {
     feature = in+indices[i]*feature_size;
-    ROIAlignForward_cpu_kernel(roi_size, feature, 1.0f, channels,
+    ROIAlignForward_cpu_kernel(1, feature, 1.0f, channels,
             height, width, pooled_height, pooled_width, 0,
             (float*)&boxes[4*i], o+roi_size*i);
   }
@@ -309,7 +371,7 @@ extern "C" int Pyramid_ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer
     if(roi_level >= 0) {
       feature_context = features[roi_level]->C->context;
       feature = (float*)feature_context->out[0];
-      ROIAlignForward_cpu_kernel(roi_size, feature, 1.0f, channels,
+      CropAndResizeForward_cpu_kernel(1, feature, 1.0f, channels,
               feature_context->nhwc.H, feature_context->nhwc.W,
               pooled_height, pooled_width, 0, (float*)&boxes[roi_stride*i],
               output+roi_size*i);
