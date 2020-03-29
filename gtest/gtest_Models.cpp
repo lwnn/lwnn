@@ -55,6 +55,9 @@ typedef struct {
 	size_t flags;
 } nnt_model_args_t;
 /* ============================ [ DECLARES  ] ====================================================== */
+extern "C" int ROIAlign_forward_cpu(float* o, const float* in,
+                                    const float* boxes, const int* indices,
+                                    NHWC_t* onhwc, NHWC_t* inhwc);
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_ssd_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_yolov3_input(nn_t* nn, const char* path, int id, size_t* sz);
@@ -779,16 +782,28 @@ static int maskrcnn_compare(nn_t* nn, int id, float * output, size_t szo, float*
 			snprintf(text, sizeof(text), "%s %.1f%%", name, prop*100);
 			image_draw_text(im, x, y, text,  0xFF0000);
 
+			float* o = new float[w*h];
+			float* in = new float[mW*mH];
+			float boxes[4] = {0.f,0.f,1.f,1.f};
+			int indices[1] = {0};
+			NHWC_t onhwc = {1,h,w,1};
+			NHWC_t inhwc = {1,mH,mW,1};
+			for(int mx=0; mx<mH; mx++) {
+				for(int my=0; my<mW; my++) {
+					in[my*mW+mx] = mrcnn_mask[((i*mH+my)*mW+mx)*mC+label];
+				}
+			}
+			(void)ROIAlign_forward_cpu(o, in, boxes, indices, &onhwc, &inhwc);
 			for(int dx=0; dx<w; dx++) {
 				for(int dy=0; dy<h; dy++) {
-					int mx = (int)std::round((float)dx*mW/w);
-					int my = (int)std::round((float)dy*mH/h);
-					float mask = mrcnn_mask[((i*mH+my)*mW+mx)*mC+label];
+					float mask = o[dy*w+dx];
 					if(mask > 0.5) {
 						image_draw_pixel(im, x+dx, y+dy, 0x4000FF00);
 					}
 				}
 			}
+			delete []o;
+			delete []in;
 		}
 
 		image_save(im, "predictions.png");
