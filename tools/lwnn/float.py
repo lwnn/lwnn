@@ -4,11 +4,11 @@
 from .base import *
 
 class LWNNFloatC(LWNNBaseC):
-    def __init__(self, model, feeds=None):
+    def __init__(self, model):
         try:
-            super().__init__(model, 'float', feeds)
+            super().__init__(model, 'float')
         except:
-            LWNNBaseC.__init__(self, model, 'float', feeds)
+            LWNNBaseC.__init__(self, model, 'float')
         self.generate()
 
     def get_padding_mode(self, layer):

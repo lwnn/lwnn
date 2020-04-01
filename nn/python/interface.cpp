@@ -36,6 +36,8 @@ int pooling(const float * Im_in,
 int alg_up_sampling(void* pout, void* pin, NHWC_t *outNHWC, NHWC_t *inNHWC, size_t type_size, uint8_t* pmask);
 int ROIAlign_forward_cpu(float* o, const float* in, const float* boxes, const int* indices,
 		NHWC_t* onhwc, NHWC_t* inhwc);
+int CropAndResize_forward_cpu(float* o, const float* in, const float* boxes, const int* indices,
+		NHWC_t* onhwc, NHWC_t* inhwc);
 }
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
@@ -365,7 +367,7 @@ py::array_t<float> PriorBox(py::array_t<int> feature_shape, /* NCHW */
 py::array_t<float> ROIAlign(py::array_t<float> X, /* NCHW */
 		py::array_t<float> rois, /* (num_rois,4) */
 		py::array_t<int> batch_indices, /* (num_rois) */
-		int output_height, int output_width) {
+		int output_height, int output_width, int mode=0) {
 	py::buffer_info buf_in = X.request();
 	py::buffer_info buf_rois = rois.request();
 	py::buffer_info buf_batch_ind = batch_indices.request();
@@ -407,7 +409,11 @@ py::array_t<float> ROIAlign(py::array_t<float> X, /* NCHW */
 	alg_transpose(in, IN, &inhwc, sizeof(float), ALG_TRANSPOSE_FROM_NCHW_TO_NHWC);
 
 	NHWC_t onhwc = { oN, oH, oW, oC };
-	ROIAlign_forward_cpu(o, in, boxes, indices, &onhwc, &inhwc);
+	if(mode == 0) {
+		ROIAlign_forward_cpu(o, in, boxes, indices, &onhwc, &inhwc);
+	} else {
+		CropAndResize_forward_cpu(o, in, boxes, indices, &onhwc, &inhwc);
+	}
 	alg_transpose(O, o, &onhwc, sizeof(float), ALG_TRANSPOSE_FROM_NHWC_TO_NCHW);
 
 	delete in;
@@ -432,7 +438,7 @@ PYBIND11_MODULE(liblwnn, m)
 			py::arg("output_shape"));
 	m.def("ROIAlign", &ROIAlign, "lwnn functional ROTAlign",
 			py::arg("X"), py::arg("rois"), py::arg("batch_indices"),
-			py::arg("output_height")=1, py::arg("output_width")=1);
+			py::arg("output_height")=1, py::arg("output_width")=1, py::arg("mode")=0);
 }
 
 

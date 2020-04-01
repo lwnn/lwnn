@@ -236,9 +236,11 @@ void CropAndResizeForward_cpu_kernel(
         T roi_width = std::max(roi_end_w - roi_start_w, (T)1.);
         T roi_height = std::max(roi_end_h - roi_start_h, (T)1.);
 
-        const T height_scale = (pooled_height>1) ? (roi_height)/pooled_height : 0;
-        const T width_scale = (pooled_width>1) ? (roi_width)/pooled_width : 0;
+        const T height_scale = (pooled_height>1) ? (roi_height-1)/(pooled_height-1) : 0;
+        const T width_scale = (pooled_width>1) ? (roi_width-1)/(pooled_width-1) : 0;
 
+        NNLOG(NN_DEBUG, ("  start=(%.1f,%.1f) h,w=(%.1f,%.1f), scale=(%.1f,%.1f)\n",
+                roi_start_h, roi_start_w, roi_height, roi_width, height_scale, width_scale));
         for (int y = 0; y < pooled_height; ++y)
         {
             const T in_y = (pooled_height>1) ? (roi_start_h+y*height_scale) : (0.5*(roi_start_h+roi_end_h));
@@ -310,6 +312,35 @@ extern "C" int ROIAlign_forward_cpu(float* o, const float* in,
   for(i=0; i<num_rois; i++) {
     feature = in+indices[i]*feature_size;
     ROIAlignForward_cpu_kernel(1, feature, 1.0f, channels,
+            height, width, pooled_height, pooled_width, 0,
+            (float*)&boxes[4*i], o+roi_size*i);
+  }
+
+  return r;
+}
+
+extern "C" int CropAndResize_forward_cpu(float* o, const float* in,
+                                    const float* boxes, const int* indices,
+                                    NHWC_t* onhwc, NHWC_t* inhwc)
+{
+  int r = 0;
+  int feature_size = NHWC_BATCH_SIZE(*inhwc);
+  int roi_size = NHWC_BATCH_SIZE(*onhwc);
+  int num_rois = onhwc->N;
+  int channels = onhwc->C;
+  int pooled_height = onhwc->H;
+  int pooled_width = onhwc->W;
+  int height = inhwc->H;
+  int width = inhwc->W;
+  int i;
+  const float* feature;
+
+  NNLOG(NN_DEBUG, ("CropAndResize: image_shape=[%d %d %d %d], pool=[%d %d], %d features\n",
+              inhwc->N, height, width, channels, pooled_height, pooled_width, num_rois));
+
+  for(i=0; i<num_rois; i++) {
+    feature = in+indices[i]*feature_size;
+    CropAndResizeForward_cpu_kernel(1, feature, 1.0f, channels,
             height, width, pooled_height, pooled_width, 0,
             (float*)&boxes[4*i], o+roi_size*i);
   }
