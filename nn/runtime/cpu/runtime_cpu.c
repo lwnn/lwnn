@@ -432,10 +432,12 @@ void* rte_cpu_create_buffer(const nn_t* nn, const layer_t* layer, size_t sz)
 	return buffer;
 }
 
-void rte_cpu_take_buffer(rte_cpu_buffer_t* buffer, const layer_t* layer)
+void rte_cpu_take_buffer(rte_cpu_buffer_t* buffer, const layer_t* layer, int id)
 {
 	assert(buffer != NULL);
 	buffer->owner = layer;
+	assert(id < layer->C->context->nout);
+	layer->C->context->out[id] = buffer;
 }
 
 void rte_cpu_release_buffer(rte_cpu_buffer_t* buffer)
