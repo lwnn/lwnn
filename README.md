@@ -42,6 +42,7 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | YoloOutput | Y | F | F | F | F | |
 | Mfcc | Y | F | F | F | F | |
 | LSTM | Y | N | Y | N | F | |
+| Proposal | Y | N | N | N | N | |
 
 * F means fallback to others runtime that supported that layer.
 
@@ -60,6 +61,8 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 
 * [DeepSpeech](https://github.com/mozilla/DeepSpeech) : [README](gtest/models/deepspeech/README.md)
 
+* [Mask-RCNN](https://github.com/matterport/Mask_RCNN) : [README](gtest/models/maskrcnn/README.md)
+
 Below is a list of command to run above models on OPENCL or CPU runtime.
 
 ```sh
@@ -68,6 +71,7 @@ lwnn_gtest --gtest_filter=*CL*SSDFloat -i images/dog.jpg
 lwnn_gtest --gtest_filter=*CPU*SSDFloat -i images/dog.jpg
 lwnn_gtest --gtest_filter=*CL*YOLOV3Float -i images/dog.jpg
 lwnn_gtest --gtest_filter=*CPU*YOLOV3Float -i images/dog.jpg
+lwnn_gtest --gtest_filter=*CPU*MASKRCNNFloat -i images/dog.jpg
 # semantic segmentation
 lwnn_gtest --gtest_filter=*CL*ENETFloat -i ENet/example_image/munich_000000_000019_leftImg8bit.png
 lwnn_gtest --gtest_filter=*CPU*ENETFloat -i ENet/example_image/munich_000000_000019_leftImg8bit.png
