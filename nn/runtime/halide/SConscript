@@ -15,4 +15,9 @@ if(ENABLED_HL):
     asenv.Append(LIBS=['Halide'])
     objs += Glob('*.cpp')
 
+    hlenv = ForkEnv()
+    hlenv.Append(LIBS=['pthread','stdc++', 'dl', 'm'])
+    hl_objs = Glob('GenOps/*.cpp')
+    hlenv.Program('hlGenOps', hl_objs)
+
 Return('objs')

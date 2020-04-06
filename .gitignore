@@ -27,4 +27,5 @@ graphs
 *.sh
 *.log
 gtest_LSTM.cpp
+nn/runtime/halide/ops/
 
