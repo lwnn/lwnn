@@ -390,7 +390,7 @@ static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz)
 					if(NULL != outputs) {
 						memcpy(outputs, network->outputs[0]->layer->C->context->out[0], *sz);
 					}
-					printf("Feature extraction cost total %.3fms\n",trun_sum/1000000);
+					printf("Feature extraction cost total %.3fms\n",(float)trun_sum/1000000);
 				}
 				nn_destory(dsnn);
 			}

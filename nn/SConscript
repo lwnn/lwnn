@@ -28,6 +28,11 @@ for rt in ['OPENCL', 'CPU_S8', 'CPU_Q8', 'CPU_Q16', 'CPU_FLOAT']:
     if(os.getenv('DISABLE_%s'%(rt)) == 'True'):
         asenv.Append(CPPDEFINES=['DISABLE_RUNTIME_%s'%(rt)])
 
+for dir in Glob('runtime/*'):
+    sf = '%s/SConscript'%(dir)
+    if(os.path.isfile('%s/%s'%(cwd,sf))):
+        objs += SConscript(sf)
+
 objs = asenv.Library('lwnn', objs)
 if(os.getenv('DISABLE_OPENCL') != 'True'):
     if(GetOption('android')):

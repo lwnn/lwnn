@@ -1,0 +1,18 @@
+from building import *
+Import('asenv')
+
+cwd = GetCurrentDir()
+
+objs = []
+
+HALIDE_ROOT=os.getenv('HALIDE_ROOT', '.')
+ENABLED_HL = True if(os.path.exists('%s/include/Halide.h'%(HALIDE_ROOT))) else False
+
+if(ENABLED_HL):
+    asenv.Append(CPPPATH=['%s/include'%(HALIDE_ROOT)])
+    asenv.Append(CPPDEFINES=['ENABLE_RUNTIME_HALIDE'])
+    asenv.Append(LIBPATH=['%s/lib'%(HALIDE_ROOT)])
+    asenv.Append(LIBS=['Halide'])
+    objs += Glob('*.cpp')
+
+Return('objs')

@@ -123,6 +123,12 @@ TEST(Runtime##runtime, Model##name##T)					\
 #define NNT_TEST_OPENCL(name)
 #endif
 
+#ifdef ENABLE_RUNTIME_HALIDE
+#define NNT_TEST_HALIDE(name)	NNT_TEST_DEF(HALIDE, name, Float)
+#else
+#define NNT_TEST_HALIDE(name)
+#endif
+
 
 #define NNT_TEST_ALL(name)				\
 	NNT_TEST_CPU_S8(name)				\
@@ -130,6 +136,7 @@ TEST(Runtime##runtime, Model##name##T)					\
 	NNT_TEST_CPU_Q16(name)				\
 	NNT_TEST_CPU_FLOAT(name)			\
 	NNT_TEST_OPENCL(name)				\
+	NNT_TEST_HALIDE(name)				\
 
 
 #ifndef DISABLE_RUNTIME_CPU_S8
@@ -162,6 +169,12 @@ TEST(Runtime##runtime, Model##name##T)					\
 #define NNT_MODEL_TEST_OPENCL(name)
 #endif
 
+#ifdef ENABLE_RUNTIME_HALIDE
+#define NNT_MODEL_TEST_HALIDE(name)	NNT_MODEL_TEST_DEF(HALIDE, name, Float)
+#else
+#define NNT_MODEL_TEST_HALIDE(name)
+#endif
+
 
 #define NNT_MODEL_TEST_ALL(name)			\
 	NNT_MODEL_TEST_CPU_S8(name)				\
@@ -169,6 +182,9 @@ TEST(Runtime##runtime, Model##name##T)					\
 	NNT_MODEL_TEST_CPU_Q16(name)			\
 	NNT_MODEL_TEST_CPU_FLOAT(name)			\
 	NNT_MODEL_TEST_OPENCL(name)				\
+	NNT_MODEL_TEST_HALIDE(name)				\
+
+
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	const char* networkQ8;
