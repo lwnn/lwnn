@@ -1,6 +1,6 @@
 /**
  * LWNN - Lightweight Neural Network
- * Copyright (C) 2019  Parai Wang <parai@foxmail.com>
+ * Copyright (C) 2020  Parai Wang <parai@foxmail.com>
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
@@ -45,6 +45,7 @@ int layer_halide_CONV2D_init(const nn_t* nn, const layer_t* layer)
 	}
 
 	if(0 == r) {
+		int* ints = (int*)layer->blobs[2]->blob;
 		const int CI = input_context->nhwc.C, CO = context->nhwc.C;
 		const int knlY = layer->blobs[0]->dims[1];
 		const int knlX = layer->blobs[0]->dims[2];
@@ -52,12 +53,23 @@ int layer_halide_CONV2D_init(const nn_t* nn, const layer_t* layer)
 		Halide::Buffer<float>& B = *(context->B);
 		W.set_name(std::string(layer->name)+"_W");
 		B.set_name(std::string(layer->name)+"_B");
+		const int padY = ints[0];
+		const int padX = ints[1];
+		const int strideY = ints[4];
+		const int strideX = ints[5];
 		Halide::Var y, x, c;
 		Halide::RDom r(0, knlX, 0, knlY, 0, CI);
 		Halide::Func& in = *(Halide::Func*) input_context->out[0];
+		Halide::Func in_bounded =
+			Halide::BoundaryConditions::constant_exterior(in, 0.f,
+					{{Halide::Expr(), Halide::Expr()},
+					 {0, input_context->nhwc.W},
+					 {0, input_context->nhwc.H}});
 		Halide::Func& conv = *(Halide::Func*) context->out[0];
 		conv(c, x, y) = B(c);
-		conv(c, x, y) += W(r.z, r.x, r.y, c) * in(r.z, x+r.x, y+r.y);
+		Halide::Expr in_row = strideY * y + r.y - padY;
+		Halide::Expr in_col = strideX * x + r.x - padX;
+		conv(c, x, y) += W(r.z, r.x, r.y, c) * in_bounded(r.z, in_col, in_row);
 	}
 
 	return r;

@@ -1,6 +1,6 @@
 /**
  * LWNN - Lightweight Neural Network
- * Copyright (C) 2019  Parai Wang <parai@foxmail.com>
+ * Copyright (C) 2020  Parai Wang <parai@foxmail.com>
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
@@ -8,7 +8,6 @@
 #include "algorithm.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
-
 typedef struct {
 	LAYER_HALIDE_CONTEXT_MEMBER;
 	Halide::Buffer<float>* in;
