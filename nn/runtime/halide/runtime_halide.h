@@ -29,7 +29,9 @@ typedef struct rte_halide_buffer
 } rte_halide_buffer_t;
 
 /* ============================ [ DECLARES  ] ====================================================== */
+extern "C" void rte_ddo_save(const nn_t* nn, const layer_t* layer);
 extern "C" void rte_save_raw(const char* name, void* data, size_t sz);
+extern "C" void rte_ddo_save_raw(const nn_t* nn, const layer_t* layer, int i, void* data, size_t sz);
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */

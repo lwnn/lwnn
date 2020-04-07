@@ -3,31 +3,34 @@
  * Copyright (C) 2020 Parai Wang <parai@foxmail.com>
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
-#include "Halide.h"
+#include "GenCommon.h"
 /* ============================ [ MACROS    ] ====================================================== */
-using namespace Halide;
 /* ============================ [ TYPES     ] ====================================================== */
 /* ref https://github.com/halide/Halide/blob/master/apps/nn_ops/Convolution_generator.cpp
  * ref https://github.com/halide/Halide/blob/master/apps/conv_layer/conv_layer_generator.cpp */
-class ConvolutionLayer : public Halide::Generator<ConvolutionLayer> {
+class ConvolutionLayer HL_FARTHER(ConvolutionLayer) {
 public:
-	Input<Buffer<float>> input{"input", 4};
-	Input<Buffer<float>> W{"weights", 4};
-	Input<Buffer<float>> B{"bias", 1};
-	Output<Buffer<float>> conv{"conv2d", 4};
-	Input<int> strideX{"strideX"};
-	Input<int> strideY{"strideY"};
-	Input<int> padX{"padX"};
-	Input<int> padY{"padY"};
-	Input<int> iC{"input_depth"};
+	HL_INPUT_BUFFER(input, 4);
+	HL_INPUT_BUFFER(W, 4);
+	HL_INPUT_BUFFER(B, 1);
+	HL_OUTPUT_BUFFER(conv, 4);
+	HL_INPUT_INT(strideX);
+	HL_INPUT_INT(strideY);
+	HL_INPUT_INT(padX);
+	HL_INPUT_INT(padY);
+	HL_INPUT_INT(iC);
+	#ifdef LWNN_ON_HALIDE
+	int iH, iW, knlX, knlY;
+	#endif
 
 	void generate() {
+		#ifndef LWNN_ON_HALIDE
 		Expr iH = input.dim(1).extent();
 		Expr iW = input.dim(2).extent();
 
 		Expr knlX = W.dim(2).extent();
 		Expr knlY = W.dim(1).extent();
-
+		#endif
 		Var x("x"), y("y"), c("c"), n("n");
 
 		Halide::RDom r(0, knlX, 0, knlY, 0, iC);
@@ -45,7 +48,7 @@ public:
 	}
 };
 /* ============================ [ DECLARES  ] ====================================================== */
-HALIDE_REGISTER_GENERATOR(ConvolutionLayer, conv2d)
+HL_REGISTER_GENERATOR(ConvolutionLayer, conv2d)
 /*/path/to/hlGenOps -g conv2d -o nn/runtime/halide/ops/ target=x86-64-linux-avx-avx2-f16c-fma-sse41 */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */

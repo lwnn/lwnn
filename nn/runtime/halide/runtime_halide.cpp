@@ -69,6 +69,7 @@ static int halide_execute_layer(const nn_t* nn, const layer_t* layer)
 	{
 		NNLOG(NN_DEBUG, ("execute %s: [%d %d %d %d]\n", layer->name, L_SHAPES(layer)));
 		r = halide_lops[layer->op].execute(nn, layer);
+		NNDDO(NN_DEBUG, rte_ddo_save(nn, layer));
 	}
 
 	return r;
@@ -120,6 +121,19 @@ void rte_HALIDE_destory(const nn_t* nn)
 
 	rte_do_for_each_layer(nn, halide_deinit_layer);
 }
+#ifndef DISABLE_NN_DDO
+void rte_halide_save_raw(const nn_t* nn, const layer_t* layer)
+{
+	layer_halide_context_t* context = (layer_halide_context_t*)layer->C->context;
+	(void)nn;
+	for(int i=0; i<context->nout; i++)
+	{
+		Halide::Buffer<float>& out = *(Halide::Buffer<float>*)context->out[0];
+		rte_ddo_save_raw(nn, layer, i, out.data(), out.size_in_bytes());
+	}
+
+}
+#endif
 }; /* extern "C"  end */
 
 
@@ -183,7 +197,7 @@ void rte_halide_destory_layer_context(const nn_t* nn, const layer_t* layer)
 	if(NULL != context)
 	{
 		for(i=0; i< context->nout; i++) {
-			delete (Halide::Func*)context->out[0];
+			delete (Halide::Buffer<float>*)context->out[0];
 		}
 		free(context);
 	}
@@ -195,6 +209,7 @@ int rte_halide_create_layer_common(const nn_t* nn, const layer_t* layer, size_t 
 {
 	int r = 0;
 	layer_halide_context_t* context;
+	Halide::Buffer<float>* buf;
 
 	r = rte_halide_create_layer_context(nn, layer, ctx_sz, 1);
 
@@ -203,12 +218,18 @@ int rte_halide_create_layer_common(const nn_t* nn, const layer_t* layer, size_t 
 		context = (layer_halide_context_t*)layer->C->context;
 	}
 
-	context->out[0] = new Halide::Func(layer->name);
-	if(NULL == context->out[0])
+	buf = new Halide::Buffer<float>(context->nhwc.C, context->nhwc.W, context->nhwc.H, context->nhwc.N);
+	if(NULL == buf)
 	{
 		r = NN_E_NO_MEMORY;
 		rte_halide_destory_layer_context(nn, layer);
 	}
+	else
+	{
+		buf->allocate();
+		context->out[0] = buf;
+	}
+
 	return r;
 }
 

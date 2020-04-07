@@ -23,15 +23,13 @@ int layer_halide_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_halide_context_t* context = (layer_halide_context_t*)layer->inputs[0]->C->context;
-	Halide::Func& func = *(Halide::Func*) context->out[0];
+	Halide::Buffer<float>* in = (Halide::Buffer<float>*)context->out[0];
 	float* data;
 
 	data = (float*) nn_get_output_data(nn, layer);
 	if(NULL != data)
 	{
-		Halide::Buffer<float> output = func.realize(context->nhwc.C, context->nhwc.W, context->nhwc.H);
-		std::copy(output.begin(), output.end(), data);
-		NNDDO(NN_DEBUG, rte_save_raw(RAW_NAME(nn, layer, "0"), data, NHWC_SIZE(context->nhwc)*sizeof(float)));
+		std::copy(in->begin(), in->end(), data);
 	}
 	else
 	{
