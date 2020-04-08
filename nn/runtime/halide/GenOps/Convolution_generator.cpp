@@ -25,11 +25,11 @@ public:
 
 	void generate() {
 		#ifndef LWNN_ON_HALIDE
-		Expr iH = input.dim(1).extent();
-		Expr iW = input.dim(2).extent();
+		Expr iH = input.dim(2).extent();
+		Expr iW = input.dim(1).extent();
 
-		Expr knlX = W.dim(2).extent();
-		Expr knlY = W.dim(1).extent();
+		Expr knlX = W.dim(1).extent();
+		Expr knlY = W.dim(2).extent();
 		#endif
 		Var x("x"), y("y"), c("c"), n("n");
 
@@ -48,8 +48,7 @@ public:
 	}
 };
 /* ============================ [ DECLARES  ] ====================================================== */
-HL_REGISTER_GENERATOR(ConvolutionLayer, conv2d)
-/*/path/to/hlGenOps -g conv2d -o nn/runtime/halide/ops/ target=x86-64-linux-avx-avx2-f16c-fma-sse41 */
+HL_REGISTER_GENERATOR(Convolution)
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */

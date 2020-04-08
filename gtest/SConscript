@@ -69,11 +69,6 @@ else:
 
 objsM = Glob('models/*/*.c')
 for obj in objsM:
-    suffix = '.dll' if IsPlatformWindows() else '.so'
-    prefix = '' if IsPlatformWindows() else 'lib'
-    p,n = os.path.dirname(str(obj)),os.path.basename(str(obj))
-    tgt = os.path.join(p,prefix+n[:-2]+suffix)
-    tgt = os.path.abspath(os.path.relpath(tgt, cwd))
     gtenv.SharedLibrary(obj)
 
 Return('objs')

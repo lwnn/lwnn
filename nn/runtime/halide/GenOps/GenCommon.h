@@ -17,13 +17,13 @@ using namespace Halide;
 #define HL_OUTPUT_BUFFER(name, ndim) Output<Buffer<float>> name{#name, ndim};
 #define HL_INPUT_INT(name) Input<int> name{#name};
 #define HL_FARTHER(name) : public Halide::Generator<name>
-#define HL_REGISTER_GENERATOR(layer, fname) HALIDE_REGISTER_GENERATOR(layer, fname)
+#define HL_REGISTER_GENERATOR(name) HALIDE_REGISTER_GENERATOR(name##Layer, HL_##name)
 #else
 #define HL_INPUT_BUFFER(name, ndim) Halide::Func name{#name}
 #define HL_OUTPUT_BUFFER(name, ndim) Halide::Func name{#name}
 #define HL_INPUT_INT(name) int name
 #define HL_FARTHER(name)
-#define HL_REGISTER_GENERATOR(layer, fname)
+#define HL_REGISTER_GENERATOR(name)
 #endif
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */

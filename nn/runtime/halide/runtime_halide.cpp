@@ -5,6 +5,15 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "runtime_halide.h"
 /* ============================ [ MACROS    ] ====================================================== */
+#ifdef _WIN32
+#define BUILD_DIR "build/nt/"
+#define DLLFIX ".dll"
+#define LIBFIX ""
+#else
+#define BUILD_DIR "build/posix/"
+#define DLLFIX ".so"
+#define LIBFIX "lib"
+#endif
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
 {
@@ -273,4 +282,21 @@ Halide::Buffer<float>* rte_halide_create_buffer_from_blob(const nn_t* nn, const 
 	return buf;
 }
 
+void* halide_load_algorithm(const char* algo, void** dll)
+{
+	void* sym = NULL;
+	std::string path = std::string(BUILD_DIR "nn/runtime/halide/ops/" LIBFIX) + algo + DLLFIX;
 
+	*dll = dlopen(path.c_str(), RTLD_NOW);
+	if((*dll) != NULL) {
+		sym = dlsym(*dll, algo);
+		if(NULL == sym) {
+			dlclose(*dll);
+			*dll = NULL;
+		}
+	}
+
+	NNLOG(NN_DEBUG, ("load %s %s\n", path.c_str(), (sym!=NULL)?"okay":"fail, will use JIT"));
+
+	return sym;
+}

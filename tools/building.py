@@ -82,7 +82,7 @@ def RunCommand(cmd, e=True):
         raise Exception('FAIL of RunCommand "%s" = %s'%(cmd, ret))
     return ret
 
-def MKObject(src, tgt, cmd, rm=True):
+def MKObject(src, tgt, cmd, rm=True, e=True):
     if(GetOption('clean') and rm):
         RMFile(tgt)
         return
@@ -98,7 +98,7 @@ def MKObject(src, tgt, cmd, rm=True):
     else:
         mtime2 = -1
     if(mtime2 < mtime):
-        RunCommand(cmd)
+        RunCommand(cmd, e)
 
 def AppendPythonPath(lp):
     try:

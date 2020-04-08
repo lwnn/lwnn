@@ -19,5 +19,17 @@ if(ENABLED_HL):
     hlenv.Append(LIBS=['pthread','stdc++', 'dl', 'm'])
     hl_objs = Glob('GenOps/*.cpp')
     hlenv.Program('hlGenOps', hl_objs)
-
+    objsM = Glob('ops/*.o')
+    hlGens = os.path.abspath('./hlGenOps')
+    prefix, suffix = ('','dll') if IsPlatformWindows() else ('lib','so')
+    if(os.path.isfile(hlGens)):
+        hlGens += ' -e o,h -o %s/ops target=x86-64-linux-avx-avx2-f16c-fma-sse41 -g'%(cwd)
+        for hl in hl_objs:
+            p = os.path.basename(str(hl))
+            if(p.endswith('_generator.cpp')):
+                tgt = os.path.abspath('ops/%sHL_%s.%s'%(prefix, p[:-14], suffix))
+                cmd = '%s HL_%s'%(hlGens, p[:-14])
+                MKObject([hl], tgt, cmd, e=False)
+    for obj in objsM:
+        asenv.SharedLibrary(obj)
 Return('objs')
