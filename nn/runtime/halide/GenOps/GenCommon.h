@@ -6,6 +6,7 @@
 #define NN_RUNTIME_HALIDE_GENOPS_GENCOMMON_H_
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include <Halide.h>
+#include <stdio.h>
 /* ============================ [ MACROS    ] ====================================================== */
 using namespace Halide;
 #ifdef LAYER_HALIDE_CONTEXT_MEMBER
@@ -18,12 +19,14 @@ using namespace Halide;
 #define HL_INPUT_INT(name) Input<int> name{#name};
 #define HL_FARTHER(name) : public Halide::Generator<name>
 #define HL_REGISTER_GENERATOR(name) HALIDE_REGISTER_GENERATOR(name##Layer, HL_##name)
+#define HL_GET_TARGET_ARCH() get_target().arch
 #else
 #define HL_INPUT_BUFFER(name, ndim) Halide::Func name{#name}
 #define HL_OUTPUT_BUFFER(name, ndim) Halide::Func name{#name}
 #define HL_INPUT_INT(name) int name
 #define HL_FARTHER(name)
 #define HL_REGISTER_GENERATOR(name)
+#define HL_GET_TARGET_ARCH() Target::X86
 #endif
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */

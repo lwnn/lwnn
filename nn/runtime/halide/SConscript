@@ -15,11 +15,12 @@ if(ENABLED_HL):
     asenv.Append(LIBS=['Halide'])
     objs += Glob('*.cpp')
 
-    hlenv = ForkEnv()
-    hlenv.Append(LIBS=['pthread','stdc++', 'dl', 'm'])
     hl_objs = Glob('GenOps/*.cpp')
-    hlenv.Program('hlGenOps', hl_objs)
-    objsM = Glob('ops/*.o')
+    cmd = 'gcc -I{0}/include -L{0}/lib '.format(HALIDE_ROOT)
+    cmd += ' '.join([str(o) for o in hl_objs])
+    cmd += ' -lHalide -lpthread -lstdc++ -ldl -lm'
+    cmd += ' -o hlGenOps'
+    MKObject(hl_objs+Glob('GenOps/*.h'), 'hlGenOps', cmd)
     hlGens = os.path.abspath('./hlGenOps')
     prefix, suffix = ('','dll') if IsPlatformWindows() else ('lib','so')
     if(os.path.isfile(hlGens)):
@@ -30,6 +31,7 @@ if(ENABLED_HL):
                 tgt = os.path.abspath('ops/%sHL_%s.%s'%(prefix, p[:-14], suffix))
                 cmd = '%s HL_%s'%(hlGens, p[:-14])
                 MKObject([hl], tgt, cmd, e=False)
+    objsM = Glob('ops/*.o')
     for obj in objsM:
         asenv.SharedLibrary(obj)
 Return('objs')

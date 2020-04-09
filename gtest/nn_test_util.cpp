@@ -4,6 +4,7 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn_test_util.h"
+#include <chrono>
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 /* ============================ [ DECLARES  ] ====================================================== */
@@ -20,7 +21,11 @@ int nnt_run(const network_t* network,
 
 	if(nn != NULL)
 	{
+		auto trun_s = std::chrono::high_resolution_clock::now();
 		r = nn_predict(nn);
+		auto trun_e = std::chrono::high_resolution_clock::now();
+		auto trun_sum = std::chrono::duration_cast<std::chrono::nanoseconds>(trun_e-trun_s).count();
+		printf(" cost %.3fms", (float)trun_sum/1000000);
 		EXPECT_EQ(0, r);
 		nn_destory(nn);
 	}
@@ -378,7 +383,7 @@ void NNTTestGeneral(runtime_type_t runtime,
 	{
 		return;
 	}
-	printf("  Test %s\n", network->name);
+	printf("  Test %s", network->name);
 	if(network->layers[0]->dtype== L_DT_INT8)
 	{
 		nnt_siso_network_test(runtime, network, input, output, max_diff, qmax_diff);
@@ -391,6 +396,7 @@ void NNTTestGeneral(runtime_type_t runtime,
 	{
 		nnt_siso_network_test(runtime, network, input, output);
 	}
+	printf("\n");
 
 	dlclose(dll);
 }
