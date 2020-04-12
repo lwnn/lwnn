@@ -144,9 +144,6 @@ int rte_is_layer_consumed_from(const nn_t* nn, const layer_t* layer, const layer
 #ifndef DISABLE_RUNTIME_OPENCL
 #include "opencl/runtime_opencl.h"
 #endif
-#ifdef ENABLE_RUNTIME_HALIDE
-extern void rte_halide_save_raw(const nn_t* nn, const layer_t* layer);
-#endif
 int rte_load_raw(const char* name, void* data, size_t sz)
 {
 	int r = 0;
@@ -250,7 +247,11 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 	}
 
 #ifndef DISABLE_RUNTIME_CPU
-	if(RUNTIME_CPU == nn->runtime_type)
+	if((RUNTIME_CPU == nn->runtime_type)
+#ifdef ENABLE_RUNTIME_HALIDE
+	&& (RUNTIME_HALIDE == nn->runtime_type)
+#endif
+		)
 	{
 		layer_cpu_q_context_t* context = (layer_cpu_q_context_t*)layer->C->context;
 		for(i=0; i<context->nout; i++)
@@ -289,12 +290,6 @@ void rte_ddo_save(const nn_t* nn, const layer_t* layer)
 			}
 			free(data);
 		}
-	}
-#endif
-#ifdef ENABLE_RUNTIME_HALIDE
-	if(RUNTIME_HALIDE == nn->runtime_type)
-	{
-		rte_halide_save_raw(nn, layer);
 	}
 #endif
 }

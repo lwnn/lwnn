@@ -46,6 +46,7 @@ public:
 		Halide::Expr in_col = strideX * x + r.x - padX;
 		conv(c, x, y, n) += W(r.z, r.x, r.y, c) * in_bounded(r.z, in_col, in_row, n);
 
+		#ifndef LWNN_ON_HALIDE
 		if (HL_GET_TARGET_ARCH() == Target::X86) {
 			const int vector_size = 4;
 			Expr can_vectorize_across_depth = iC >= vector_size;
@@ -53,6 +54,7 @@ public:
 				.specialize(can_vectorize_across_depth)
 				.vectorize(c, vector_size);
 		}
+		#endif
 	}
 };
 /* ============================ [ DECLARES  ] ====================================================== */

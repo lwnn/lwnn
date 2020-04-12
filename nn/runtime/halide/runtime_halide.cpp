@@ -4,6 +4,7 @@
  */
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "runtime_halide.h"
+#include "runtime_cpu.h"
 /* ============================ [ MACROS    ] ====================================================== */
 #ifdef _WIN32
 #define BUILD_DIR "build/nt/"
@@ -14,43 +15,55 @@
 #define DLLFIX ".so"
 #define LIBFIX "lib"
 #endif
+
+#define FALLBACK_LAYER_OPS_HALIDE(op, to) FALLBACK_LAYER_OPS(halide, op, to)
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
 {
 	int dummy;
 } rte_halide_t;
 /* ============================ [ DECLARES  ] ====================================================== */
+extern "C" {
 #define OP_DEF(op) L_OPS_DECLARE(halide_##op);
 #include "opdef.h"
 #undef OP_DEF
-UNSUPPORTED_LAYER_OPS(halide, MAXIMUM)
-UNSUPPORTED_LAYER_OPS(halide, RELU)
-UNSUPPORTED_LAYER_OPS(halide, MAXPOOL)
-UNSUPPORTED_LAYER_OPS(halide, RESHAPE)
-UNSUPPORTED_LAYER_OPS(halide, DENSE)
-UNSUPPORTED_LAYER_OPS(halide, SOFTMAX)
-UNSUPPORTED_LAYER_OPS(halide, PAD)
-UNSUPPORTED_LAYER_OPS(halide, DWCONV2D)
-UNSUPPORTED_LAYER_OPS(halide, CONCAT)
-UNSUPPORTED_LAYER_OPS(halide, AVGPOOL)
-UNSUPPORTED_LAYER_OPS(halide, ADD)
-UNSUPPORTED_LAYER_OPS(halide, CONST)
-UNSUPPORTED_LAYER_OPS(halide, DETECTIONOUTPUT)
-UNSUPPORTED_LAYER_OPS(halide, UPSAMPLE)
-UNSUPPORTED_LAYER_OPS(halide, YOLO)
-UNSUPPORTED_LAYER_OPS(halide, YOLOOUTPUT)
-UNSUPPORTED_LAYER_OPS(halide, DECONV2D)
-UNSUPPORTED_LAYER_OPS(halide, BATCHNORM)
-UNSUPPORTED_LAYER_OPS(halide, DILCONV2D)
-UNSUPPORTED_LAYER_OPS(halide, PRELU)
-UNSUPPORTED_LAYER_OPS(halide, MFCC)
-UNSUPPORTED_LAYER_OPS(halide, LSTM)
-UNSUPPORTED_LAYER_OPS(halide, MINIMUM)
-UNSUPPORTED_LAYER_OPS(halide, TRANSPOSE)
-UNSUPPORTED_LAYER_OPS(halide, DETECTION)
-UNSUPPORTED_LAYER_OPS(halide, PROPOSAL)
-UNSUPPORTED_LAYER_OPS(halide, PYRAMID_ROI_ALIGN)
-UNSUPPORTED_LAYER_OPS(halide, SLICE)
+
+static inline void layer_halide_to_cpu_float_init_common(const nn_t*, const layer_t*) {}
+static inline int layer_halide_to_cpu_float_pre_execute_common(const nn_t*, const layer_t*) { return 0; }
+static inline void layer_halide_to_cpu_float_post_execute_common(const nn_t*, const layer_t*) {}
+static inline void layer_halide_to_cpu_float_deinit_common(const nn_t*, const layer_t*) {}
+
+FALLBACK_LAYER_OPS_HALIDE(INPUT, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(OUTPUT, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(MAXIMUM, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(RELU, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(MAXPOOL, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(RESHAPE, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(DENSE, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(SOFTMAX, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(PAD, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(DWCONV2D, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(CONCAT, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(AVGPOOL, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(ADD, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(CONST, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(DETECTIONOUTPUT, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(UPSAMPLE, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(YOLO, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(YOLOOUTPUT, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(DECONV2D, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(BATCHNORM, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(DILCONV2D, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(PRELU, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(MFCC, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(LSTM, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(MINIMUM, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(TRANSPOSE, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(DETECTION, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(PROPOSAL, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(PYRAMID_ROI_ALIGN, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(SLICE, cpu_float)
+} /* extern "C"  end */
 /* ============================ [ DATAS     ] ====================================================== */
 static const layer_ops_t halide_lops[] =
 {
@@ -130,19 +143,6 @@ void rte_HALIDE_destory(const nn_t* nn)
 
 	rte_do_for_each_layer(nn, halide_deinit_layer);
 }
-#ifndef DISABLE_NN_DDO
-void rte_halide_save_raw(const nn_t* nn, const layer_t* layer)
-{
-	layer_halide_context_t* context = (layer_halide_context_t*)layer->C->context;
-	(void)nn;
-	for(int i=0; i<context->nout; i++)
-	{
-		Halide::Buffer<float>& out = *(Halide::Buffer<float>*)context->out[0];
-		rte_ddo_save_raw(nn, layer, i, out.data(), out.size_in_bytes());
-	}
-
-}
-#endif
 }; /* extern "C"  end */
 
 
@@ -150,107 +150,23 @@ int rte_halide_create_layer_context(
 			const nn_t* nn, const layer_t* layer,
 			size_t sz, size_t nout)
 {
-	int r = 0;
-	layer_halide_context_t* context = NULL;
-	rte_halide_t* rt = (rte_halide_t*)nn->runtime;
-
-	assert(sz >= sizeof(layer_halide_context_t));
-
-	context = (layer_halide_context_t*)malloc(sz+nout*sizeof(void*));
-
-	if(context != NULL)
-	{
-		if(layer->dtype != L_DT_AUTO)
-		{
-			context->dtype = layer->dtype;
-		}
-		else
-		{
-			context->dtype = L_DT_FLOAT;
-		}
-		context->out = (void**)(((unsigned long long)context)+sz);
-		context->nout = nout;
-		if(nout > 0)
-		{
-			memset(context->out, 0, sizeof(void*)*nout);
-		}
-		r = layer_get_NHWC(layer, &context->nhwc);
-		if(0 == r) {
-			if(1 != context->nhwc.N) { /* only supprot batch 1 */
-				r = NN_E_NOT_SUPPORTED;
-			}
-		}
-		if(0 != r)
-		{
-			free(context);
-		}
-	}
-	else
-	{
-		r = NN_E_NO_MEMORY;
-	}
-
-	if(0 == r)
-	{
-		layer->C->context = (layer_context_t*)context;
-	}
-
-	return r;
+	return rte_cpu_create_layer_context(nn, layer, sz, nout);
 }
 
 void rte_halide_destory_layer_context(const nn_t* nn, const layer_t* layer)
 {
-	size_t i;
-	layer_halide_context_t* context = (layer_halide_context_t*)layer->C->context;
-
-	if(NULL != context)
-	{
-		for(i=0; i< context->nout; i++) {
-			delete (Halide::Buffer<float>*)context->out[0];
-		}
-		free(context);
-	}
-
-	layer->C->context = NULL;
+	rte_cpu_destory_layer_context(nn, layer);
 }
 
 int rte_halide_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx_sz)
 {
-	int r = 0;
-	layer_halide_context_t* context;
-	Halide::Buffer<float>* buf;
-
-	r = rte_halide_create_layer_context(nn, layer, ctx_sz, 1);
-
-	if(0 == r)
-	{
-		context = (layer_halide_context_t*)layer->C->context;
-	}
-
-	buf = new Halide::Buffer<float>(context->nhwc.C, context->nhwc.W, context->nhwc.H, context->nhwc.N);
-	if(NULL == buf)
-	{
-		r = NN_E_NO_MEMORY;
-		rte_halide_destory_layer_context(nn, layer);
-	}
-	else
-	{
-		buf->allocate();
-		context->out[0] = buf;
-	}
-
-	return r;
+	return rte_cpu_create_layer_common(nn, layer, ctx_sz, sizeof(float));
 }
 
-Halide::Buffer<float>* rte_halide_create_buffer_from_blob(const nn_t* nn, const layer_blob_t* blob)
-{
+Halide::Buffer<float>* rte_halide_create_buffer(const int* dims, const float* data) {
 	Halide::Buffer<float>* buf = NULL;
-	const float* data = (float*)blob->blob;
 	int dim = 0;
 	size_t size = 1;
-	const int* dims = blob->dims;
-
-	assert(dims != NULL);
 
 	while((dims[dim] != 0) && (dim < 4)) {
 		size = size*dims[dim];
@@ -276,7 +192,9 @@ Halide::Buffer<float>* rte_halide_create_buffer_from_blob(const nn_t* nn, const 
 
 	if(NULL != buf) {
 		buf->allocate();
-		std::copy(data, data+size, buf->begin());
+		if(data != NULL) {
+			std::copy(data, data+size, buf->begin());
+		}
 	}
 
 	return buf;

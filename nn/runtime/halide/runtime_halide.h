@@ -7,6 +7,7 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include <Halide.h>
 #include <string>
+#include <vector>
 #include <dlfcn.h>
 #include "nn.h"
 /* ============================ [ MACROS    ] ====================================================== */
@@ -41,6 +42,6 @@ int rte_halide_create_layer_context(
 			size_t sz, size_t nout);
 void rte_halide_destory_layer_context(const nn_t* nn, const layer_t* layer);
 int rte_halide_create_layer_common(const nn_t* nn, const layer_t* layer, size_t ctx_sz);
-Halide::Buffer<float>* rte_halide_create_buffer_from_blob(const nn_t* nn, const layer_blob_t* blob);
+Halide::Buffer<float>* rte_halide_create_buffer(const int* dims, const float* data);
 void* halide_load_algorithm(const char* algo, void** dll);
 #endif /* NN_RUNTIME_HALIDE_RUNTIME_HALIDE_H_ */

@@ -428,20 +428,20 @@ runtime_t rte_OPENCL_create(const nn_t* nn)
 	else
 	{
 		rt->command_queue = cl_create_command_queue(rt->context, &rt->device);
-	}
 
-	if(NULL == rt->command_queue)
-	{
-		clReleaseContext(rt->context);
-		free(rt);
-		rt = NULL;
-	}
-	else
-	{
-		rt->iprg = NULL;
-		rt->oprg = NULL;
-		rt->iknl = NULL;
-		rt->oknl = NULL;
+		if(NULL == rt->command_queue)
+		{
+			clReleaseContext(rt->context);
+			free(rt);
+			rt = NULL;
+		}
+		else
+		{
+			rt->iprg = NULL;
+			rt->oprg = NULL;
+			rt->iknl = NULL;
+			rt->oknl = NULL;
+		}
 	}
 
 	return rt;
@@ -741,10 +741,11 @@ int rte_cl_create_layer_context(
 	int r = 0;
 	cl_int errNum;
 	layer_cl_context_t* context = NULL;
+	size_t total_sz = sz+nout*sizeof(cl_mem);
 
 	assert(sz >= sizeof(layer_cl_context_t));
 
-	context = malloc(sz+nout*sizeof(cl_mem));
+	context = malloc(total_sz);
 
 	if(context != NULL)
 	{
@@ -759,9 +760,8 @@ int rte_cl_create_layer_context(
 		}
 		context->out = (void**)(((unsigned long long)context)+sz);
 		context->nout = nout;
-		if(nout > 0)
-		{
-			memset(context->out, 0, sizeof(void*)*nout);
+		if(total_sz > sz) {
+			memset(&context[1], 0, total_sz-sizeof(*context));
 		}
 		r = layer_get_NHWC(layer, &context->nhwc);
 		if(0 != r)

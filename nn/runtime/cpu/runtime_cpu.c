@@ -258,10 +258,11 @@ int rte_cpu_create_layer_context(
 	int r = 0;
 	layer_cpu_context_t* context = NULL;
 	rte_cpu_t* rt = (rte_cpu_t*)nn->runtime;
+	size_t total_sz = sz+nout*sizeof(void*);
 
 	assert(sz >= sizeof(layer_cpu_context_t));
 
-	context = malloc(sz+nout*sizeof(void*));
+	context = malloc(total_sz);
 
 	if(context != NULL)
 	{
@@ -297,9 +298,8 @@ int rte_cpu_create_layer_context(
 		}
 		context->out = (void**)(((unsigned long long)context)+sz);
 		context->nout = nout;
-		if(nout > 0)
-		{
-			memset(context->out, 0, sizeof(void*)*nout);
+		if(total_sz > sz) {
+			memset(&context[1], 0, total_sz-sizeof(*context));
 		}
 		r = layer_get_NHWC(layer, &context->nhwc);
 		if(0 != r)
