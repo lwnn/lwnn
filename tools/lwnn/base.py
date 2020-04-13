@@ -14,6 +14,7 @@ class LWNNBaseC():
                 'PRelu': self.gen_LayerPRelu,
                 'MaxPool': self.gen_LayerMaxPool,
                 'Min': self.gen_LayerMin,
+                'Mul': self.gen_LayerMul,
                 'AveragePool': self.gen_LayerAveragePool,
                 'Reshape': self.gen_LayerReshape,
                 'Squeeze': self.gen_LayerReshape,
@@ -337,9 +338,15 @@ class LWNNBaseC():
 
     def gen_LayerMin(self, layer):
         self.gen_no_blobs(layer)
-        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_MINIMUM ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
+    def gen_LayerMul(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_MUL ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
     def gen_LayerAveragePool(self, layer):
         if('pads' not in layer):

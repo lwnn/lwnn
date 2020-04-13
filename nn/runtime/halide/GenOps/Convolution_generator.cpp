@@ -48,11 +48,11 @@ public:
 
 		#ifndef LWNN_ON_HALIDE
 		if (HL_GET_TARGET_ARCH() == Target::X86) {
-			const int vector_size = 4;
-			Expr can_vectorize_across_depth = iC >= vector_size;
 			conv.parallel(y)
-				.specialize(can_vectorize_across_depth)
-				.vectorize(c, vector_size);
+				.reorder(c, x, y, n);
+			W.in().compute_at(conv, r.x);
+			B.in().compute_at(conv, c);
+			input.in().compute_at(conv, x);
 		}
 		#endif
 	}

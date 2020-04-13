@@ -48,6 +48,10 @@ class TfConverter(LWNNUtil):
             'BlockLSTM': self.to_LayerBlockLSTM,
             'Conv': self.to_LayerConv,
             'Min': self.to_LayerMin,
+            'BatchNormalization': self.to_LayeBatchNormalization,
+            'Concat': self.to_LayeConcat,
+            'Mul': self.to_LayeMul,
+            'AveragePool': self.to_LayerPool,
             'Transpose': self.to_LayerTranspose }
         self.opMap = {
             'Placeholder': 'Input',
@@ -57,6 +61,9 @@ class TfConverter(LWNNUtil):
             'Squeeze': 'Reshape',
             'Conv2D': 'Conv',
             'Minimum': 'Min',
+            'FusedBatchNorm': 'BatchNormalization',
+            'ConcatV2': 'Concat',
+            'AvgPool': 'AveragePool',
             }
         if(type(graph_def) == str):
             with tfFastGFile(graph_def, 'rb') as f:
@@ -103,7 +110,7 @@ class TfConverter(LWNNUtil):
                 _ = attr.__getattribute__(field)
                 return True
             except ValueError:
-                False
+                return False
 
     def to_LayerCommon(self, node):
         op = node.op
@@ -153,7 +160,9 @@ class TfConverter(LWNNUtil):
                 attr = attr.s.decode('utf-8')
             elif(self.has_field(attr,'list')):
                 L = attr.list
-                if(self.has_field(L,'s')):
+                if(self.has_field(L,'i')):
+                    attr = [i for i in L.i]
+                elif(self.has_field(L,'s')):
                     attr = [s.decode('utf-8') for s in L.s]
                 else:
                     raise
@@ -278,22 +287,48 @@ class TfConverter(LWNNUtil):
             layer.strides = [1, 1]
         if(('dilations' not in layer) or (len(layer.dilations) == 0)):
             layer.dilations = [1, 1]
-        _,ho,wo,_ = layer.shape
-        _,hi,wi,_ = inputs[0].shape
-        pad_h = int(((ho-1)*layer.strides[0] +  W.shape[2]  -hi) /2)
-        pad_w = int(((wo-1)*layer.strides[1] +  W.shape[3]  -wi) /2)
-        layer.pads = [pad_h, pad_w, pad_h, pad_w]
+        layer.kernel_shape = W.shape[2:]
+        self.infer_conv_or_pool_shape_and_padding(layer)
         layer.weights = W
         layer.bias = B
         layer.inputs = layer.inputs[:1]
 
+    def to_LayerPool(self, layer):
+        layer.strides = layer.strides[1:3]
+        layer.kernel_shape = layer.ksize[1:3]
+        self.infer_conv_or_pool_shape_and_padding(layer)
+
     def to_LayerMin(self, layer):
         a,b = self.get_layers(layer.inputs)
+        cs = None
+        if((a.op == 'Constant') and (list(a.shape) == [1])):
+            cs = a
+            x = b
         if((b.op == 'Constant') and (list(b.shape) == [1])):
-            shape = a.shape
+            cs = b
+            x = a
+        if(cs != None):
+            shape = x.shape
             shape[0] = 1
-            b.const = np.full(shape, b.const[0], b.const.dtype)
-            b.shape = shape
+            cs.const = np.full(shape, cs.const[0], cs.const.dtype)
+            cs.shape = shape
+
+    def to_LayeMul(self, layer):
+        self.to_LayerMin(layer)
+
+    def to_LayeBatchNormalization(self, layer):
+        _,scale,bias,mean,var = self.get_layers(layer.inputs)
+        layer.scale = self.eval(scale)
+        layer.bias = self.eval(bias)
+        layer.var = self.eval(var)
+        layer.mean = self.eval(mean)
+        layer.inputs = layer.inputs[:1]
+
+    def to_LayeConcat(self, layer):
+        N = layer.N
+        axis = self.get_layers(layer.inputs[N])
+        layer.axis = self.eval(axis)
+        layer.inputs = layer.inputs[:N]
 
     def to_LayerAdd(self, layer):
         _, bias = self.get_layers(layer.inputs)

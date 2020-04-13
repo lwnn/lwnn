@@ -156,6 +156,14 @@ class LWNNUtil():
     def c_str(self, name):
         return cstr(name)
 
+    def __str__(self, model=None):
+        if(model == None):
+            model = self.lwnn_model
+        cstr = 'LWNN Model %s: %d layers\n'%(self.name, len(model))
+        for layer in model:
+            cstr += ' %s\n'%(layer)
+        return cstr
+
 class LWNNLayer(dict):
     def __init__(self, **kwargs):
         try:
@@ -874,11 +882,3 @@ class LWNNModel(LWNNUtil):
                 layer['inputs'] = [self.c_str(inp) for inp in layer['inputs']]
             layer['outputs'] = [self.c_str(out) for out in layer['outputs']]
         self.is_model_channel_first()
-
-    def __str__(self, model=None):
-        if(model == None):
-            model = self.lwnn_model
-        cstr = 'LWNN Model %s:\n'%(self.name)
-        for layer in model:
-            cstr += ' %s\n'%(layer)
-        return cstr
