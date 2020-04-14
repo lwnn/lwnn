@@ -101,6 +101,11 @@ extern "C" {
 			inputs, NULL };								\
 	L_LAYER_MI(name, ADD)
 
+#define L_MUL(name, inputs)								\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, MUL)
+
 #define L_CONCAT(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\
 			inputs, NULL };								\

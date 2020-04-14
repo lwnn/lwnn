@@ -225,6 +225,7 @@ class LWNNModel(LWNNUtil):
             (self.opt_IsLayerFakeQuantize, self.opt_LayerFakeQuantize, None),
             (self.opt_IsLayerHasInitializer, self.opt_LayerHasInitializer, None),
             (self.opt_IsLayerDense, self.opt_LayerDense, None),
+            (self.opt_IsLayerMatMul, self.opt_LayerMatMul, None),
             (self.opt_IsLayerConv1D, self.opt_LayerConv1D, None),
             (self.opt_IsLayerPooling1D, self.opt_LayerPooling1D, None),
             (self.opt_IsLayerConvBeforeBN, self.opt_FuseConvBN, None),
@@ -591,6 +592,17 @@ class LWNNModel(LWNNUtil):
         add['weights'] = layer['weights']
         self.lwnn_model.remove(layer)
         return True
+
+    def opt_IsLayerMatMul(self, layer):
+        r = False
+        if(layer['op'] == 'MatMul'):
+            r = True
+        return r
+
+    def opt_LayerMatMul(self, layer):
+        layer['op'] = 'Dense'
+        layer.bias = np.zeros((layer.shape[-1]), np.float32)
+        return False
 
     def opt_IsLayerConv1D(self, layer):
         r = False

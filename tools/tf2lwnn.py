@@ -33,6 +33,7 @@ __all__ = ['tf2lwnn', 'TfConverter']
 class TfConverter(LWNNUtil):
     def __init__(self, graph_def, name, **kwargs):
         self.OPTIMIER = [
+            (self.opt_IsLayerConvBeforeBiasAdd, self.opt_FuseConvBiasAdd, None),
             (self.opt_IsLayerLSTM, self.opt_LayerLSTM, None),
             (self.opt_IsLayerMfcc, self.opt_LayerMfcc, None),
             (self.opt_IsLayerReshapeBeforeReshape, self.opt_RemoveLayer, None),
@@ -47,11 +48,10 @@ class TfConverter(LWNNUtil):
             'Constant': self.to_LayerConst,
             'BlockLSTM': self.to_LayerBlockLSTM,
             'Conv': self.to_LayerConv,
-            'Min': self.to_LayerMin,
             'BatchNormalization': self.to_LayeBatchNormalization,
             'Concat': self.to_LayeConcat,
-            'Mul': self.to_LayeMul,
             'AveragePool': self.to_LayerPool,
+            'MaxPool': self.to_LayerPool,
             'Transpose': self.to_LayerTranspose }
         self.opMap = {
             'Placeholder': 'Input',
@@ -285,8 +285,12 @@ class TfConverter(LWNNUtil):
             layer.group = 1
         if(('strides' not in layer) or (len(layer.strides) == 0)):
             layer.strides = [1, 1]
+        else:
+            layer.strides = layer.strides[1:3]
         if(('dilations' not in layer) or (len(layer.dilations) == 0)):
             layer.dilations = [1, 1]
+        else:
+            layer.dilations = layer.dilations[1:3]
         layer.kernel_shape = W.shape[2:]
         self.infer_conv_or_pool_shape_and_padding(layer)
         layer.weights = W
@@ -297,24 +301,6 @@ class TfConverter(LWNNUtil):
         layer.strides = layer.strides[1:3]
         layer.kernel_shape = layer.ksize[1:3]
         self.infer_conv_or_pool_shape_and_padding(layer)
-
-    def to_LayerMin(self, layer):
-        a,b = self.get_layers(layer.inputs)
-        cs = None
-        if((a.op == 'Constant') and (list(a.shape) == [1])):
-            cs = a
-            x = b
-        if((b.op == 'Constant') and (list(b.shape) == [1])):
-            cs = b
-            x = a
-        if(cs != None):
-            shape = x.shape
-            shape[0] = 1
-            cs.const = np.full(shape, cs.const[0], cs.const.dtype)
-            cs.shape = shape
-
-    def to_LayeMul(self, layer):
-        self.to_LayerMin(layer)
 
     def to_LayeBatchNormalization(self, layer):
         _,scale,bias,mean,var = self.get_layers(layer.inputs)
@@ -349,6 +335,21 @@ class TfConverter(LWNNUtil):
         _, perm = self.get_layers(layer.inputs)
         layer.perm = self.eval(perm)
         layer.inputs = layer.inputs[:1]
+
+    def opt_IsLayerConvBeforeBiasAdd(self, layer):
+        r = False
+        consumers = self.get_consumers(layer)
+        if((layer['op'] == 'Conv') and
+               (len(consumers) == 1) and
+               (consumers[0]['op'] == 'Add') and
+               ('bias' in consumers[0])):
+            r = True
+        return r
+
+    def opt_FuseConvBiasAdd(self, layer):
+        biasAdd = self.get_consumers(layer)[0]
+        layer.bias = biasAdd.bias
+        self.opt_RemoveLayer(biasAdd)
 
     def opt_IsLayerLSTM(self, layer):
         r = False
@@ -614,7 +615,7 @@ def tf2lwnn(graph_def, name, feeds=None, **kwargs):
     if(feeds != None):
         feeds = LWNNFeeder(feeds, converter.inputs, format='NHWC')
     model = LWNNModel(converter, name, feeds = feeds,
-                      notRmIdentity=True, notPermuteReshapeSoftmax=True)
+                      notPermuteReshapeSoftmax=True)
     model.generate()
 
 if(__name__ == '__main__'):
