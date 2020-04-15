@@ -225,6 +225,17 @@ class TfConverter(LWNNUtil):
             _, shape = self.get_layers(layer.inputs)
             layer.shape = self.eval(shape).tolist()
         layer.inputs = layer.inputs[:1]
+        if(-1 in layer.shape):
+            inp = self.get_layers(layer.inputs[0])
+            dims = 1
+            for s in inp.shape:
+                dims = dims*s
+            for i,s in enumerate(layer.shape):
+                if(s != -1):
+                    dims = int(dims/s)
+                else:
+                    axis = i
+            layer.shape[axis] = dims
 
     def to_LayerDecodeWav(self, layer):
         layer.outputs.append('%s:1'%(layer.name))

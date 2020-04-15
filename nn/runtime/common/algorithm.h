@@ -12,12 +12,58 @@ extern "C" {
 #endif
 /* adjust pointer address by offset */
 #define APABO(addr, offset) ((void*)(((size_t)(addr))+(offset)))
+
+#define ALG_MAX(o, a, b) if( (a) > (b) ) { (o) = (a); } else { (o) = (b); }
+#define ALG_MIN(o, a, b) if( (a) > (b) ) { (o) = (b); } else { (o) = (a); }
+#define ALG_ADD(o, a, b) (o) = (a) + (b);
+#define ALG_SUB(o, a, b) (o) = (a) - (b);
+#define ALG_MUL(o, a, b) (o) = (a) * (b);
+
+#define DEF_ALG_ELTWISE(DT, OP)										\
+	void alg_eltwise_##OP##_##DT(DT* A, DT* B, DT* O, size_t sz)	\
+	{																\
+		size_t i;													\
+		for(i=0; i<sz; i++)											\
+		{															\
+			ALG_##OP(O[i], A[i], B[i])								\
+		}															\
+	}
+
+#define DEF_ALG_BROADCAST_ONE(DT, OP)									\
+	void alg_broadcast_one_##OP##_##DT(DT* A, DT B, DT* O, size_t sz)	\
+	{																	\
+		size_t i;														\
+		for(i=0; i<sz; i++)												\
+		{																\
+			ALG_##OP(O[i], A[i], B)										\
+		}																\
+	}
+
+#define DEF_ALG_BROADCAST_CHANNEL(DT, OP)								\
+	void alg_broadcast_channel_##OP##_##DT(DT* A, DT* B, DT* O, size_t sz, size_t C)	\
+	{																	\
+		size_t i,c;														\
+		sz = sz/C;														\
+		for(i=0; i<sz; i++)												\
+		{																\
+			for(c=0; c<C; i++)											\
+			{															\
+				ALG_##OP(O[i], A[i], B[c])								\
+			}															\
+		}																\
+	}
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum
 {
 	ALG_TRANSPOSE_FROM_NHWC_TO_NCHW=0,
 	ALG_TRANSPOSE_FROM_NCHW_TO_NHWC=0x8000,
 } alg_transpose_t;
+
+typedef enum{
+	ALG_BROADCAST_NONE=0,
+	ALG_BROADCAST_ONE=0x1000,
+	ALG_BROADCAST_CHANNEL=0x2000,
+} alg_broadcast_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
@@ -38,6 +84,8 @@ int alg_deconv2d_calculate_position(
 		int* kernel_start,
 		int* kernel_end);
 int alg_deconv2d_calculate_padding(int dim_kernel, int stride, int dim_in, int dim_out);
+
+int alg_broadcast_prepare(layer_context_t** inputA_context, layer_context_t** inputB_context, alg_broadcast_t *broadcast);
 #ifdef __cplusplus
 }
 #endif

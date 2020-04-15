@@ -6,48 +6,28 @@
 #include "nn.h"
 #ifndef DISABLE_RUNTIME_CPU_Q16
 #include "../runtime_cpu.h"
-
+#include "algorithm.h"
 #include "arm_math.h"
 #include "arm_nnfunctions.h"
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_Q16_CONTEXT_MEMBER;
+	alg_broadcast_t broadcast;
+	layer_context_t* inputA_context;
+	layer_context_t* inputB_context;
 } layer_cpu_q16_eltwise_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-static void layer_cpu_q16_max(int16_t* A, int16_t* B, int16_t* O, size_t sz)
-{
-	size_t i;
-	for(i=0; i<sz; i++)
-	{
-		if(A[i] > B[i])
-		{
-			O[i] = A[i];
-		}
-		else
-		{
-			O[i] = B[i];
-		}
-	}
-}
+DEF_ALG_ELTWISE(int16_t, MAX)
+DEF_ALG_ELTWISE(int16_t, MIN)
 
-static void layer_cpu_q16_min(int16_t* A, int16_t* B, int16_t* O, size_t sz)
-{
-	size_t i;
-	for(i=0; i<sz; i++)
-	{
-		if(A[i] < B[i])
-		{
-			O[i] = A[i];
-		}
-		else
-		{
-			O[i] = B[i];
-		}
-	}
-}
+DEF_ALG_BROADCAST_ONE(int16_t, MAX)
+DEF_ALG_BROADCAST_ONE(int16_t, MIN)
+
+DEF_ALG_BROADCAST_CHANNEL(int16_t, MAX)
+DEF_ALG_BROADCAST_CHANNEL(int16_t, MIN)
 
 static void layer_cpu_q16_add(int16_t* A, int16_t* B, int16_t* O, size_t sz, const int8_t out_shift)
 {
@@ -67,42 +47,61 @@ static void layer_cpu_q16_add(int16_t* A, int16_t* B, int16_t* O, size_t sz, con
 
 static int layer_cpu_q16_eltwise_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q16_eltwise_context_t), sizeof(int16_t));
+	int r =0;
+	layer_cpu_q16_eltwise_context_t* context;
+
+	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_q16_eltwise_context_t), sizeof(int16_t));
+
+	if(0 == r)
+	{
+		context = (layer_cpu_q16_eltwise_context_t*)layer->C->context;
+		context->broadcast = ALG_BROADCAST_NONE;
+		context->inputA_context = (layer_context_t*)layer->inputs[0]->C->context;
+		context->inputB_context = (layer_context_t*)layer->inputs[1]->C->context;
+		r = alg_broadcast_prepare(&(context->inputA_context), &(context->inputB_context), &(context->broadcast));
+	}
+
+	return r;
 }
 
 static int layer_cpu_q16_eltwise_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cpu_q16_eltwise_context_t* context = (layer_cpu_q16_eltwise_context_t*)layer->C->context;
-	const layer_t* inputA = layer->inputs[0];
-	const layer_t* inputB = layer->inputs[1];
-	layer_cpu_q16_context_t* inputA_context;
-	layer_cpu_q16_context_t* inputB_context;
 	size_t sz = NHWC_SIZE(context->nhwc);
 	int16_t* A;
 	int16_t* B;
 	int16_t* O;
 
-	inputA_context = (layer_cpu_q16_context_t*)inputA->C->context;
-	inputB_context = (layer_cpu_q16_context_t*)inputB->C->context;
-
-	A = (int16_t*)inputA_context->out[0];
-	B = (int16_t*)inputB_context->out[0];
+	A = (int16_t*)context->inputA_context->out[0];
+	B = (int16_t*)context->inputB_context->out[0];
 	O = (int16_t*)context->out[0];
 
 	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
-	assert(LAYER_Q(inputA) == LAYER_Q(inputB));
+	assert(LAYER_Q(layer->inputs[0]) == LAYER_Q(layer->inputs[1]));
 
 	switch(layer->op)
 	{
 		case L_OP_MAXIMUM:
-			layer_cpu_q16_max(A, B, O, sz);
+			alg_eltwise_MAX_int16_t(A, B, O, sz);
+			break;
+		case L_OP_MAXIMUM+ALG_BROADCAST_ONE:
+			alg_broadcast_one_MAX_int16_t(A, B[0], O, sz);
+			break;
+		case L_OP_MAXIMUM+ALG_BROADCAST_CHANNEL:
+			alg_broadcast_channel_MAX_int16_t(A, B, O, sz, context->nhwc.C);
 			break;
 		case L_OP_ADD:
-			layer_cpu_q16_add(A, B, O, sz, LAYER_Q(layer)-LAYER_Q(inputA));
+			layer_cpu_q16_add(A, B, O, sz, LAYER_Q(layer)-LAYER_Q(layer->inputs[0]));
 			break;
 		case L_OP_MINIMUM:
-			layer_cpu_q16_min(A, B, O, sz);
+			alg_eltwise_MIN_int16_t(A, B, O, sz);
+			break;
+		case L_OP_MINIMUM+ALG_BROADCAST_ONE:
+			alg_broadcast_one_MIN_int16_t(A, B[0], O, sz);
+			break;
+		case L_OP_MINIMUM+ALG_BROADCAST_CHANNEL:
+			alg_broadcast_channel_MIN_int16_t(A, B, O, sz, context->nhwc.C);
 			break;
 		default:
 			r = NN_E_INVALID_LAYER;

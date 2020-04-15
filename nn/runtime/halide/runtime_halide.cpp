@@ -63,6 +63,7 @@ FALLBACK_LAYER_OPS_HALIDE(DETECTION, cpu_float)
 FALLBACK_LAYER_OPS_HALIDE(PROPOSAL, cpu_float)
 FALLBACK_LAYER_OPS_HALIDE(PYRAMID_ROI_ALIGN, cpu_float)
 FALLBACK_LAYER_OPS_HALIDE(SLICE, cpu_float)
+FALLBACK_LAYER_OPS_HALIDE(MUL, cpu_float)
 } /* extern "C"  end */
 /* ============================ [ DATAS     ] ====================================================== */
 static const layer_ops_t halide_lops[] =
