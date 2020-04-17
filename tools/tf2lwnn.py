@@ -36,6 +36,8 @@ class TfConverter(LWNNUtil):
             (self.opt_IsLayerConvBeforeBiasAdd, self.opt_FuseConvBiasAdd, None),
             (self.opt_IsLayerLSTM, self.opt_LayerLSTM, None),
             (self.opt_IsLayerMfcc, self.opt_LayerMfcc, None),
+            (self.opt_IsLayerSoftmax, self.opt_LayerSoftmax, None),
+            (self.opt_IsLayerClip, self.opt_LayerClip, None),
             (self.opt_IsLayerReshapeBeforeReshape, self.opt_RemoveLayer, None),
             (self.opt_IsLayerReshapeNotNecesary, self.opt_RemoveLayer, None),
             (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
@@ -471,6 +473,35 @@ class TfConverter(LWNNUtil):
             layer.inputs = spectrogram.inputs
         self.lwnn_model.remove(spectrogram)
         self.lwnn_model.remove(decode)
+
+    def opt_IsLayerSoftmax(self, layer):
+        graph = { 'Sequence': {0:'RealDiv', 1:'Exp', 2:'Sum', 3:'?',
+                               4:'Sub', 5:'?', 6:'Max', 7:'?'},
+                  'Connection': {0:[1,2], 1:[4], 2:[1,3], 3:[], 4:[5,6], 5:[], 6:[5,7], 7:[]}
+                }
+        return self.graph_match(layer, graph)
+
+    def opt_LayerSoftmax(self, layer):
+        graph = self.get_matched_graph()
+        inp = graph[5]
+        axis = self.eval(graph[7])
+        layer.op = 'Softmax'
+        layer.axis = axis
+        layer.inputs = [inp.name]
+
+    def opt_IsLayerClip(self, layer):
+        graph = { 'Sequence': {0:'Neg', 1:'Relu', 2:'Neg', 3:'?'},
+                  'Connection': {0:[1], 1:[2], 2:[3], 3:[]}
+                }
+        return self.graph_match(layer, graph)
+
+    def opt_LayerClip(self, layer):
+        graph = self.get_matched_graph()
+        inp = graph[3]
+        layer.op = 'Clip'
+        layer.max = 0
+        layer.min = -np.inf
+        layer.inputs = [inp.name]
 
     def opt_IsLayerReshapeBeforeReshape(self, layer):
         r = False

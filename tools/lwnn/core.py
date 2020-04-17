@@ -122,6 +122,41 @@ class LWNNUtil():
                 self.convert_axis_to_nchw(layer)
             layer['adjusted'] = True
 
+    def get_matched_graph(self):
+        return self._matched_graph
+
+    def graph_match(self, layer, graph):
+        def match_inputs(input_ids, inputs):
+            r = True
+            expected = [graph['Sequence'][i] for i in input_ids]
+            real = [l.op for l in inputs]
+            for e,r in zip(expected, real):
+                if(e not in [r, '?']):
+                    r = False
+            return r
+        r = False
+        seqs = {}
+        if(layer.op == graph['Sequence'][0]):
+            seqs = {0:layer}
+            for id in range(len(graph['Sequence'].keys())):
+                ly = seqs[id]
+                input_ids = graph['Connection'][id]
+                if(len(input_ids) == 0): continue
+                if('inputs' not in ly): continue
+                inputs = self.get_layers(ly.inputs)
+                r = match_inputs(input_ids, inputs)
+                if(r):
+                    for i,l in zip(input_ids, inputs):
+                        if(i not in seqs):
+                            seqs[i] = l
+                        else:
+                            assert(seqs[i].name == l.name)
+                else:
+                    break
+        if(r):
+            self._matched_graph = seqs
+        return r
+
     def optimize(self, additions=[]):
         id = -1
         num_layers = len(self.lwnn_model)
@@ -237,7 +272,6 @@ class LWNNModel(LWNNUtil):
             (self.opt_IsLayerDetectionOutputWithConst, self.opt_MergeConstToDetectionOutput, None),
             (self.opt_IsLayerOutputWithoutConsumers, self.opt_LayerOutputWithoutConsumers, None),
             (self.opt_IsLayerOutputWithOutput, self.opt_RemoveOutputWithOutput, None),
-            (self.opt_IsLayerClipRelu, self.opt_LayerClip2Relu, None),
             (self.opt_IsLayerFlatten, self.opt_LayerFlatten2Reshape, None),
             (self.opt_IsLayerPad, self.opt_LayerPad, None),
             (self.opt_IsLayerMfcc, self.opt_LayerMfcc, None),
@@ -690,17 +724,6 @@ class LWNNModel(LWNNUtil):
         if(layer['op'] == 'Reshape'):
             r = True
         return r
-
-    def opt_IsLayerClipRelu(self, layer):
-        r = False
-        if((layer['op'] == 'Clip') and
-           (('min' not in layer) or (layer['min']==0.0))):
-            r = True
-        return r
-
-    def opt_LayerClip2Relu(self, layer):
-        layer['op'] = 'Relu'
-        return False
 
     def opt_IsLayerOutputWithoutConsumers(self, layer):
         r = False

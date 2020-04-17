@@ -11,6 +11,7 @@ class LWNNBaseC():
                 'Conv': self.gen_LayerConv,
                 'ConvTranspose': self.gen_LayerConvTranspose,
                 'Relu': self.gen_LayerRelu,
+                'Clip': self.gen_LayerClip,
                 'PRelu': self.gen_LayerPRelu,
                 'MaxPool': self.gen_LayerMaxPool,
                 'Min': self.gen_LayerMin,
@@ -318,6 +319,19 @@ class LWNNBaseC():
     def gen_LayerRelu(self, layer):
         self.gen_no_blobs(layer)
         self.fpC.write('L_RELU ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerClip(self, layer):
+        if('min' in layer):
+            mi = layer['min']
+        else:
+            mi = -np.inf
+        if('max' in layer):
+            mx = layer['max']
+        else:
+            mx = np.inf
+        M = np.asarray([mi,mx], np.float32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_CLIP ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerPRelu(self, layer):
         weights = layer['weights']
