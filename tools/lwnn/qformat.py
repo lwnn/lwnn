@@ -233,6 +233,35 @@ class LWNNQFormatC(LWNNBaseC):
         Q = self.get_encoding(layer)
         return np.asarray([value*(2**Q)], dtype)
 
+    def gen_LayerClip(self, layer):
+        if('min' in layer):
+            mi = layer['min']
+        else:
+            mi = -np.inf
+        if('max' in layer):
+            mx = layer['max']
+        else:
+            mx = np.inf
+        if(self.T == 's8'):
+            Q,S,Z = self.get_QSZ(layer)
+        else:
+            Q,S,Z = self.get_encoding(layer),1.0,0
+        qmin = mi/S*(2**Q)-Z
+        qmax = mx/S*(2**Q)-Z
+        if(self.T in ['q8', 's8']):
+            cmax = 0x7F
+            cmin = -0x80
+            dtype = np.int8
+        elif(self.T == 'q16'):
+            cmax = 0x7FFF
+            cmin = -0x8000
+            dtype = np.int16
+        qmin = np.clip(qmin, cmin, cmax)
+        qmax = np.clip(qmax, cmin, cmax)
+        M = np.asarray([mi,mx], dtype)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_CLIP ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
     def gen_LayerConst(self, layer):
         const = layer['const']
         if('ConcatOnPriorBox' in layer):

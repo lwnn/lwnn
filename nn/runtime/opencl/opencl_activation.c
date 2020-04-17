@@ -24,6 +24,9 @@ static int layer_cl_activation_init(const nn_t* nn, const layer_t* layer)
 		case L_OP_RELU:
 			kernel = "relu";
 			break;
+		case L_OP_CLIP:
+			kernel = "clip";
+			break;
 		default:
 			assert(0);
 			break;
@@ -47,9 +50,19 @@ static int layer_cl_activation_execute(const nn_t* nn, const layer_t* layer)
 
 	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 
-	r = rte_cl_set_layer_args(nn, layer, 0, 2,
+	if(L_OP_CLIP == layer->op) {
+		float min = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
+		float max = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 1);
+		r = rte_cl_set_layer_args(nn, layer, 0, 2,
+					sizeof(cl_mem), &(input_context->out[0]),
+					sizeof(cl_mem), &(context->out[0]),
+					sizeof(float), &min,
+					sizeof(float), &max);
+	} else {
+		r = rte_cl_set_layer_args(nn, layer, 0, 2,
 					sizeof(cl_mem), &(input_context->out[0]),
 					sizeof(cl_mem), &(context->out[0]));
+	}
 
 	if(0 == r)
 	{
@@ -75,6 +88,21 @@ int layer_cl_RELU_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cl_RELU_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cl_activation_deinit(nn, layer);
+}
+
+int layer_cl_CLIP_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cl_activation_init(nn, layer);
+}
+
+int layer_cl_CLIP_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cl_activation_execute(nn, layer);
+}
+
+void layer_cl_CLIP_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cl_activation_deinit(nn, layer);
 }
