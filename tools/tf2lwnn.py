@@ -326,7 +326,10 @@ class TfConverter(LWNNUtil):
     def to_LayeConcat(self, layer):
         N = layer.N
         axis = self.get_layers(layer.inputs[N])
-        layer.axis = self.eval(axis)
+        try:
+            layer.axis = self.eval(axis)
+        except:
+            layer.axis = axis.value[0]
         layer.inputs = layer.inputs[:N]
 
     def to_LayerAdd(self, layer):
