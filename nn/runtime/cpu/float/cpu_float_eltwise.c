@@ -67,8 +67,6 @@ static int layer_cpu_float_eltwise_execute(const nn_t* nn, const layer_t* layer)
 	B = (float*)context->inputB_context->out[0];
 	O = (float*)context->out[0];
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
-
 	switch(layer->op+context->broadcast)
 	{
 		case L_OP_MAXIMUM:

@@ -218,7 +218,7 @@ class TfConverter(LWNNUtil):
             for i, s in enumerate(shape):
                 if(s in [None, 0]):
                     shape[i] = -1 if self.dynamic_shape else 1
-            shape[0] = 1
+            shape[0] = 1 # 1 batch mode for lwnn
             layer['shape'] = shape
         return layer
 
@@ -227,8 +227,8 @@ class TfConverter(LWNNUtil):
             _, shape = self.get_layers(layer.inputs)
             layer.shape = self.eval(shape).tolist()
         layer.inputs = layer.inputs[:1]
-        if(-1 in layer.shape):
-            inp = self.get_layers(layer.inputs[0])
+        inp = self.get_layers(layer.inputs[0])
+        if((-1 in layer.shape) and (not self.dynamic_shape)):
             dims = 1
             for s in inp.shape:
                 dims = dims*s

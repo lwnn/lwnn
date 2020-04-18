@@ -37,8 +37,6 @@ int layer_cpu_q16_INPUT_execute(const nn_t* nn, const layer_t* layer)
 	int r = 0;
 	layer_cpu_q16_input_context_t* context = (layer_cpu_q16_input_context_t*)layer->C->context;
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
-
 	context->out[0] = nn_get_input_data(nn, layer);
 
 	if(NULL == context->out[0])

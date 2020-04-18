@@ -84,8 +84,7 @@ int layer_cpu_s8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 
 	omin = ints[6];
 
-	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d], Z=%d, Q %d -> %d\n",
-			layer->name,
+	NNLOG(NN_DEBUG, (" kernel=[%d %d], pads=[%d %d], strides=[%d %d], Z=%d, Q %d -> %d\n",
 			knlY, knlX, padY, padX, strideY, strideX,
 			LAYER_Z(layer), LAYER_Q(input), LAYER_Q(layer)));
 
@@ -171,8 +170,7 @@ int layer_cpu_s8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 
 	out_activation_min = ints[6];
 
-	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d], Z=%d, %d -> %d\n",
-			layer->name,
+	NNLOG(NN_DEBUG, (" kernel=[%d %d], pads=[%d %d], strides=[%d %d], Z=%d, %d -> %d\n",
 			kernel_y, kernel_x, pad_y, pad_x, stride_y, stride_x,
 			LAYER_Z(layer), LAYER_Q(input), LAYER_Q(layer)));
 

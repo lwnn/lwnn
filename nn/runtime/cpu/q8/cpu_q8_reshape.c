@@ -47,8 +47,6 @@ int layer_cpu_q8_RESHAPE_execute(const nn_t* nn, const layer_t* layer)
 
 	int8_t* IN = (int8_t*)input_context->out[0];
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
-
 	context->out[0] = IN;	/* yes, just set up the output */
 
 	return r;

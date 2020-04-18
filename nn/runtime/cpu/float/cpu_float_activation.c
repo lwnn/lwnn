@@ -96,8 +96,6 @@ static int layer_cpu_float_activation_execute(const nn_t* nn, const layer_t* lay
 
 	context->out[0] = IN;	/* yes, reuse its input's output buffer directly */
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
-
 	switch(layer->op)
 	{
 		case L_OP_RELU:

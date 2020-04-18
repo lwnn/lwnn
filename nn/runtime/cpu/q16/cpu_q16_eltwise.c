@@ -77,7 +77,6 @@ static int layer_cpu_q16_eltwise_execute(const nn_t* nn, const layer_t* layer)
 	B = (int16_t*)context->inputB_context->out[0];
 	O = (int16_t*)context->out[0];
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 	assert(LAYER_Q(layer->inputs[0]) == LAYER_Q(layer->inputs[1]));
 
 	switch(layer->op)

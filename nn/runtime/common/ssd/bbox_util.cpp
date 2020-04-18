@@ -1214,8 +1214,6 @@ extern "C" int layer_cpu_float_DETECTIONOUTPUT_execute(const nn_t* nn,
 	bool variance_encoded_in_target_ = false;
 	int eta_ = 1.0;
 
-	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
-
 	if(NULL == top_data)
 	{
 		r = NN_E_NO_OUTPUT_BUFFER_PROVIDED;
@@ -1275,7 +1273,7 @@ extern "C" int layer_cpu_float_DETECTION_execute(const nn_t* nn, const layer_t* 
 	bool variance_encoded_in_target_ = false;
 	int eta_ = 1.0;
 
-	NNLOG(NN_DEBUG,("execute %s: %d rois %d classes\n", layer->name, rois_c->nhwc.H, scores_c->nhwc.C));
+	NNLOG(NN_DEBUG,(" %d rois %d classes\n", rois_c->nhwc.H, scores_c->nhwc.C));
 	layer_get_NHWC(layer, &context->nhwc);
 
 	r = detection_output_forward(
@@ -1327,7 +1325,7 @@ extern "C" int rpn_proposal_forward(const nn_t* nn, const layer_t* layer, float*
 	bool variance_encoded_in_target_ = false;
 	int eta_ = 1.0;
 
-	NNLOG(NN_DEBUG,("execute %s: %d rois %d classes\n", layer->name, num_priors_, num_classes_));
+	NNLOG(NN_DEBUG,(" %d rois %d classes\n", num_priors_, num_classes_));
 	layer_get_NHWC(layer, &context->nhwc);
 
 	r = detection_output_forward(

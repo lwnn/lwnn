@@ -61,8 +61,6 @@ int layer_cpu_q16_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 		context->out[0] = context->p_out;
 	}
 
-	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
-
 	for(i=0; i<n_block; i++)
 	{
 		arm_softmax_q15(IN+stride*i,

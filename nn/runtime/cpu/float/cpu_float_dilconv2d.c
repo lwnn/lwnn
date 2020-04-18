@@ -113,8 +113,7 @@ int layer_cpu_float_DILCONV2D_execute(const nn_t* nn, const layer_t* layer)
 	dilationY = ints[7];
 	dilationX = ints[8];
 
-	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d], dilations=[%d %d]\n",
-			layer->name,
+	NNLOG(NN_DEBUG, (" kernel=[%d %d], pads=[%d %d], strides=[%d %d], dilations=[%d %d]\n",
 			knlY, knlX, padY, padX, strideY, strideX, dilationY, dilationX));
 
 	for(batch=0; batch<input_context->nhwc.N; batch++)

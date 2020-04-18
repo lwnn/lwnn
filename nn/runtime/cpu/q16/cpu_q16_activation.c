@@ -72,8 +72,6 @@ static int layer_cpu_q16_activation_execute(const nn_t* nn, const layer_t* layer
 
 	context->out[0] = IN;	/* yes, reuse its input's output buffer directly */
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
-
 	switch(layer->op)
 	{
 		case L_OP_RELU:

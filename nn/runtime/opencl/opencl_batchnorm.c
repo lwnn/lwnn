@@ -17,7 +17,6 @@ typedef struct {
 	cl_mem var;
 } layer_cl_batchnorm_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
-void layer_cl_BATCHNORM_deinit(const nn_t* nn, const layer_t* layer);
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
 /* ============================ [ FUNCTIONS ] ====================================================== */
@@ -38,20 +37,19 @@ int layer_cl_BATCHNORM_init(const nn_t* nn, const layer_t* layer)
 		context->var = rte_cl_create_image2d_from_blob(nn, layer->blobs[2]);
 		context->mean = rte_cl_create_image2d_from_blob(nn, layer->blobs[3]);
 
-
 		if( (NULL == context->scale) ||
 			(NULL == context->bias) ||
 			(NULL == context->mean) ||
 			(NULL == context->var) )
 		{
-			layer_cl_BATCHNORM_deinit(nn, layer);
 			r = NN_E_NO_MEMORY;
 		}
 	}
 
 	return r;
 }
-int layer_cl_BATCHNORM_execute(const nn_t* nn, const layer_t* layer)
+
+int layer_cl_BATCHNORM_set_args(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cl_batchnorm_context_t* context = (layer_cl_batchnorm_context_t*)layer->C->context;
@@ -73,31 +71,23 @@ int layer_cl_BATCHNORM_execute(const nn_t* nn, const layer_t* layer)
 					sizeof(int), &nC4
 					);
 
-	if(0 == r)
-	{
-		r = rte_cl_execute_layer(nn, layer, RTE_GWT_CL_W_H, FALSE, NULL);
-	}
-
 	return r;
 }
+
+int layer_cl_BATCHNORM_execute(const nn_t* nn, const layer_t* layer)
+{
+	return rte_cl_execute_layer(nn, layer, RTE_GWT_CL_W_H, FALSE, NULL);
+}
+
 void layer_cl_BATCHNORM_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cl_batchnorm_context_t* context = (layer_cl_batchnorm_context_t*)layer->C->context;
 
-	if(context->scale != NULL)
+	if(context != NULL)
 	{
 		rte_cl_destory_memory(context->scale);
-	}
-	if(context->bias != NULL)
-	{
 		rte_cl_destory_memory(context->bias);
-	}
-	if(context->mean != NULL)
-	{
 		rte_cl_destory_memory(context->mean);
-	}
-	if(context->var != NULL)
-	{
 		rte_cl_destory_memory(context->var);
 	}
 	rte_cl_destory_layer_context(nn, layer);

@@ -10,12 +10,6 @@
 extern "C" {
 #endif
 /* ============================ [ MACROS    ] ====================================================== */
-#define RTE_CPU_LOG_LAYER_SHAPE(layer) 										\
-	NNLOG(NN_DEBUG, ("%s dims: [%dx%dx%dx%d]\n",							\
-					layer->name,											\
-					layer->C->context->nhwc.N, layer->C->context->nhwc.H,	\
-					layer->C->context->nhwc.W, layer->C->context->nhwc.C))
-
 #define LAYER_CPU_CONTEXT_MEMBER		\
 		LAYER_CONTEXT_MEMBER
 

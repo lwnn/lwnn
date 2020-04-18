@@ -30,8 +30,6 @@ int layer_cpu_float_YOLO_execute(const nn_t* nn, const layer_t* layer)
 	int num = layer->blobs[0]->dims[0];
 	int classes = RTE_FETCH_FLOAT(layer->blobs[2]->blob, 0);
 
-	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
-
 	r = yolo_forward(context->out[0], input_context->out[0], &input_context->nhwc, num, classes);
 
 	return r;

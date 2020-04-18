@@ -96,6 +96,12 @@ int layer_cl_CONCAT_init(const nn_t* nn, const layer_t* layer)
 
 	return r;
 }
+
+int layer_cl_CONCAT_set_args(const nn_t* nn, const layer_t* layer)
+{
+	return 0;
+}
+
 int layer_cl_CONCAT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
@@ -107,7 +113,7 @@ int layer_cl_CONCAT_execute(const nn_t* nn, const layer_t* layer)
 	int offset = 0;
 	int in_stride;
 
-	NNLOG(NN_DEBUG, ("execute %s: axis=%d\n", layer->name, axis));
+	NNLOG(NN_DEBUG, (" axis=%d\n", layer->name, axis));
 
 	while((0==r) && ((*input) != NULL) && (NULL != context->kernel))
 	{
@@ -141,10 +147,9 @@ int layer_cl_CONCAT_execute(const nn_t* nn, const layer_t* layer)
 		}
 	}
 
-
-
 	return r;
 }
+
 void layer_cl_CONCAT_deinit(const nn_t* nn, const layer_t* layer)
 {
 	rte_cl_destory_layer_context(nn, layer);

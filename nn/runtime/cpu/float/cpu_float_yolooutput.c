@@ -26,8 +26,6 @@ int layer_cpu_float_YOLOOUTPUT_execute(const nn_t* nn, const layer_t* layer)
 	int r = 0;
 	layer_cpu_float_yolooutput_context_t* context = (layer_cpu_float_yolooutput_context_t*)layer->C->context;
 
-	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
-
 	r = yolo_output_forward(nn, layer);
 
 	return r;

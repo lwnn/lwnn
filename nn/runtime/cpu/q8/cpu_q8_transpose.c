@@ -33,8 +33,6 @@ int layer_cpu_q8_TRANSPOSE_execute(const nn_t* nn, const layer_t* layer)
 
 	int perm = (int)RTE_FETCH_INT32(layer->blobs[1]->blob, 0);
 
-	NNLOG(NN_DEBUG, ("execute %s: perm=0x%X\n", layer->name, (uint32_t)perm));
-
 	r = alg_transpose(O, IN, &input_context->nhwc, sizeof(int8_t), (alg_transpose_t)perm);
 
 	return r;

@@ -21,7 +21,8 @@ int layer_cl_PAD_init(const nn_t* nn, const layer_t* layer)
 			OPENCL_PATH "pad.cl", "pad", NULL,
 			sizeof(layer_cl_pad_context_t));
 }
-int layer_cl_PAD_execute(const nn_t* nn, const layer_t* layer)
+
+int layer_cl_PAD_set_args(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cl_pad_context_t* context = (layer_cl_pad_context_t*)layer->C->context;
@@ -37,9 +38,6 @@ int layer_cl_PAD_execute(const nn_t* nn, const layer_t* layer)
 
 	input_context = (layer_cl_context_t*)input->C->context;
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
-
-
 	r = rte_cl_set_layer_args(nn, layer, RTE_CL_ARGS_WITH_NHWC, 6,
 				sizeof(cl_mem), &(input_context->out[0]),
 				sizeof(cl_mem), &(context->out[0]),
@@ -47,13 +45,13 @@ int layer_cl_PAD_execute(const nn_t* nn, const layer_t* layer)
 				sizeof(int), &padding_bottom,
 				sizeof(int), &padding_left,
 				sizeof(int), &padding_right);
-	if(0 == r)
-	{
-		r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H_C, FALSE, NULL);
-	}
-
 	return r;
 }
+int layer_cl_PAD_execute(const nn_t* nn, const layer_t* layer)
+{
+	return rte_cl_execute_layer(nn, layer, RTE_GWT_W_H_C, FALSE, NULL);
+}
+
 void layer_cl_PAD_deinit(const nn_t* nn, const layer_t* layer)
 {
 	rte_cl_destory_layer_context(nn, layer);

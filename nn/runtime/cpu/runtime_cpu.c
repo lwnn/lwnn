@@ -107,6 +107,7 @@ static int cpu_init_layer(const nn_t* nn, const layer_t* layer)
 	{
 		if(layer->op < ARRAY_SIZE(cpu_lops[nn->network->type]))
 		{
+			NNLOG(NN_DEBUG, ("init %s\n", layer->name));
 			r = cpu_lops[nn->network->type][layer->op].init(nn, layer);
 		}
 	}
@@ -127,6 +128,7 @@ static int cpu_execute_layer(const nn_t* nn, const layer_t* layer)
 	{
 		if(layer->op < ARRAY_SIZE(cpu_lops[nn->network->type]))
 		{
+			NNLOG(NN_DEBUG, ("execute %s: [%dx%dx%dx%d]\n", layer->name, L_SHAPES(layer)));
 			r = cpu_lops[nn->network->type][layer->op].execute(nn, layer);
 #ifndef DISABLE_NN_DDO
 			NNDDO(NN_DEBUG, rte_ddo_save(nn, layer));
@@ -315,8 +317,6 @@ int rte_cpu_create_layer_context(
 	if(0 == r)
 	{
 		layer->C->context = (layer_context_t*)context;
-
-		RTE_CPU_LOG_LAYER_SHAPE(layer);
 	}
 
 	return r;

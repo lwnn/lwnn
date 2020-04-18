@@ -77,8 +77,7 @@ int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 	out_mult = RTE_FETCH_INT32(layer->blobs[3]->blob, 2);
 	omin = RTE_FETCH_INT32(layer->blobs[3]->blob, 3);
 
-	NNLOG(NN_DEBUG, ("execute %s: [%d %d] %d -> %d\n",
-			layer->name,
+	NNLOG(NN_DEBUG, (" *[%dx%d] %d -> %d\n",
 			col_dim, row_dim,
 			LAYER_Q(input), LAYER_Q(layer)));
 

@@ -5,6 +5,12 @@
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
 /* ============================ [ MACROS    ] ====================================================== */
+#define DEFAULT_CL_SET_ARGS(op) \
+	int layer_cl_##op##_set_args(const nn_t* nn, const layer_t* layer) { return 0; }
+#define UNSUPPORTED_LAYER_OPS_CL(op)	\
+		UNSUPPORTED_LAYER_OPS(cl, op)	\
+		DEFAULT_CL_SET_ARGS(op)
+
 #ifndef DISABLE_RUNTIME_CPU_Q8
 #define FALLBACK_LAYER_OPS_CPU_Q8(op, to) FALLBACK_LAYER_OPS(cpu_q8, op, to)
 #else
@@ -21,7 +27,7 @@
 #define FALLBACK_LAYER_OPS_CPU_S8(op, to)
 #endif
 #ifndef DISABLE_RUNTIME_OPENCL
-#define FALLBACK_LAYER_OPS_CL(op, to) FALLBACK_LAYER_OPS(cl, op, to)
+#define FALLBACK_LAYER_OPS_CL(op, to) FALLBACK_LAYER_OPS(cl, op, to) DEFAULT_CL_SET_ARGS(op)
 #else
 #define FALLBACK_LAYER_OPS_CL(op, to)
 #endif
@@ -139,6 +145,12 @@ int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
 
 	switch(dim)
 	{
+		case 1:
+			nhwc->N = 1;
+			nhwc->H = 1;
+			nhwc->W = 1;
+			nhwc->C = dims[0];
+			break;
 		case 2:
 			nhwc->N = dims[0];
 			nhwc->H = 1;
@@ -259,22 +271,22 @@ FALLBACK_LAYER_OPS_CL(LSTM, cpu_float)
 UNSUPPORTED_LAYER_OPS(cpu_s8, SLICE)
 UNSUPPORTED_LAYER_OPS(cpu_q8, SLICE)
 UNSUPPORTED_LAYER_OPS(cpu_q16, SLICE)
-UNSUPPORTED_LAYER_OPS(cl, SLICE)
+UNSUPPORTED_LAYER_OPS_CL(SLICE)
 
 UNSUPPORTED_LAYER_OPS(cpu_s8, DETECTION)
 UNSUPPORTED_LAYER_OPS(cpu_q8, DETECTION)
 UNSUPPORTED_LAYER_OPS(cpu_q16, DETECTION)
-UNSUPPORTED_LAYER_OPS(cl, DETECTION)
+UNSUPPORTED_LAYER_OPS_CL(DETECTION)
 
 UNSUPPORTED_LAYER_OPS(cpu_s8, PROPOSAL)
 UNSUPPORTED_LAYER_OPS(cpu_q8, PROPOSAL)
 UNSUPPORTED_LAYER_OPS(cpu_q16, PROPOSAL)
-UNSUPPORTED_LAYER_OPS(cl, PROPOSAL)
+UNSUPPORTED_LAYER_OPS_CL(PROPOSAL)
 
 UNSUPPORTED_LAYER_OPS(cpu_s8, PYRAMID_ROI_ALIGN)
 UNSUPPORTED_LAYER_OPS(cpu_q8, PYRAMID_ROI_ALIGN)
 UNSUPPORTED_LAYER_OPS(cpu_q16, PYRAMID_ROI_ALIGN)
-UNSUPPORTED_LAYER_OPS(cl, PYRAMID_ROI_ALIGN)
+UNSUPPORTED_LAYER_OPS_CL(PYRAMID_ROI_ALIGN)
 
 FALLBACK_LAYER_OPS_CPU_S8(DETECTIONOUTPUT, cpu_float)
 FALLBACK_LAYER_OPS_CPU_Q8(DETECTIONOUTPUT, cpu_float)

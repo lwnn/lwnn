@@ -29,8 +29,6 @@ int layer_cpu_q16_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;
 	uint8_t* pmask = NULL;
 
-	NNLOG(NN_DEBUG, ("execute %s:",layer->name));
-
 	if(2 == input_context->nout)
 	{
 		pmask = (uint8_t*) input_context->out[1];

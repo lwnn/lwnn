@@ -33,12 +33,15 @@ int layer_cl_CONST_init(const nn_t* nn, const layer_t* layer)
 	return r;
 }
 
+int layer_cl_CONST_set_args(const nn_t* nn, const layer_t* layer)
+{
+	return 0;
+}
+
 int layer_cl_CONST_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cl_const_context_t* context = (layer_cl_const_context_t*)layer->C->context;
-
-	NNLOG(NN_DEBUG, ("execute %s\n",layer->name));
 
 	context->out[0] = context->C;
 

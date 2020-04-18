@@ -24,6 +24,8 @@ int layer_cpu_float_SLICE_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 
+	r = NN_E_NOT_IMPLEMENTED;
+
 	return r;
 }
 void layer_cpu_float_SLICE_deinit(const nn_t* nn, const layer_t* layer)

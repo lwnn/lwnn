@@ -178,8 +178,8 @@ int layer_cpu_q8_LSTM_execute(const nn_t* nn, const layer_t* layer)
 	hidden_size = layer->blobs[1]->dims[1]/4;;
 	num_directions = layer->blobs[1]->dims[0];
 
-	NNLOG(NN_DEBUG, ("execute %s: B=%d, I=%d, H=%d, O=%d, D=%d, %dx%d+%d(%d,%d) -> %d\n",
-			layer->name, batch_size, input_size, hidden_size, output_size, num_directions,
+	NNLOG(NN_DEBUG, (" B=%d, I=%d, H=%d, O=%d, D=%d, %dx%d+%d(%d,%d) -> %d\n",
+			batch_size, input_size, hidden_size, output_size, num_directions,
 			LAYER_Q(input), wQ, bQ, cQ, gQ, LAYER_Q(layer)));
 
 	gates = (int8_t*)nn->scratch.area;

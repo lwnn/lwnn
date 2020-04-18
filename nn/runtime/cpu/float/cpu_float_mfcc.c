@@ -339,7 +339,7 @@ int layer_cpu_float_MFCC_execute(const nn_t* nn, const layer_t* layer)
 
 	wav_t* wav = nn_get_input_data(nn, layer);
 
-	NNLOG(NN_DEBUG, ("execute %s: wav_data %d@%p\n",layer->name, (int)wav->size, wav->data));
+	NNLOG(NN_DEBUG, (" wav_data %d@%p\n", (int)wav->size, wav->data));
 
 	context->frame = (float*)nn->scratch.area;
 	#if !defined(DISABLE_RTE_FALLBACK) && !defined(DISABLE_RUNTIME_OPENCL)

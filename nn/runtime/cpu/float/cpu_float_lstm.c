@@ -142,7 +142,7 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 	hidden_size = layer->blobs[0]->dims[1]/4;;
 	num_directions = layer->blobs[0]->dims[0];
 
-	NNLOG(NN_DEBUG, ("execute %s: B=%d, I=%d, H=%d, O=%d, D=%d\n", layer->name,
+	NNLOG(NN_DEBUG, (" B=%d, I=%d, H=%d, O=%d, D=%d\n",
 			batch_size, input_size, hidden_size, output_size, num_directions));
 
 	it = (float*)nn->scratch.area;

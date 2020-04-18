@@ -91,7 +91,7 @@ static int halide_execute_layer(const nn_t* nn, const layer_t* layer)
 
 	if(layer->op < ARRAY_SIZE(halide_lops))
 	{
-		NNLOG(NN_DEBUG, ("execute %s: [%d %d %d %d]\n", layer->name, L_SHAPES(layer)));
+		NNLOG(NN_DEBUG, ("execute %s: [%dx%dx%dx%d]\n", layer->name, L_SHAPES(layer)));
 		r = halide_lops[layer->op].execute(nn, layer);
 		NNDDO(NN_DEBUG, rte_ddo_save(nn, layer));
 	}

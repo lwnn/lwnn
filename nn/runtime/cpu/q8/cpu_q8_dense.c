@@ -71,7 +71,7 @@ int layer_cpu_q8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 	wQ = RTE_FETCH_INT8(layer->blobs[3]->blob, 0);
 	bQ = RTE_FETCH_INT8(layer->blobs[3]->blob, 1);
 
-	NNLOG(NN_DEBUG, ("execute %s: [%d %d] %dx%d+%d -> %d\n",
+	NNLOG(NN_DEBUG, (" *[%dx%d] %dx%d+%d -> %d\n",
 			layer->name,
 			dim_vec, num_of_rows,
 			LAYER_Q(input), wQ, bQ, LAYER_Q(layer)));

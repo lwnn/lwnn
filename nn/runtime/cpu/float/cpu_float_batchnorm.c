@@ -37,8 +37,6 @@ int layer_cpu_float_BATCHNORM_execute(const nn_t* nn, const layer_t* layer)
 	int i,c;
 	float X;
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
-
 	/* s * (x - mean) / np.sqrt(var + epsilon) + bias */
 	for(i=0; i<nC; i++)
 	{

@@ -100,9 +100,7 @@ int alg_concat(const nn_t* nn, const layer_t* layer, int axis,
 		out_stride *= RTE_FETCH_INT32(&(context->nhwc), j);
 	}
 
-	NNLOG(NN_DEBUG, ("execute %s[%d %d %d %d]: axis=%d, n_block=%d, out stride=%d\n",
-			layer->name,
-			context->nhwc.N, context->nhwc.H, context->nhwc.W, context->nhwc.C,
+	NNLOG(NN_DEBUG, (" axis=%d, n_block=%d, out stride=%d\n",
 			axis, (int)n_block, (int)out_stride));
 
 	while((*input) != NULL)

@@ -53,10 +53,7 @@ int layer_cpu_float_RESHAPE_execute(const nn_t* nn, const layer_t* layer)
 
 	rte_cpu_dynamic_reshape(layer, input_context);
 
-	NNLOG(NN_DEBUG, ("execute %s: %d %d %d %d\n", layer->name, L_SHAPES(layer)));
-
 	context->out[0] = IN;	/* yes, just set up the output */
-
 
 	return r;
 }

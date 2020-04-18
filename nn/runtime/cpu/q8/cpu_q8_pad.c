@@ -86,7 +86,7 @@ int layer_cpu_q8_PAD_execute(const nn_t* nn, const layer_t* layer)
 
 	int8_t value = RTE_FETCH_INT8(layer->blobs[1]->blob, 0);
 
-	NNLOG(NN_DEBUG, ("execute %s: [%d %d %d %d]\n", layer->name,
+	NNLOG(NN_DEBUG, (" padding=[%d %d %d %d]\n",
 			padding_top,padding_bottom, padding_left,padding_right));
 
 	for(batch=0; (batch<input_context->nhwc.N) && (0 == r); batch++)

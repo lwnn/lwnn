@@ -34,13 +34,16 @@ int layer_cl_INPUT_init(const nn_t* nn, const layer_t* layer)
 	return r;
 }
 
+int layer_cl_INPUT_set_args(const nn_t* nn, const layer_t* layer)
+{
+	return 0;
+}
+
 int layer_cl_INPUT_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cl_input_context_t* context = (layer_cl_input_context_t*)layer->C->context;
 	float* data;
-
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 
 	data = (float*) nn_get_input_data(nn, layer);
 	if(NULL != data)

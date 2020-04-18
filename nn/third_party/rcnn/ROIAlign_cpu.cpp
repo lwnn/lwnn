@@ -306,7 +306,7 @@ extern "C" int ROIAlign_forward_cpu(float* o, const float* in,
   int i;
   const float* feature;
 
-  NNLOG(NN_DEBUG, ("ROTAlign: image_shape=[%d %d %d %d], pool=[%d %d], %d features\n",
+  NNLOG(NN_DEBUG, (" ROTAlign: image_shape=[%d %d %d %d], pool=[%d %d], %d features\n",
               inhwc->N, height, width, channels, pooled_height, pooled_width, num_rois));
 
   for(i=0; i<num_rois; i++) {
@@ -335,7 +335,7 @@ extern "C" int CropAndResize_forward_cpu(float* o, const float* in,
   int i;
   const float* feature;
 
-  NNLOG(NN_DEBUG, ("CropAndResize: image_shape=[%d %d %d %d], pool=[%d %d], %d features\n",
+  NNLOG(NN_DEBUG, (" CropAndResize: image_shape=[%d %d %d %d], pool=[%d %d], %d features\n",
               inhwc->N, height, width, channels, pooled_height, pooled_width, num_rois));
 
   for(i=0; i<num_rois; i++) {
@@ -386,8 +386,8 @@ extern "C" int Pyramid_ROIAlign_forward_cpu(const nn_t* nn, const layer_t* layer
   }
   context->nhwc.N = num_rois;
 
-  NNLOG(NN_DEBUG, ("execute %s [%d %d %d %d]: image_shape=[%d %d], pool=[%d %d], %d features\n",
-       layer->name, L_SHAPES(layer), (int)image_height, (int)image_width,
+  NNLOG(NN_DEBUG, (" image_shape=[%d %d], pool=[%d %d], %d features\n",
+       (int)image_height, (int)image_width,
        pooled_height, pooled_width, n_features));
 
   for(i=0; i<num_rois; i++) {

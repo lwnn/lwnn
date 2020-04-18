@@ -25,8 +25,16 @@ typedef struct
 	STAILQ_HEAD(rte_cl_image_head,rte_cl_image) images;
 #endif
 } rte_cl_t;
+
+typedef struct
+{
+	int (*init)(const nn_t*, const layer_t*);
+	int (*set_args)(const nn_t*, const layer_t*);
+	int (*execute)(const nn_t*, const layer_t*);
+	void (*deinit)(const nn_t*, const layer_t*);
+} layer_cl_ops_t;
 /* ============================ [ DECLARES  ] ====================================================== */
-#define OP_DEF(op) L_OPS_DECLARE(cl_##op);
+#define OP_DEF(op) L_OPS_DECLARE(cl_##op);int layer_cl_##op##_set_args(const nn_t*, const layer_t*);
 #include "opdef.h"
 #undef OP_DEF
 #ifndef DISABLE_NN_DDO
@@ -34,9 +42,14 @@ extern void rte_ddo_save(const nn_t* nn, const layer_t* layer);
 static int cl_ddo_layer(const nn_t* nn, const layer_t* layer);
 #endif
 /* ============================ [ DATAS     ] ====================================================== */
-static const layer_ops_t cl_lops[] =
+static const layer_cl_ops_t cl_lops[] =
 {
-#define OP_DEF(op) L_OPS_REF(cl_##op),
+#define OP_DEF(op) 	{				\
+		layer_cl_##op##_init,		\
+		layer_cl_##op##_set_args,	\
+		layer_cl_##op##_execute,	\
+		layer_cl_##op##_deinit		\
+	},
 	#include "opdef.h"
 #undef OP_DEF
 };
@@ -178,6 +191,7 @@ static int cl_execute_layer(const nn_t* nn, const layer_t* layer)
 
 	if(layer->op < ARRAY_SIZE(cl_lops))
 	{
+		NNLOG(NN_DEBUG, ("execute %s: [%dx%dx%dx%d]\n", layer->name, L_SHAPES(layer)));
 		r = cl_lops[layer->op].execute(nn, layer);
 
 #ifndef DISABLE_NN_DDO
@@ -208,7 +222,21 @@ static int cl_init_layer(const nn_t* nn, const layer_t* layer)
 
 	if(layer->op < ARRAY_SIZE(cl_lops))
 	{
+		NNLOG(NN_DEBUG, ("init %s\n", layer->name));
 		r = cl_lops[layer->op].init(nn, layer);
+	}
+
+	return r;
+}
+
+static int cl_set_layer_args(const nn_t* nn, const layer_t* layer)
+{
+	int r = NN_E_INVALID_LAYER;
+
+	if(layer->op < ARRAY_SIZE(cl_lops))
+	{
+		NNLOG(NN_DEBUG, ("setargs %s\n", layer->name));
+		r = cl_lops[layer->op].set_args(nn, layer);
 	}
 
 	return r;
@@ -539,6 +567,8 @@ int rte_OPENCL_init(const nn_t* nn)
 	}
 #endif
 
+	r = rte_do_for_each_layer(nn, cl_set_layer_args);
+
 	return r;
 }
 
@@ -729,7 +759,7 @@ cl_mem rte_cl_create_image2d_from_blob(const nn_t* nn, const layer_blob_t* blob)
 
 void rte_cl_destory_memory(cl_mem mem)
 {
-	clReleaseMemObject(mem);
+	if(mem) clReleaseMemObject(mem);
 }
 
 int rte_cl_create_layer_context(

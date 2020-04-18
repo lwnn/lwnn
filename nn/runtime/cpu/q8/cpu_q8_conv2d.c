@@ -250,8 +250,7 @@ int layer_cpu_q8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	wQ = (int8_t)ints[6];
 	bQ = (int8_t)ints[7];
 
-	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d], %dx%d+%d -> %d\n",
-			layer->name,
+	NNLOG(NN_DEBUG, (" kernel=[%d %d], pads=[%d %d], strides=[%d %d], %dx%d+%d -> %d\n",
 			knlY, knlX, padY, padX, strideY, strideX,
 			LAYER_Q(input), wQ, bQ, LAYER_Q(layer)));
 

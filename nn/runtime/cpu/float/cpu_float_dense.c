@@ -60,7 +60,7 @@ int layer_cpu_float_DENSE_execute(const nn_t* nn, const layer_t* layer)
 
 	rte_cpu_dynamic_batch(layer, input_context);
 
-	NNLOG(NN_DEBUG, ("execute %s: [%d %d]\n", layer->name, dim_vec, num_of_rows));
+	NNLOG(NN_DEBUG, (" *[%dx%d]\n", dim_vec, num_of_rows));
 
 	for(batch=0; batch<input_context->nhwc.N; batch++)
 	{

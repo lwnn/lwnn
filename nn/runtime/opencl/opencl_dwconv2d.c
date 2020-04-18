@@ -32,31 +32,16 @@ int layer_cl_DWCONV2D_init(const nn_t* nn, const layer_t* layer)
 		context = (layer_cl_dwconv2d_context_t*)layer->C->context;
 
 		context->W = rte_cl_create_image2d_from_blob(nn, layer->blobs[0]);
-		if(NULL != context->W)
+		context->B = rte_cl_create_image2d_from_blob(nn, layer->blobs[1]);
+		if((NULL == context->W) || (NULL == context->B))
 		{
-			context->B = rte_cl_create_image2d_from_blob(nn, layer->blobs[1]);
-			if(NULL == context->B)
-			{
-				rte_cl_destory_memory(context->W);
-				context->W = NULL;
-				r = NN_E_NO_MEMORY;
-			}
-		}
-		else
-		{
-			context->B = NULL;
 			r = NN_E_NO_MEMORY;
-		}
-
-		if(0 != r)
-		{
-			rte_cl_destory_layer_context(nn, layer);
 		}
 	}
 
 	return r;
 }
-int layer_cl_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
+int layer_cl_DWCONV2D_set_args(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cl_dwconv2d_context_t* context = (layer_cl_dwconv2d_context_t*)layer->C->context;
@@ -66,8 +51,6 @@ int layer_cl_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 	int* ints;
 
 	input_context = (layer_cl_context_t*)input->C->context;
-
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 
 	ints = (int*)layer->blobs[0]->dims;
 	knlY = ints[1];
@@ -94,13 +77,15 @@ int layer_cl_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 					sizeof(int), &strideX,
 					sizeof(int), &strideY);
 
-	if(0 == r)
-	{
-		r = rte_cl_execute_layer(nn, layer, RTE_GWT_W_H_C, FALSE, NULL);
-	}
-
 	return r;
+
 }
+
+int layer_cl_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
+{
+	return rte_cl_execute_layer(nn, layer, RTE_GWT_W_H_C, FALSE, NULL);
+}
+
 void layer_cl_DWCONV2D_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cl_dwconv2d_context_t* context;

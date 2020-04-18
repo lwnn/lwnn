@@ -246,8 +246,8 @@ static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 		M = (uint8_t*)context->out[1];
 	}
 
-	NNLOG(NN_DEBUG, ("execute %s%s: kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n",
-					layer->name, M?" with mask":"",
+	NNLOG(NN_DEBUG, (" %s kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n",
+					M?" with mask":"",
 					knlY, knlX, padY, padX, strideY, strideX));
 
 

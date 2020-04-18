@@ -36,8 +36,6 @@ int layer_cpu_q16_BATCHNORM_execute(const nn_t* nn, const layer_t* layer)
 	int i,c;
 	int32_t out;
 
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
-
 	for(i=0; i<nC; i++)
 	{
 		for(c=0; c<context->nhwc.C; c++)

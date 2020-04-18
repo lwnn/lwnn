@@ -223,7 +223,7 @@ static int layer_cpu_q8_pool_execute(const nn_t* nn, const layer_t* layer)
 	strideY = ints[4];
 	strideX = ints[5];
 
-	NNLOG(NN_DEBUG, ("execute %s: kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n", layer->name,
+	NNLOG(NN_DEBUG, (" kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n",
 					knlY, knlX, padY, padX, strideY, strideX));
 
 

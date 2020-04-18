@@ -27,7 +27,7 @@ int layer_cl_UPSAMPLE_init(const nn_t* nn, const layer_t* layer)
 			OPENCL_PATH "upsample.cl", "upsample2d", option,
 			sizeof(layer_cl_upsample_context_t));
 }
-int layer_cl_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
+int layer_cl_UPSAMPLE_set_args(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cl_upsample_context_t* context = (layer_cl_upsample_context_t*)layer->C->context;
@@ -36,8 +36,6 @@ int layer_cl_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
 	int strideX, strideY;
 
 	input_context = (layer_cl_context_t*)input->C->context;
-
-	NNLOG(NN_DEBUG, ("execute %s\n", layer->name));
 
 	strideY = context->nhwc.H/input_context->nhwc.H;
 	strideX = context->nhwc.W/input_context->nhwc.W;
@@ -57,13 +55,14 @@ int layer_cl_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
 					sizeof(int), &strideY);
 	}
 
-	if(0 == r)
-	{
-		r = rte_cl_execute_layer(nn, layer, RTE_GWT_CL_W_H, FALSE, NULL);
-	}
-
 	return r;
 }
+
+int layer_cl_UPSAMPLE_execute(const nn_t* nn, const layer_t* layer)
+{
+	return rte_cl_execute_layer(nn, layer, RTE_GWT_CL_W_H, FALSE, NULL);
+}
+
 void layer_cl_UPSAMPLE_deinit(const nn_t* nn, const layer_t* layer)
 {
 	rte_cl_destory_layer_context(nn, layer);
