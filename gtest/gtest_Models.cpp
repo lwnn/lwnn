@@ -38,6 +38,9 @@
 #define NNT_MASKRCNN_NOT_FOUND_OKAY TRUE
 #define NNT_MASKRCNN_TOP1 0.9
 
+#define NNT_FACENET_NOT_FOUND_OKAY TRUE
+#define NNT_FACENET_TOP1 0.9
+
 #define ARGS_PREFETCH_ALL 0x01
 #define ARGS_COMPARE_ALL_AT_END 0x02
 /* ============================ [ TYPES     ] ====================================================== */
@@ -55,6 +58,7 @@ typedef struct {
 	size_t flags;
 } nnt_model_args_t;
 /* ============================ [ DECLARES  ] ====================================================== */
+int mtcnn_predict(nn_t* PNet, nn_t* RNet, nn_t* ONet, image_t* im, float** p_points, size_t* p_number);
 extern "C" int ROIAlign_forward_cpu(float* o, const float* in,
                                     const float* boxes, const int* indices,
                                     NHWC_t* onhwc, NHWC_t* inhwc);
@@ -66,6 +70,7 @@ static void* load_enet_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_kws_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_ds_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_maskrcnn_input(nn_t* nn, const char* path, int id, size_t* sz);
+static void* load_facenet_input(nn_t* nn, const char* path, int id, size_t* sz);
 static void* load_output(const char* path, int id, size_t* sz);
 static int ssd_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int yolov3_compare(nn_t* nn, int id, float* output, size_t szo, float* gloden, size_t szg);
@@ -74,6 +79,7 @@ static int enet_compare(nn_t* nn, int id, float * output, size_t szo, float* glo
 static int kws_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int ds_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 static int maskrcnn_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
+static int facenet_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg);
 /* ============================ [ DATAS     ] ====================================================== */
 const char* g_InputImagePath = NULL;
 
@@ -198,6 +204,34 @@ static const nnt_model_args_t nnt_maskrcnn_args =
 NNT_CASE_DEF(MASKRCNN) =
 {
 	NNT_CASE_DESC_ARGS(maskrcnn),
+};
+
+NNT_CASE_DEF(PNET) =
+{
+	NNT_CASE_DESC(PNet),
+};
+
+NNT_CASE_DEF(RNET) =
+{
+	NNT_CASE_DESC(RNet),
+};
+
+NNT_CASE_DEF(ONET) =
+{
+	NNT_CASE_DESC(ONet),
+};
+static const nnt_model_args_t nnt_facenet_args =
+{
+	load_facenet_input,
+	load_output,
+	facenet_compare,
+	1,
+	ARGS_PREFETCH_ALL|ARGS_COMPARE_ALL_AT_END
+};
+
+NNT_CASE_DEF(FACENET) =
+{
+	NNT_CASE_DESC_ARGS(facenet),
 };
 /* ============================ [ LOCALS    ] ====================================================== */
 static void* load_input(nn_t* nn, const char* path, int id, size_t* sz)
@@ -440,6 +474,58 @@ static void* load_maskrcnn_input(nn_t* nn, const char* path, int id, size_t* sz)
 
 	return (void*) input;
 }
+
+static void* load_facenet_input(nn_t* nn, const char* path, int id, size_t* sz)
+{
+	image_t* im;
+	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
+	float* input = NULL;
+	void *dllP=NULL,*dllR=NULL,*dllO=NULL;
+	const network_t* network;
+	nn_t *PNet=NULL,*RNet=NULL,*ONet=NULL;
+
+	network = nnt_load_network(PNET_cases[0].networkFloat, &dllP);
+	if(NULL != network) {
+		PNet = nn_create(network, RUNTIME_CPU);
+	}
+	network = nnt_load_network(RNET_cases[0].networkFloat, &dllR);
+	if(NULL != network) {
+		RNet = nn_create(network, RUNTIME_CPU);
+	}
+	network = nnt_load_network(ONET_cases[0].networkFloat, &dllO);
+	if(NULL != network) {
+		ONet = nn_create(network, RUNTIME_CPU);
+	}
+
+	assert(g_InputImagePath != NULL);
+	printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
+
+	if((PNet!=NULL) && (RNet!=NULL) && (ONet!=NULL)) {
+		im = image_open(g_InputImagePath);
+		assert(im != NULL);
+
+		size_t number = 0;
+		float* points = NULL;
+		int r = mtcnn_predict(PNet, RNet, ONet, im, &points, &number);
+
+		EXPECT_EQ(0, r);
+
+		if(points) delete [] points;
+		image_close(im);
+	} else {
+		printf("loading MTCNN failed\n");
+	}
+
+	if(PNet) nn_destory(PNet);
+	if(RNet) nn_destory(RNet);
+	if(ONet) nn_destory(ONet);
+
+	if(dllP) dlclose(dllP);
+	if(dllR) dlclose(dllR);
+	if(dllO) dlclose(dllO);
+	return input;
+}
+
 static void* load_output(const char* path, int id, size_t* sz)
 {
 	char name[256];
@@ -818,6 +904,11 @@ static int maskrcnn_compare(nn_t* nn, int id, float * output, size_t szo, float*
 
 	return 0;
 }
+
+static int facenet_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg)
+{
+	return 0;
+}
 /* ============================ [ FUNCTIONS ] ====================================================== */
 void ModelTestMain(runtime_type_t runtime,
 		const network_t* network,
@@ -1103,3 +1194,5 @@ NNT_MODEL_TEST_ALL(KWS)
 NNT_MODEL_TEST_ALL(DS)
 
 NNT_MODEL_TEST_ALL(MASKRCNN)
+
+NNT_MODEL_TEST_ALL(FACENET)

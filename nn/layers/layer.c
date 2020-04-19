@@ -175,6 +175,20 @@ int layer_get_NHWC(const layer_t* layer, NHWC_t* nhwc)
 			break;
 	}
 
+	#ifndef DISABLE_DYNAMIC_SHAPE
+	if((-1==nhwc->H) && (-1==nhwc->W)) {
+		nhwc->W = 1;
+	}
+	dim = 0;
+	if(-1==nhwc->N) dim++;
+	if(-1==nhwc->H) dim++;
+	if(-1==nhwc->W) dim++;
+	if(-1==nhwc->C) dim++;
+	if(dim > 1) {
+		r = NN_E_INVALID_DIMENSION;
+	}
+	#endif
+
 	return r;
 }
 

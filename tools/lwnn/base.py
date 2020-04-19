@@ -263,8 +263,12 @@ class LWNNBaseC():
     def gen_models(self):
         for layer in self.model.lwnn_model:
             if(layer['op'] in ['Input', 'Mfcc']):
-                self.fpC.write('static %s %s_input_buffer[%s];\n'%(self.get_type(layer), layer['name'], self.get_size(layer)))
-                self.fpC.write('static const nn_input_t %s_input=\n{\n\tL_REF(%s), %s_input_buffer\n};\n'
+                if(-1 in layer.shape):
+                    self.fpC.write('static nn_input_t %s_input=\n{\n\tL_REF(%s), NULL\n};\n'
+                               %(layer['name'],layer['name']))
+                else:
+                    self.fpC.write('static %s %s_input_buffer[%s];\n'%(self.get_type(layer), layer['name'], self.get_size(layer)))
+                    self.fpC.write('static const nn_input_t %s_input=\n{\n\tL_REF(%s), %s_input_buffer\n};\n'
                                %(layer['name'],layer['name'],layer['name']))
         self.fpC.write('static const nn_input_t* const %s_%s_inputs[] =\n{\n'%(self.name, self.T))
         for layer in self.model.lwnn_model:
@@ -273,11 +277,12 @@ class LWNNBaseC():
         self.fpC.write('\tNULL\n};\n\n')
         for layer in self.model.lwnn_model:
             if((layer['op'] == 'Output') or ('Output' in layer)):
-                if(self.get_size(layer) > 0):
-                    self.fpC.write('static %s %s_output_buffer[%s];\n'%(self.get_type(layer), layer['name'], self.get_size(layer)))
+                if(-1 in layer.shape):
+                    self.fpC.write('static nn_output_t %s_output=\n{\n\tL_REF(%s), NULL\n};\n'
+                               %(layer['name'],layer['name']))
                 else:
-                    self.fpC.write('#define %s_output_buffer NULL\n'%(layer.name))
-                self.fpC.write('static const nn_output_t %s_output=\n{\n\tL_REF(%s), %s_output_buffer\n};\n'
+                    self.fpC.write('static %s %s_output_buffer[%s];\n'%(self.get_type(layer), layer['name'], self.get_size(layer)))
+                    self.fpC.write('static const nn_output_t %s_output=\n{\n\tL_REF(%s), %s_output_buffer\n};\n'
                                %(layer['name'],layer['name'],layer['name']))
         self.fpC.write('static const nn_output_t* const %s_%s_outputs[] =\n{\n'%(self.name, self.T))
         for layer in self.model.lwnn_model:
@@ -343,6 +348,8 @@ class LWNNBaseC():
             pads = [0,0]
         else:
             pads = list(layer['pads'])[:2]
+        if(-1 in layer.shape):
+            pads = [0xdeadbeef,self.get_padding_mode(layer)]
         with_mask = 0
         if(len(layer['outputs']) == 2):
             with_mask = 1
@@ -367,6 +374,8 @@ class LWNNBaseC():
             pads = [0,0]
         else:
             pads = list(layer['pads'])[:2]
+        if(-1 in layer.shape):
+            pads = [0xdeadbeef,self.get_padding_mode(layer)]
         with_mask = 0
         if(len(layer['outputs']) == 2):
             with_mask = 1

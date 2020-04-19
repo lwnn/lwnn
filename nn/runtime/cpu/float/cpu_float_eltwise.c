@@ -11,6 +11,7 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
+	LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER;
 	alg_broadcast_t broadcast;
 	layer_context_t* inputA_context;
 	layer_context_t* inputB_context;
@@ -58,11 +59,22 @@ static int layer_cpu_float_eltwise_execute(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 	layer_cpu_float_eltwise_context_t* context = (layer_cpu_float_eltwise_context_t*)layer->C->context;
-	size_t sz = NHWC_SIZE(context->nhwc);
+	size_t sz;
 	float* A;
 	float* B;
 	float* O;
 
+#ifndef DISABLE_DYNAMIC_SHAPE
+  rte_cpu_dynamic_shape_copy(layer, (layer_cpu_context_t*)context->inputA_context);
+  sz = NHWC_SIZE(context->nhwc);
+  if(NULL == context->out[0]) {
+	r = alg_broadcast_prepare(&(context->inputA_context), &(context->inputB_context), &(context->broadcast));
+  }
+  if( 0 == r) {
+	r = rte_cpu_dynamic_memory(&context->out[0], sz, &context->allocated, sizeof(float));
+  }
+#endif
+  if(0 == r) {
 	A = (float*)context->inputA_context->out[0];
 	B = (float*)context->inputB_context->out[0];
 	O = (float*)context->out[0];
@@ -109,12 +121,13 @@ static int layer_cpu_float_eltwise_execute(const nn_t* nn, const layer_t* layer)
 			r = NN_E_INVALID_LAYER;
 			break;
 	}
-
+  }
 	return r;
 }
 
 static void layer_cpu_float_eltwise_deinit(const nn_t* nn, const layer_t* layer)
 {
+	rte_cpu_dynamic_free(layer);
 	rte_cpu_destory_layer_context(nn, layer);
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */

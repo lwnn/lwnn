@@ -16,25 +16,25 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 
 | Layers/Runtime | cpu float | cpu s8 | cpu q8 | cpu q16 | opencl | comments |
 | - | - | - | - | - | - | - |
-| Conv1D | Y | Y | Y | Y | Y | based on Conv2D |
-| Conv2D | Y | Y | Y | Y | Y | |
+| Conv1D | Y d | Y | Y | Y | Y | based on Conv2D |
+| Conv2D | Y d | Y | Y | Y | Y | |
 | DeConv2D | Y | Y | Y | Y | Y | |
 | DepthwiseConv2D | Y | Y | Y | Y | Y | |
 | DilatedConv2D | Y | N | N | N | Y | |
-| EltmentWise Max | Y | Y | Y | Y | Y | |
-| ReLU | Y | Y | Y | Y | Y | |
-| PReLU | Y | N | N | N | Y | |
-| MaxPool1D | Y | Y | Y | Y | Y | based on MaxPool2D |
-| MaxPool2D | Y | Y | Y | Y | Y | |
+| EltmentWise Max | Y d | Y | Y | Y | Y | |
+| ReLU | Y d | Y | Y | Y | Y | |
+| PReLU | Y d | N | N | N | Y | |
+| MaxPool1D | Y d | Y | Y | Y | Y | based on MaxPool2D |
+| MaxPool2D | Y d | Y | Y | Y | Y | |
 | Dense | Y | Y | Y | Y | Y | |
-| Softmax | Y | Y | Y | Y | Y | |
-| Reshape | Y | Y | Y | Y | Y | |
+| Softmax | Y d | Y | Y | Y | Y | |
+| Reshape | Y d | Y | Y | Y | Y | |
 | Pad | Y | Y | Y | Y | Y | |
 | BatchNorm | Y | Y | Y | Y | Y | |
 | Concat | Y | Y | Y | Y | Y | |
-| AvgPool1D | Y | Y | Y | Y | Y | based on AvgPool2D |
-| AvgPool2D | Y | Y | Y | Y | Y | |
-| Add | Y | Y | Y | Y | Y | |
+| AvgPool1D | Y d | Y | Y | Y | Y | based on AvgPool2D |
+| AvgPool2D | Y d | Y | Y | Y | Y | |
+| Add | Y d | Y | Y | Y | Y | |
 | PriorBox | Y | N | N | N | F | |
 | DetectionOutput | Y | F | F | F | F | |
 | Upsample | Y | Y | Y | Y | Y | |
@@ -43,9 +43,10 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 | Mfcc | Y | F | F | F | F | |
 | LSTM | Y | N | Y | N | F | |
 | Proposal | Y | N | N | N | N | |
+| Mul | Y d | N | N | N | Y | |
 
 * F means fallback to others runtime that supported that layer.
-
+* d means dynamic shape support
 * s8/q8/q16: all are in Q Format
 * s8: 8 bit symmetric quantization with zero offset, very similar to [tflite quantization](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/g3doc/performance/quantization_spec.md)
 

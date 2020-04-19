@@ -90,7 +90,7 @@ static int layer_cpu_float_activation_execute(const nn_t* nn, const layer_t* lay
 	size_t sz = NHWC_SIZE(input_context->nhwc);
 	float* IN;
 
-	rte_cpu_dynamic_reshape(layer, input_context);
+	rte_cpu_dynamic_shape_copy(layer, input_context);
 
 	IN = (float*)input_context->out[0];
 

@@ -46,9 +46,9 @@ extern "C" {
 		sz = sz/C;														\
 		for(i=0; i<sz; i++)												\
 		{																\
-			for(c=0; c<C; i++)											\
+			for(c=0; c<C; c++)											\
 			{															\
-				ALG_##OP(O[i], A[i], B[c])								\
+				ALG_##OP(O[i*C+c], A[i], B[c])							\
 			}															\
 		}																\
 	}

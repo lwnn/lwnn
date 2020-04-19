@@ -40,6 +40,12 @@ extern "C" {
 	( (L_OP_YOLOOUTPUT == layer->op) || \
 	  (L_OP_DETECTIONOUTPUT == layer->op) )
 #endif /* DISABLE_RTE_FALLBACK */
+
+#ifndef DISABLE_DYNAMIC_SHAPE
+#define LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER size_t allocated
+#else
+#define LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER
+#endif
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct
 {
@@ -83,15 +89,19 @@ void* rte_cpu_fetch_out0(const nn_t* nn, const layer_t* layer);
 
 #ifndef DISABLE_DYNAMIC_SHAPE
 void rte_cpu_dynamic_reshape(const layer_t* layer, layer_cpu_context_t* input_context);
+void rte_cpu_dynamic_shape_copy(const layer_t* layer, layer_cpu_context_t* input_context);
 void rte_cpu_dynamic_batch(const layer_t* layer, layer_cpu_context_t* input_context);
-int rte_cpu_dynamic_conv2d(const layer_t* layer,
+int rte_cpu_dynamic_memory(void** mem, size_t required, size_t* allocated, size_t type_sz);
+int rte_cpu_dynamic_conv2d_or_pool(const layer_t* layer,
 		layer_cpu_context_t* context, layer_cpu_context_t* input_context,
 		int* padY, int* padX, int strideY, int strideX,
-		int knlY, int knlX, void** O, size_t* max, size_t type_sz);
+		int knlY, int knlX);
 void rte_cpu_dynamic_free(const layer_t* layer);
 #else
 #define rte_cpu_dynamic_reshape(layer, input_context)
+#define rte_cpu_dynamic_shape_copy(layer, input_context)
 #define rte_cpu_dynamic_batch(layer, input_context)
+#define rte_cpu_dynamic_memory(mem, required, allocated, type_sz) 0
 #define rte_cpu_dynamic_conv2d(layer, context, input_context, \
 	padY, padX, strideY, strideX, knlY, knlX, O, max, type_sz) 0
 #define rte_cpu_dynamic_free(layer)

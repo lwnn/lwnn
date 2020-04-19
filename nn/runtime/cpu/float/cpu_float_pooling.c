@@ -10,6 +10,10 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
+	LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER;
+#ifndef DISABLE_DYNAMIC_SHAPE
+	size_t allocated_mask;
+#endif
 } layer_cpu_float_pool_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -177,6 +181,7 @@ static int layer_cpu_float_pool_init(const nn_t* nn, const layer_t* layer)
 	int* ints = (int*)layer->blobs[0]->blob;
 	int with_mask = ints[6];
 	int nout = 1;
+	int bsz;
 
 	if(with_mask)
 	{
@@ -189,7 +194,9 @@ static int layer_cpu_float_pool_init(const nn_t* nn, const layer_t* layer)
 	{
 		context = (layer_cpu_float_pool_context_t*)layer->C->context;
 
-		context->out[0] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*sizeof(float));
+	  bsz = NHWC_SIZE(context->nhwc);
+	  if(bsz > 0) {
+		context->out[0] = rte_cpu_create_buffer(nn, layer, bsz*sizeof(float));
 
 		if(NULL == context->out[0])
 		{
@@ -197,7 +204,7 @@ static int layer_cpu_float_pool_init(const nn_t* nn, const layer_t* layer)
 		}
 		else if(with_mask)
 		{
-			context->out[1] = rte_cpu_create_buffer(nn, layer, NHWC_SIZE(context->nhwc)*sizeof(uint8_t));
+			context->out[1] = rte_cpu_create_buffer(nn, layer, bsz*sizeof(uint8_t));
 			if(NULL == context->out[1])
 			{
 				r = NN_E_NO_MEMORY;
@@ -212,6 +219,7 @@ static int layer_cpu_float_pool_init(const nn_t* nn, const layer_t* layer)
 		{
 			rte_cpu_destory_layer_context(nn, layer);
 		}
+	  }
 	}
 
 	return r;
@@ -224,14 +232,18 @@ static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 	const layer_t* input = layer->inputs[0];
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;;
 	float* IN = (float*)input_context->out[0];
-	float *O = (float*)context->out[0];
+	float *O;
 	uint8_t *M = NULL;
 
 	int* ints;
+	int with_mask;
 	int knlX, knlY, padX, padY, strideX, strideY;
 	size_t batch;
 	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
+
+	ints = (int*)layer->blobs[0]->blob;
+	with_mask = ints[6];
 
 	ints = (int*)layer->blobs[0]->blob;
 	knlY = ints[0];
@@ -241,6 +253,18 @@ static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 	strideY = ints[4];
 	strideX = ints[5];
 
+#ifndef DISABLE_DYNAMIC_SHAPE
+	r = rte_cpu_dynamic_conv2d_or_pool(layer, (layer_cpu_context_t*)context, input_context,
+				&padY, &padX, strideY, strideX, knlY, knlX);
+	if(0 == r) {
+		r = rte_cpu_dynamic_memory(&context->out[0], NHWC_SIZE(context->nhwc), &context->allocated, sizeof(float));
+	}
+	if((0 == r) && (with_mask)) {
+		r = rte_cpu_dynamic_memory(&context->out[1], NHWC_SIZE(context->nhwc), &context->allocated_mask, sizeof(uint8_t));
+	}
+#endif
+  if(0 == r) {
+	O = (float*)context->out[0];
 	if(2 == context->nout)
 	{
 		M = (uint8_t*)context->out[1];
@@ -272,6 +296,7 @@ static int layer_cpu_float_pool_execute(const nn_t* nn, const layer_t* layer)
 			M = M + batch_sizeO;
 		}
 	}
+  }
 	return r;
 }
 

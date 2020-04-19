@@ -10,9 +10,7 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
-#ifndef DISABLE_DYNAMIC_SHAPE
-	size_t max;
-#endif
+	LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER;
 } layer_cpu_float_conv2d_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -88,7 +86,7 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	const layer_t* input = layer->inputs[0];
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;
 	float *IN = (float*)input_context->out[0];
-	float *O = (float*)context->out[0];
+	float *O;
 	float *weights = (float*)layer->blobs[0]->blob;
 	float *bias = (float*)layer->blobs[1]->blob;
 	int knlX, knlY, padX, padY, strideX, strideY;
@@ -110,11 +108,15 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	strideX = ints[5];
 	act = ints[6];
 
-	r = rte_cpu_dynamic_conv2d(layer, (layer_cpu_context_t*)context, input_context,
-				&padY, &padX, strideY, strideX, knlY, knlX,
-				(void**)&O, &context->max, sizeof(float));
-	if(0 == r) {
-
+#ifndef DISABLE_DYNAMIC_SHAPE
+  r = rte_cpu_dynamic_conv2d_or_pool(layer, (layer_cpu_context_t*)context, input_context,
+				&padY, &padX, strideY, strideX, knlY, knlX);
+  if(0 == r) {
+	r = rte_cpu_dynamic_memory(&context->out[0], NHWC_SIZE(context->nhwc), &context->allocated, sizeof(float));
+  }
+#endif
+  if(0 == r) {
+	O = (float*)context->out[0];
 	batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
 	NNLOG(NN_DEBUG, (" kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n",
@@ -137,7 +139,7 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 			context->nhwc.H,
 			act);
 	}
-	}
+  }
 	return r;
 }
 void layer_cpu_float_CONV2D_deinit(const nn_t* nn, const layer_t* layer)

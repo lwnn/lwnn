@@ -11,7 +11,7 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
-	void* p_out;
+	LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER;
 } layer_cpu_float_softmax_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -54,16 +54,15 @@ int layer_cpu_float_SOFTMAX_init(const nn_t* nn, const layer_t* layer)
 	if(NULL != out)
 	{
 		r = rte_cpu_create_layer_context(nn, layer, sizeof(layer_cpu_float_softmax_context_t), 1);
+		if(0 == r)
+		{
+			context = (layer_cpu_float_softmax_context_t*)layer->C->context;
+			context->out[0] = out;
+		}
 	}
 	else
 	{
 		r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_softmax_context_t), sizeof(float));
-	}
-
-	if(0 == r)
-	{
-		context = (layer_cpu_float_softmax_context_t*)layer->C->context;
-		context->p_out = out;
 	}
 
 	return r;
@@ -76,18 +75,15 @@ int layer_cpu_float_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 	const layer_t* input = layer->inputs[0];
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;
 	float *IN = (float*)input_context->out[0];
-	float *O = (float*)context->out[0];
-	size_t n_block = input_context->nhwc.N*context->nhwc.H*context->nhwc.W;
-	size_t stride = context->nhwc.C;
+	float *O;
+	size_t n_block = input_context->nhwc.N*input_context->nhwc.H*input_context->nhwc.W;
+	size_t stride = input_context->nhwc.C;
 	size_t i;
 
-	rte_cpu_dynamic_batch(layer, input_context);
-
-	if(NULL == O)
-	{
-		O = (float*)context->p_out;
-		context->out[0] = context->p_out;
-	}
+  rte_cpu_dynamic_shape_copy(layer, input_context);
+  r = rte_cpu_dynamic_memory(&context->out[0], NHWC_SIZE(context->nhwc), &context->allocated, sizeof(float));
+  if(0 == r) {
+	O = (float*)context->out[0];
 
 	for(i=0; i<n_block; i++)
 	{
@@ -95,12 +91,13 @@ int layer_cpu_float_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 					stride,
 					O+stride*i);
 	}
-
+  }
 	return r;
 }
 
 void layer_cpu_float_SOFTMAX_deinit(const nn_t* nn, const layer_t* layer)
 {
+	rte_cpu_dynamic_free(layer);
 	rte_cpu_destory_layer_context(nn, layer);
 }
 

@@ -604,15 +604,12 @@ class TfConverter(LWNNUtil):
                 del inp['inputs']
         if('output_node' in self.kwargs):
             for inp in self.get_layers(self.kwargs['output_node']):
-                if(-1 in inp.shape):
-                    inp.Output = True
-                else:
-                    layer = LWNNLayer(name=inp.name+'_O',
-                                  op='Output',
-                                  inputs=[inp.name],
-                                  outputs=[inp.name+'_O'],
-                                  shape=inp.shape)
-                    self.lwnn_model.append(layer)
+                layer = LWNNLayer(name=inp.name+'_O',
+                              op='Output',
+                              inputs=[inp.name],
+                              outputs=[inp.name+'_O'],
+                              shape=inp.shape)
+                self.lwnn_model.append(layer)
 
     def convert(self):
         self.lwnn_model = []
