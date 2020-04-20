@@ -637,7 +637,7 @@ int rte_cpu_dynamic_memory(void** mem, size_t required, size_t* allocated, size_
 			*allocated = required;
 		}
 	} else {
-		r = NN_E_INVALID_LAYER;
+		/* pass */
 	}
 
 	if(NULL == *mem) {

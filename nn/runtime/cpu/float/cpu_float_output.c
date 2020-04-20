@@ -11,6 +11,7 @@
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
 	LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER;
+	void* p_out;
 } layer_cpu_float_output_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -26,7 +27,7 @@ int layer_cpu_float_OUTPUT_init(const nn_t* nn, const layer_t* layer)
 	if(0 == r)
 	{
 		context = (layer_cpu_float_output_context_t*)layer->C->context;
-		context->out[0] = out;
+		context->p_out = out;
 	}
 
 	return r;
@@ -41,6 +42,7 @@ int layer_cpu_float_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
 	float* data;
 
 	input_context = (layer_cpu_context_t*)input->C->context;
+	context->out[0] = context->p_out;
 
   rte_cpu_dynamic_shape_copy(layer, input_context);
   r = rte_cpu_dynamic_memory(&context->out[0], NHWC_SIZE(context->nhwc), &context->allocated, sizeof(float));
@@ -48,7 +50,6 @@ int layer_cpu_float_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
 	data = (float*)context->out[0];
 	if(NULL != data)
 	{
-		context->nhwc = input_context->nhwc;
 		memcpy(data, input_context->out[0], NHWC_SIZE(context->nhwc)*sizeof(float));
 	}
 	else

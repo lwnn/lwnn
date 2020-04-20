@@ -801,7 +801,7 @@ static int ds_compare(nn_t* nn, int id, float * output, size_t szo, float* glode
 
 static int maskrcnn_compare(nn_t* nn, int id, float * output, size_t szo, float* gloden, size_t szg)
 {
-	image_t* im;
+	image_t* im = NULL;
 	layer_context_t* context = (layer_context_t*)nn->network->inputs[0]->layer->C->context;
 	char* pos;
 	float* mrcnn_detection = (float*)nn->network->outputs[1]->data;
@@ -830,10 +830,20 @@ static int maskrcnn_compare(nn_t* nn, int id, float * output, size_t szo, float*
 	assert(mC == ARRAY_SIZE(class_names));
 	pos = strstr((char*)g_InputImagePath, ".raw");
 	if(NULL != pos) {
-		/* pass */
+		im = image_create(W,H,3);
+		if(NULL != im) {
+			float* input = (float*)nn->network->inputs[0]->data;
+			for(int i=0; i<W*H*3; i+=3)
+			{
+				im->data[i] = input[i]+123.7;
+				im->data[i+1] = input[i+1]+116.8;
+				im->data[i+2] = input[i+2]+103.9;
+			}
+		}
 	} else {
 		im = image_open(g_InputImagePath);
-		assert(im != NULL);
+	}
+	if(NULL != im) {
 		float scale = std::min((float)H/im->h, (float)W/im->w);
 		float y_top = (H-scale*im->h)/2;
 		float x_top = (W-scale*im->w)/2;

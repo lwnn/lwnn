@@ -4,6 +4,7 @@ from lwnn.core import *
 from onnx2lwnn import *
 import os
 import json
+import importlib.util
 
 __all__ = ['keras2lwnn']
 
@@ -178,6 +179,10 @@ class KerasConverter(LWNNUtil):
 
     def to_LayerProposal(self, layer):
         config = self.kwargs['rpnconfig']
+        rpn = os.path.abspath('%s/../nn/third_party/rcnn/rpn.py'%(os.path.dirname(__file__)))
+        spec = importlib.util.spec_from_file_location('rpn', rpn)
+        rpn = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rpn)
         layer.RPN_BBOX_STD_DEV = config.RPN_BBOX_STD_DEV
         layer.RPN_ANCHOR_SCALES = config.RPN_ANCHOR_SCALES
         layer.RPN_ANCHOR_RATIOS = config.RPN_ANCHOR_RATIOS
@@ -185,6 +190,7 @@ class KerasConverter(LWNNUtil):
         layer.IMAGE_SHAPE = config.IMAGE_SHAPE
         layer.RPN_ANCHOR_STRIDE = config.RPN_ANCHOR_STRIDE
         layer.RPN_NMS_THRESHOLD = config.RPN_NMS_THRESHOLD
+        layer.anchors = rpn.generate_pyramid_anchors(layer)
         layer.inputs = layer.inputs[:2]
 
     def to_LayerDetection(self, layer):

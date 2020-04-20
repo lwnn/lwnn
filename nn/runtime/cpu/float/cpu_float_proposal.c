@@ -18,7 +18,13 @@ typedef struct {
 /* ============================ [ LOCALS    ] ====================================================== */
 int __weak rpn_generate_anchors(const nn_t* nn, const layer_t* layer, float** anchors, size_t* n_anchors)
 {
+#ifndef DISBALE_CONST_RPN_ANCHORS
+	*anchors = (float*)layer->blobs[7]->blob;
+	*n_anchors = layer->blobs[7]->dims[0];
+	return 0;
+#else
 	return NN_E_NOT_IMPLEMENTED;
+#endif
 }
 int __weak rpn_proposal_forward(const nn_t* nn, const layer_t* layer, float* anchors, size_t n_anchors)
 {
@@ -46,6 +52,7 @@ int layer_cpu_float_PROPOSAL_execute(const nn_t* nn, const layer_t* layer)
 }
 void layer_cpu_float_PROPOSAL_deinit(const nn_t* nn, const layer_t* layer)
 {
+#ifdef DISBALE_CONST_RPN_ANCHORS
 	layer_cpu_float_proposal_context_t * context = (layer_cpu_float_proposal_context_t*) layer->C->context;
 
 	if(context != NULL) {
@@ -53,6 +60,7 @@ void layer_cpu_float_PROPOSAL_deinit(const nn_t* nn, const layer_t* layer)
 			free(context->anchors);
 		}
 	}
+#endif
 	rte_cpu_destory_layer_context(nn, layer);
 }
 

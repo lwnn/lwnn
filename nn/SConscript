@@ -11,6 +11,7 @@ objs += Glob('runtime/cpu/*/*.c')
 objs += Glob('runtime/opencl/*.c')
 objs += Glob('runtime/common/*.c')
 objs += Glob('runtime/common/ssd/*.cpp')
+objs += Glob('runtime/common/image/*.cpp')
 objs += Glob('runtime/common/yolo/*.c')
 objs += Glob('*.c')
 
