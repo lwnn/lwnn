@@ -12,6 +12,7 @@
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
 	LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER;
+	void* p_out;
 } layer_cpu_float_softmax_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -57,7 +58,7 @@ int layer_cpu_float_SOFTMAX_init(const nn_t* nn, const layer_t* layer)
 		if(0 == r)
 		{
 			context = (layer_cpu_float_softmax_context_t*)layer->C->context;
-			context->out[0] = out;
+			context->p_out = out;
 		}
 	}
 	else
@@ -79,6 +80,10 @@ int layer_cpu_float_SOFTMAX_execute(const nn_t* nn, const layer_t* layer)
 	size_t n_block = input_context->nhwc.N*input_context->nhwc.H*input_context->nhwc.W;
 	size_t stride = input_context->nhwc.C;
 	size_t i;
+
+	if(context->p_out != NULL) {
+		context->out[0] = context->p_out;
+	}
 
   rte_cpu_dynamic_shape_copy(layer, input_context);
   r = rte_cpu_dynamic_memory(&context->out[0], NHWC_SIZE(context->nhwc), &context->allocated, sizeof(float));

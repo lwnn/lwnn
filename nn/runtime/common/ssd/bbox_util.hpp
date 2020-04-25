@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <utility>
 #include <vector>
+#include "nn.h"
 namespace ssd {
 using std::vector;
 using std::map;
@@ -29,7 +30,8 @@ enum ResizeParameter_Resize_mode {
 enum PriorBoxParameter_CodeType {
   PriorBoxParameter_CodeType_CORNER = 1,
   PriorBoxParameter_CodeType_CENTER_SIZE = 2,
-  PriorBoxParameter_CodeType_CORNER_SIZE = 3
+  PriorBoxParameter_CodeType_CORNER_SIZE = 3,
+  PriorBoxParameter_CodeType_SQUARE_SIZE = 4,
 };
 
 enum EmitConstraint_EmitType {
@@ -119,5 +121,26 @@ typedef map<int, vector<NormalizedBBox> > LabelBBox;
 // Compute the jaccard (intersection over union IoU) overlap between two bboxes.
 template <typename Dtype>
 Dtype JaccardOverlap(const Dtype* bbox1, const Dtype* bbox2);
+
+extern "C" int detection_output_forward(
+		const float* loc_data,
+		const float* conf_data,
+		const float* prior_data,
+		const float* var_data,
+		float* top_data,
+		int num_priors_,
+		int num_vars_,
+		float nms_threshold_,
+		float confidence_threshold_,
+		int num_classes_,
+		int share_location_,
+		int background_label_id_,
+		int top_k_,
+		int keep_top_k_,
+		CodeType code_type_,
+		bool variance_encoded_in_target_,
+		int eta_,
+		const layer_t* layer
+		);
 } /* namespace ssd */
 #endif /* _SSD_BBOX_UTIL_HPP_ */

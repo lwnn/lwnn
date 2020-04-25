@@ -42,8 +42,9 @@ int layer_cpu_float_OUTPUT_execute(const nn_t* nn, const layer_t* layer)
 	float* data;
 
 	input_context = (layer_cpu_context_t*)input->C->context;
-	context->out[0] = context->p_out;
-
+	if(context->p_out != NULL) {
+		context->out[0] = context->p_out;
+	}
   rte_cpu_dynamic_shape_copy(layer, input_context);
   r = rte_cpu_dynamic_memory(&context->out[0], NHWC_SIZE(context->nhwc), &context->allocated, sizeof(float));
   if(0 == r) {

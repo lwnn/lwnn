@@ -1123,10 +1123,6 @@ extern "C" int detection_output_forward(
 		}
 	}
 
-	vector<int> top_shape(2, 1);
-	top_shape.push_back(num_kept);
-	top_shape.push_back(7);
-
 	if(num_kept > (layer->C->context->nhwc.N*layer->C->context->nhwc.H)) {
 		num_kept =  (layer->C->context->nhwc.N*layer->C->context->nhwc.H);
 	}

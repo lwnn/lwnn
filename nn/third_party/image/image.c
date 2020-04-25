@@ -30,6 +30,8 @@ image_t* image_open(const char *filename)
 			printf("Cannot load image \"%s\"\nSTB Reason: %s\n", filename, stbi_failure_reason());
 			free(im);
 			im = NULL;
+		} else {
+			im->c = 3;
 		}
 	}
 
