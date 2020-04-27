@@ -119,8 +119,8 @@ int layer_cpu_float_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	O = (float*)context->out[0];
 	batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
 	batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
-	NNLOG(NN_DEBUG, (" kernel=[%d %d], pads=[%d %d], strides=[%d %d]\n",
-			knlY, knlX, padY, padX, strideY, strideX));
+	NNLOG(NN_DEBUG, (" kernel=[%d %d], pads=[%d %d], strides=[%d %d], activation=%d\n",
+			knlY, knlX, padY, padX, strideY, strideX, act));
 
 	for(batch=0; batch<input_context->nhwc.N; batch++)
 	{

@@ -7,9 +7,12 @@ import numpy as np
 import os
 import onnx
 from onnx.shape_inference import infer_shapes
-import tf2onnx
-from tf2onnx.tfonnx import process_tf_graph, tf_optimize
-from onnx2lwnn import OnnxConverter
+try:
+    import tf2onnx
+    from tf2onnx.tfonnx import process_tf_graph, tf_optimize
+    from onnx2lwnn import OnnxConverter
+except Exception as e:
+    print('Warning:', e)
 
 try:
     TF_VERSION = eval(str(tf.VERSION).replace('.', ','))
@@ -365,7 +368,10 @@ class TfConverter(LWNNUtil):
     def opt_FuseConvBiasAdd(self, layer):
         biasAdd = self.get_consumers(layer)[0]
         layer.bias = biasAdd.bias
-        self.opt_RemoveLayer(biasAdd)
+        for n,v in layer.items():
+            if(n not in ['name', 'inputs', 'outputs']):
+                biasAdd[n] = v
+        return self.opt_RemoveLayer(layer)
 
     def opt_IsLayerLSTM(self, layer):
         r = False
@@ -528,7 +534,8 @@ class TfConverter(LWNNUtil):
         otensors = []
         model = kwargs['model']
         for layer in model:
-            otensors.append(self.get_tensor(layer.name))
+            if(layer.op != 'Output'):
+                otensors.append(self.get_tensor(layer.name))
         for feed in feeds:
             onefeed={}
             for n, v in feed.items():
@@ -544,9 +551,9 @@ class TfConverter(LWNNUtil):
                     else:
                         v= np.asanyarray([v])
                 if(n in outputs):
-                    outputs[n] = np.concatenate((outputs[n], v.data))
+                    outputs[n] = np.concatenate((outputs[n], v))
                 else:
-                    outputs[n] = v.data
+                    outputs[n] = v
         return outputs
 
     def convert2onnx(self):

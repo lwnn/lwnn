@@ -38,8 +38,8 @@ class LWNNUtil():
                 ho = int((hi-kernel_shape[0])/layer.strides[0])+1
                 wo = int((wi-kernel_shape[1])/layer.strides[1])+1
             else:
-                ho = int(hi/layer.strides[0])
-                wo = int(wi/layer.strides[1])
+                ho = int(round(hi/layer.strides[0]))
+                wo = int(round(wi/layer.strides[1]))
             layer.shape = [layer.shape[0], ho, wo, layer.shape[3]]
         _,ho,wo,_ = layer.shape[-4:]
         if(dilations == [1,1]):

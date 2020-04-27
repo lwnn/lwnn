@@ -49,8 +49,8 @@ And for the purpose to support variant Deep Learning frameworks such as tensorfl
 * d means dynamic shape support
 * s8/q8/q16: all are in Q Format
 * s8: 8 bit symmetric quantization with zero offset, very similar to [tflite quantization](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/lite/g3doc/performance/quantization_spec.md)
-
 * q8/q16: 8/16 bit symmetric quantization, no zero offset.
+* q8/s8/q16 activation(ReLU/Clip) will reuse its input layer's buffer, so the activation layer's input layer must has only one consumer that is itself.
 
 ## Supported Famous Models
 

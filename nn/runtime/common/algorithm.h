@@ -48,7 +48,7 @@ extern "C" {
 		{																\
 			for(c=0; c<C; c++)											\
 			{															\
-				ALG_##OP(O[i*C+c], A[i], B[c])							\
+				ALG_##OP(O[i*C+c], A[i*C+c], B[c])						\
 			}															\
 		}																\
 	}

@@ -10,75 +10,59 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
+	LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER;
 } layer_cpu_float_actvation_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
 /* ============================ [ LOCALS    ] ====================================================== */
-static void relu_ref(float * data, size_t size)
+static void relu_ref(float * out, float * in, size_t size)
 {
 	size_t  i;
 
 	for (i = 0; i < size; i++)
 	{
-		if (data[i] < 0)
-			data[i] = 0;
-	}
-}
-
-static void prelu_ref(float * data, size_t size, float* slope, int C)
-{
-	size_t  i;
-
-	for (i = 0; i < size; i++)
-	{
-		if (data[i] < 0) {
-			data[i] = slope[i%C]*data[i];
-		}
-	}
-}
-
-static void clip_ref(float* data, size_t size, float min, float max)
-{
-	size_t  i;
-
-	for (i = 0; i < size; i++)
-	{
-		if (data[i] < min) {
-			data[i] = min;
-		}
-		else if (data[i] > max) {
-			data[i] = max;
+		if (in[i] < 0) {
+			out[i] = 0;
 		} else {
-			/* pass */
+			out[i] = in[i];
+		}
+	}
+}
+
+static void prelu_ref(float * out, float * in, size_t size, float* slope, int C)
+{
+	size_t  i;
+
+	for (i = 0; i < size; i++)
+	{
+		if (in[i] < 0) {
+			out[i] = slope[i%C]*in[i];
+		} else {
+			out[i] = in[i];
+		}
+	}
+}
+
+static void clip_ref(float* out, float * in, size_t size, float min, float max)
+{
+	size_t  i;
+
+	for (i = 0; i < size; i++)
+	{
+		if (in[i] < min) {
+			out[i] = min;
+		}
+		else if (in[i] > max) {
+			out[i] = max;
+		} else {
+			out[i] = in[i];
 		}
 	}
 }
 
 static int layer_cpu_float_activation_init(const nn_t* nn, const layer_t* layer)
 {
-	int r =0;
-	layer_cpu_float_actvation_context_t* context;
-
-	const layer_t* input;
-	layer_cpu_context_t* input_context;
-
-	r = rte_cpu_create_layer_context(nn, layer, sizeof(layer_cpu_float_actvation_context_t), 1);
-
-	if(0 == r)
-	{
-		context = (layer_cpu_float_actvation_context_t*)layer->C->context;
-
-		input = layer->inputs[0];
-		input_context = (layer_cpu_context_t*)input->C->context;
-
-		if(NULL != input_context->out[0])
-		{
-			/* reuse its input layer's output buffer */
-			rte_cpu_take_buffer(input_context->out[0], layer, 0);
-		}
-	}
-
-	return r;
+	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_actvation_context_t), sizeof(float));
 }
 
 static int layer_cpu_float_activation_execute(const nn_t* nn, const layer_t* layer)
@@ -89,42 +73,46 @@ static int layer_cpu_float_activation_execute(const nn_t* nn, const layer_t* lay
 	layer_cpu_context_t* input_context = (layer_cpu_context_t*)input->C->context;
 	size_t sz = NHWC_SIZE(input_context->nhwc);
 	float* IN;
+	float* OUT;
 
 	rte_cpu_dynamic_shape_copy(layer, input_context);
+	r = rte_cpu_dynamic_memory(&context->out[0], sz, &context->allocated, sizeof(float));
 
+  if(0 == r) {
 	IN = (float*)input_context->out[0];
 
-	context->out[0] = IN;	/* yes, reuse its input's output buffer directly */
+	OUT = context->out[0];
 
 	switch(layer->op)
 	{
 		case L_OP_RELU:
-			relu_ref(IN, sz);
+			relu_ref(OUT, IN, sz);
 			break;
 		case L_OP_PRELU:
 		{
 			float* slope = (float*)layer->blobs[0]->blob;
 			assert(layer->blobs[0]->dims[0] == context->nhwc.C);
-			prelu_ref(IN, sz, slope, context->nhwc.C);
+			prelu_ref(OUT, IN, sz, slope, context->nhwc.C);
 			break;
 		}
 		case L_OP_CLIP:
 		{
 			float min = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 0);
 			float max = RTE_FETCH_FLOAT(layer->blobs[0]->blob, 1);
-			clip_ref(IN, sz, min, max);
+			clip_ref(OUT, IN, sz, min, max);
 			break;
 		}
 		default:
 			r = NN_E_INVALID_LAYER;
 			break;
 	}
-
+  }
 	return r;
 }
 
 static void layer_cpu_float_activation_deinit(const nn_t* nn, const layer_t* layer)
 {
+	rte_cpu_dynamic_free(layer);
 	rte_cpu_destory_layer_context(nn, layer);
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */

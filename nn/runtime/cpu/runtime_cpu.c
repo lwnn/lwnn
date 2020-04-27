@@ -658,8 +658,8 @@ int rte_cpu_dynamic_conv2d_or_pool(const layer_t* layer,
 		assert(*padY == 0xdeadbeef);
 		if(0 == *padX) { /* SAME */
 			context->nhwc.N = input_context->nhwc.N;
-			context->nhwc.H = input_context->nhwc.H/strideY;
-			context->nhwc.W = input_context->nhwc.W/strideX;
+			context->nhwc.H = (input_context->nhwc.H+strideY/2)/strideY;
+			context->nhwc.W = (input_context->nhwc.W+strideY/2)/strideX;
 			*padY = ((context->nhwc.H-1)*strideY+knlY-input_context->nhwc.H)/2;
 			*padX = ((context->nhwc.W-1)*strideX+knlX-input_context->nhwc.W)/2;
 		} else { /* VALID */
