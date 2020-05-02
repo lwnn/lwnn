@@ -214,14 +214,9 @@ class VinoConverter():
         return layer
 
     def to_LayerNormalize(self, vly):
-        layer = self.to_LayerCommon(vly, 'BatchNormalization')
+        layer = self.to_LayerCommon(vly)
         layer['scale'] = layer['weights']
-        shape = layer['scale'].shape
         del layer['weights']
-        layer['epsilon'] = layer['eps']
-        layer['var'] = np.ones(shape, np.float32)
-        layer['mean'] = np.zeros(shape, np.float32)
-        layer['bias'] = np.zeros(shape, np.float32)
         return layer
 
     def to_LayerDetectionOutput(self, vly):

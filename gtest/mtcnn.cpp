@@ -12,7 +12,7 @@
 #include <assert.h>
 #include "bbox_util.hpp"
 /* ============================ [ MACROS    ] ====================================================== */
-#define FACE_MIN_SIZE 20
+#define FACE_MIN_SIZE 160
 
 #define ANCHOR_STRIDE    2
 #define ANCHOR_CELL_SIZE 12
@@ -33,12 +33,12 @@ static float* generate_anchors(float* scores, int H, int W, float scale, int iH,
 	int count = 0;
 	if(anchors != NULL) {
 		float* bbox = anchors;
-		for(int h=0;h<H;h++){
-			for(int w=0;w<W;w++){
-				bbox[0] = std::round((ANCHOR_STRIDE*h+1)/scale)/iH;
-				bbox[1] = std::round((ANCHOR_STRIDE*w+1)/scale)/iW;
-				bbox[2] = std::round((ANCHOR_STRIDE*h+1+ANCHOR_CELL_SIZE)/scale)/iH;
-				bbox[3] = std::round((ANCHOR_STRIDE*w+1+ANCHOR_CELL_SIZE)/scale)/iW;
+		for(int w=0;w<W;w++) {
+			for(int h=0;h<H;h++) {
+				bbox[0] = std::round((ANCHOR_STRIDE*w+1)/scale)/iW;
+				bbox[1] = std::round((ANCHOR_STRIDE*h+1)/scale)/iH;
+				bbox[2] = std::round((ANCHOR_STRIDE*w+1+ANCHOR_CELL_SIZE)/scale)/iW;
+				bbox[3] = std::round((ANCHOR_STRIDE*h+1+ANCHOR_CELL_SIZE)/scale)/iH;
 				bbox += 4;
 			}
 		}
@@ -110,7 +110,7 @@ int mtcnn_predict(nn_t* PNet, nn_t* RNet, nn_t* ONet, image_t* im, float** p_poi
 				int W = PNet->network->outputs[0]->layer->C->context->nhwc.H;
 				int H = PNet->network->outputs[0]->layer->C->context->nhwc.W;
 				float* anchors = generate_anchors(scores, H, W, scale, im->h, im->w);
-				const float var_data[4] = { 1, 1, 1, 1 };
+				const float var_data[4] = { (float)im->w, (float)im->h, (float)im->w, (float)im->h };
 
 				if(anchors != NULL) {
 					NNLOG(NN_DEBUG, ("  prob: %dx%dx%dx%d, bbox: %dx%dx%dx%d\n",
@@ -119,8 +119,8 @@ int mtcnn_predict(nn_t* PNet, nn_t* RNet, nn_t* ONet, image_t* im, float** p_poi
 					layer_get_NHWC(RPL, &RPL->C->context->nhwc);
 					r = ssd::detection_output_forward(locations, scores, anchors,
 							(const float*)&var_data, top_data, H*W, 1, 0.5, threshold[0], 2, true,
-							0, PNET_TOPK, PNET_TOPK, ssd::PriorBoxParameter_CodeType_CORNER_SIZE,
-							true, 1.0, RPL);
+							0, PNET_TOPK, PNET_TOPK, ssd::PriorBoxParameter_CodeType_SQUARE_SIZE,
+							false, 1.0, RPL);
 					delete [] anchors;
 				} else {
 					r = NN_E_NO_MEMORY;

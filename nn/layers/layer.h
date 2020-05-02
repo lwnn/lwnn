@@ -86,6 +86,7 @@ extern "C" {
 #define L_TRANSPOSE(name, input)	L_LAYER_SI(name, input, TRANSPOSE)
 #define L_SLICE(name, input)		L_LAYER_SI(name, input, SLICE)
 #define L_CLIP(name, input)			L_LAYER_SI(name, input, CLIP)
+#define L_NORMALIZE(name, input)	L_LAYER_SI(name, input, NORMALIZE)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\

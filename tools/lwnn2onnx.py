@@ -168,7 +168,7 @@ class Lwnn2Onnx():
         self.to_LayerCommon(layer, ['weights', 'bias'])
 
     def to_LayerNormalize(self, layer):
-        self.to_LayerCommon(layer, ['weights'])
+        self.to_LayerCommon(layer, ['scale'])
 
     def to_LayerConst(self, layer):
         name = layer['name']

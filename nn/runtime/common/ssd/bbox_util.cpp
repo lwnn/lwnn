@@ -558,6 +558,34 @@ void DecodeBBox(const NormalizedBBox& prior_bbox,
 					prior_bbox.ymax()
 							+ prior_variance[3] * bbox.ymax() * prior_height);
 		}
+
+	} else if (code_type == PriorBoxParameter_CodeType_SQUARE_SIZE) {
+		float prior_width = prior_bbox.xmax() - prior_bbox.xmin();
+		CHECK_GT(prior_width, 0);
+		float prior_height = prior_bbox.ymax() - prior_bbox.ymin();
+		CHECK_GT(prior_height, 0);
+		float xmin,xmax,ymin,ymax;
+		CHECK_EQ(false, variance_encoded_in_target);
+
+		float W = prior_variance[0];
+		float H = prior_variance[1];
+
+		xmin = std::round(W*(prior_bbox.xmin() + bbox.xmin() * prior_width));
+		ymin = std::round(H*(prior_bbox.ymin() + bbox.ymin() * prior_height));
+		xmax = std::round(W*(prior_bbox.xmax() + bbox.xmax() * prior_width));
+		ymax = std::round(H*(prior_bbox.ymax() + bbox.ymax() * prior_height));
+
+		float h = std::round(ymax - ymin);
+		float w = std::round(xmax - xmin);
+		float l = std::fmin(w, h);
+		xmin = std::round(xmin+w*0.5-l*0.5);
+		ymin = std::round(ymin+h*0.5-l*0.5);
+		xmax = std::round(xmin+l);
+		ymax = std::round(ymin+l);
+		decode_bbox->set_xmin(xmin/W);
+		decode_bbox->set_ymin(ymin/H);
+		decode_bbox->set_xmax(xmax/W);
+		decode_bbox->set_ymax(ymax/H);
 	} else {
 		LOG(FATAL) << "Unknown LocLossType.";
 	}
@@ -1156,7 +1184,7 @@ extern "C" int detection_output_forward(
 			const vector<NormalizedBBox>& bboxes =
 					decode_bboxes.find(loc_label)->second;
 			vector<int>& indices = it->second;
-			for (int j = 0; j < indices.size(); ++j) {
+			for (int j = 0; (j < indices.size()) && (count < num_kept); ++j) {
 				int idx = indices[j];
 				const NormalizedBBox& bbox = bboxes[idx];
 				if (L_OP_PROPOSAL == layer->op) {

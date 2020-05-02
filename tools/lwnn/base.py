@@ -26,6 +26,7 @@ class LWNNBaseC():
                 'Add': self.gen_LayerAdd,
                 'Upsample': self.gen_LayerUpsample,
                 'BatchNormalization': self.gen_LayerBatchNormalization,
+                'Normalize': self.gen_LayerNormalize,
                 'Yolo': self.gen_LayerYolo,
                 'YoloOutput': self.gen_LayerYoloOutput,
                 'DetectionOutput': self.gen_LayerDetectionOutput,
@@ -460,6 +461,16 @@ class LWNNBaseC():
                ('%s_M'%(layer['name']),M)]
         self.gen_blobs(layer, blobs)
         self.fpC.write('L_BATCHNORM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerNormalize(self, layer):
+        if('epsilon' in layer):
+            epsilon = layer['epsilon']
+        else:
+            epsilon = 1e-05
+        M = np.asarray([epsilon], dtype=np.float32)
+        blobs=[('%s_scale'%(layer['name']),layer['scale']), ('%s_M'%(layer['name']),M)]
+        self.gen_blobs(layer, blobs)
+        self.fpC.write('L_NORMALIZE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerYolo(self, layer):
         mask = np.asarray(layer['mask'], np.int32)

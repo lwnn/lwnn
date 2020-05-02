@@ -33,6 +33,7 @@ class CaffeConverter():
             'Softmax': self.to_LayerSoftmax,
             'Pooling': self.to_LayerPooling,
             'BN': self.to_LayerBN,
+            'Normalize': self.to_LayerNormalize,
             'Eltwise': self.to_LayerEltwise,
             'PReLU': self.to_LayerPReLU,
              }
@@ -98,7 +99,11 @@ class CaffeConverter():
         name = layer['name']
         params = self.caffe_model.params[name]
         layer['weights'] = params[0].data
-        layer['bias'] = params[1].data
+        if(len(params) > 1):
+            layer['bias'] = params[1].data
+        else:
+            num_output = layer['weights'].shape[0]
+            layer['bias'] = np.zeros((num_output), np.float32)
         padW,padH = self.get_field_hw(cly.convolution_param, 'pad', 'pad_h', 'pad_w', [0,0])
         layer['pads'] = [padW,padH,0,0]
         layer['strides'] = self.get_field_hw(cly.convolution_param, 'stride', 'stride_h', 'stride_w', [1,1])
@@ -151,9 +156,12 @@ class CaffeConverter():
         layer['share_location'] = cly.detection_output_param.share_location
         layer['background_label_id'] = cly.detection_output_param.background_label_id
         shape = layer['shape']
+        num_kept = cly.detection_output_param.num_classes*2 if (shape[2]==1) else shape[2]
+        if(num_kept < 100):
+            num_kept = 100
         layer['shape'] = [shape[0],
                           shape[3],
-                          cly.detection_output_param.num_classes*2 if (shape[2]==1) else shape[2],
+                          num_kept,
                           shape[1]]
         return layer
 
@@ -195,6 +203,15 @@ class CaffeConverter():
             layer['bn_mode'] = 'LEARN'
         else:
             raise NotImplementedError()
+        return layer
+
+    def to_LayerNormalize(self, cly):
+        layer = self.to_LayerCommon(cly)
+        name = layer['name']
+        params = self.caffe_model.params[name]
+        C = layer['shape'][1]
+        scale = params[0].data.reshape(C)
+        layer['scale'] = scale.astype(np.float32)
         return layer
 
     def to_LayerEltwise(self, cly):

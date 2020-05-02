@@ -205,7 +205,7 @@ NNT_CASE_DEF(MASKRCNN) =
 {
 	NNT_CASE_DESC_ARGS(maskrcnn),
 };
-
+#if 0
 NNT_CASE_DEF(PNET) =
 {
 	NNT_CASE_DESC(PNet),
@@ -220,6 +220,12 @@ NNT_CASE_DEF(ONET) =
 {
 	NNT_CASE_DESC(ONet),
 };
+#else
+NNT_CASE_DEF(FACEDETECTNET) =
+{
+	NNT_CASE_DESC(facedetectnet),
+};
+#endif
 static const nnt_model_args_t nnt_facenet_args =
 {
 	load_facenet_input,
@@ -474,7 +480,7 @@ static void* load_maskrcnn_input(nn_t* nn, const char* path, int id, size_t* sz)
 
 	return (void*) input;
 }
-
+#if 0
 static void* load_facenet_input(nn_t* nn, const char* path, int id, size_t* sz)
 {
 	image_t* im;
@@ -525,7 +531,67 @@ static void* load_facenet_input(nn_t* nn, const char* path, int id, size_t* sz)
 	if(dllO) dlclose(dllO);
 	return input;
 }
+#else
+static void* load_facenet_input(nn_t* nn, const char* path, int id, size_t* sz)
+{
+	image_t* im, *resized_im;
+	float* input = NULL;
+	void *dllFDN=NULL;
+	layer_context_t* context;
+	const network_t* network;
+	nn_t *FDN=NULL;
 
+	network = nnt_load_network(FACEDETECTNET_cases[0].networkFloat, &dllFDN);
+	if(NULL != network) {
+		FDN = nn_create(network, RUNTIME_CPU);
+	}
+
+	assert(g_InputImagePath != NULL);
+	printf("loading %s for %s\n", g_InputImagePath, nn->network->name);
+
+	if(FDN!=NULL) {
+		context = (layer_context_t*)FDN->network->inputs[0]->layer->C->context;
+		im = image_open(g_InputImagePath);
+		assert(im != NULL);
+		resized_im = image_resize(im, context->nhwc.W, context->nhwc.H);
+		assert(resized_im != NULL);
+		float* input = (float*)FDN->network->inputs[0]->data;
+
+		for(int i=0; i<NHWC_BATCH_SIZE(context->nhwc)/3; i++) { /* BGR */
+			input[3*i] = (resized_im->data[3*i+2]-104.0);
+			input[3*i+1] = (resized_im->data[3*i+1]-117.0);
+			input[3*i+2] = (resized_im->data[3*i]-123.0);
+		}
+
+		int r = nn_predict(FDN);
+		EXPECT_EQ(0, r);
+		int num_det = FDN->network->outputs[0]->layer->C->context->nhwc.N;
+		float* output = (float*)FDN->network->outputs[0]->data;
+
+		for(int i=0; i<num_det; i++) {
+			float prop = output[7*i+2];
+			int x = output[7*i+3]*im->w;
+			int y = output[7*i+4]*im->h;
+			int w = output[7*i+5]*im->w-x;
+			int h = output[7*i+6]*im->h-y;
+			image_draw_rectange(im, x, y, w, h, 0x00FF00);
+			char text[128];
+			snprintf(text, sizeof(text), "%d/%d %.1f%%", i, num_det, prop*100);
+			image_draw_text(im, x, y, text,  0xFF0000);
+		}
+
+		image_save(im, "predictions.png");
+		image_close(im);
+		image_close(resized_im);
+	} else {
+		printf("loading face detect net failed\n");
+	}
+
+	if(FDN) nn_destory(FDN);
+	if(dllFDN) dlclose(dllFDN);
+	return input;
+}
+#endif
 static void* load_output(const char* path, int id, size_t* sz)
 {
 	char name[256];
