@@ -21,6 +21,7 @@ class OnnxConverter(LWNNUtil):
                 'Constant': self.to_LayerConstant,
                 'Gemm': self.to_LayerGemm,
                 'LSTM': self.to_LayerLSTM,
+                'Clip': self.to_LayerClip,
                 'Add': self.to_LayerAdd }
         if(type(onnx_model) == str):
             onnx_model = onnx.load(onnx_model)
@@ -272,6 +273,16 @@ class OnnxConverter(LWNNUtil):
             layer.shape = [layer.shape[s] for s in [0,2,1,3]]
         self.convert_layer_to_nchw(layer)
         self.convert_layer_to_nchw(self.get_layers(layer.inputs[0]))
+        return layer
+
+    def to_LayerClip(self, node):
+        layer = self.to_LayerCommon(node)
+        layer.min = self.get_initializer(node.input[1])
+        if(len(node.input) > 2):
+            layer.max = self.get_initializer(node.input[2])
+        else:
+            if(layer.min == 0.0):
+                layer.op = 'Relu'
         return layer
 
     def convert(self):

@@ -258,7 +258,7 @@ class LWNNQFormatC(LWNNBaseC):
             dtype = np.int16
         qmin = np.clip(qmin, cmin, cmax)
         qmax = np.clip(qmax, cmin, cmax)
-        M = np.asarray([mi,mx], dtype)
+        M = np.asarray([qmin,qmax], dtype)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_CLIP ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 

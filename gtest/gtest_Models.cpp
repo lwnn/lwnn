@@ -542,8 +542,8 @@ static void prewhiten(float* im, int H, int W, int C) {
 	for (int i = 0; i < H*W*C; ++i) {
 		std += (im[i]-mean)*(im[i]-mean);
 	}
-	std = std/(160*160*3);
-	std = (float)std::fmax(std::sqrt(std), 1.0f / std::sqrt(160*160*3));
+	std = std/(H*W*C);
+	std = (float)std::fmax(std::sqrt(std), 1.0f / std::sqrt(H*W*C));
 	for (int i = 0; i < H*W*C; ++i) {
 		im[i] = (im[i] - mean) / std;
 	}
