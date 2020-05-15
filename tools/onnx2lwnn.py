@@ -17,6 +17,7 @@ class OnnxConverter(LWNNUtil):
                 'BatchNormalization': self.to_LayerBatchNormalization,
                 'MatMul': self.to_LayerMatMul,
                 'Resize': self.to_LayerUpsample,
+                'Upsample': self.to_LayerUpsample,
                 'Reshape': self.to_LayerReshape,
                 'Constant': self.to_LayerConstant,
                 'Gemm': self.to_LayerGemm,
@@ -64,7 +65,7 @@ class OnnxConverter(LWNNUtil):
                         if(node2.op_type == 'Identity'):
                             inputs.append(node2.input[0]+'_identity')
                         else:
-                            inputs.append(node2.name)
+                            inputs.append(node2.name if len(node2.name) > 0 else node2.output[0])
         return inputs
 
     def run(self, feed=None, **kwargs):
@@ -196,6 +197,8 @@ class OnnxConverter(LWNNUtil):
             name = node.input[0]+'_identity'
         else:
             name = node.name
+        if(len(name) == 0):
+            name = node.output[0]
         layer = LWNNLayer(name=name, op=node.op_type, inputs=self.get_inputs(node), outputs=node.output)
         layer['shape'] = self.get_shape(node)
         for attr in node.attribute:
@@ -234,6 +237,8 @@ class OnnxConverter(LWNNUtil):
 
     def to_LayerUpsample(self, node):
         layer = self.to_LayerCommon(node)
+        if(layer.op == 'Upsample'):
+            layer.inputs = layer.inputs[:1]
         layer['op'] = 'Upsample'
         return layer
 

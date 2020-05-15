@@ -10,6 +10,7 @@
 #include <math.h>
 #include <cmath>
 #include <vector>
+#include "Model.hpp"
 /* https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html */
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
@@ -439,6 +440,17 @@ PYBIND11_MODULE(liblwnn, m)
 	m.def("ROIAlign", &ROIAlign, "lwnn functional ROTAlign",
 			py::arg("X"), py::arg("rois"), py::arg("batch_indices"),
 			py::arg("output_height")=1, py::arg("output_width")=1, py::arg("mode")=0);
+
+	py::class_<lwnn::Model>(m, "Model")
+			#ifndef DISABLE_RUNTIME_CPU
+			.def_readonly_static("RUNTIME_CPU", &lwnn::Model::m_RUNTIME_CPU)
+			#endif
+			#ifndef DISABLE_RUNTIME_OPENCL
+			.def_readonly_static("RUNTIME_OPENCL", &lwnn::Model::m_RUNTIME_OPENCL)
+			#endif
+			.def(py::init<int, std::string, std::string, std::string>())
+			.def("predict", &lwnn::Model::predict,
+				py::arg("outputs"), py::arg("feed"));
 }
 
 
