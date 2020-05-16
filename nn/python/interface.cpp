@@ -449,8 +449,7 @@ PYBIND11_MODULE(liblwnn, m)
 			.def_readonly_static("RUNTIME_OPENCL", &lwnn::Model::m_RUNTIME_OPENCL)
 			#endif
 			.def(py::init<int, std::string, std::string, std::string>())
-			.def("predict", &lwnn::Model::predict,
-				py::arg("outputs"), py::arg("feed"));
+			.def("predict", &lwnn::Model::predict, py::arg("feed"));
 }
 
 

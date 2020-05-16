@@ -412,7 +412,7 @@ def AddPythonDev(env):
         else:
             env.Append(LIBPATH=['%s/lib'%(pyp)])
         istr = 'export'
-    print('%s PYTHONHOME=%s if see error " Py_Initialize: unable to load the file system codec"'%(istr, pyp))
+    #print('%s PYTHONHOME=%s if see error " Py_Initialize: unable to load the file system codec"'%(istr, pyp))
     env.Append(LIBS=[pylib, 'stdc++', 'dl', 'm'])
 
 def scons(script):
