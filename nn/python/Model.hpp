@@ -7,6 +7,7 @@
 #define NN_PYTHON_MODEL_HPP_
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "nn.h"
+#include "quantize.h"
 #include "algorithm.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -40,22 +41,28 @@ class Buffer {
 private:
 	void* m_Data = nullptr;
 	void* m_ArrayData = nullptr;
-	size_t m_Size;
-	size_t m_ItemSize;
-	size_t m_ArrayItemSize;
+	size_t m_Size = 0;
+	size_t m_ItemSize = 0;
+	size_t m_ArrayItemSize = 0;
 	bool m_DataMalloced = false;
 	const layer_t* m_Layer = nullptr;
-	size_t m_NDim;
-	int m_LayerSize;
+	const nn_t* nn = nullptr;
+	size_t m_NDim = 0;
+	int m_LayerSize = 0;
 
 public:
-	Buffer(void* data_ptr, const layer_t* layer, py::array& array);
-	~Buffer() { if(m_DataMalloced) free(m_Data); };
+	/* Constructor for input buffer */
+	Buffer(void* data_ptr, const nn_t* nn, const layer_t* layer, py::array& array);
 	void reload(py::array& array);
 	void* get_data() { return m_Data; }
+	size_t get_size() { return m_Size; }
 	void* get_array_data() { return m_ArrayData; }
 	bool is_data_malloced() { return m_DataMalloced; };
 	bool need_quantize() { return (m_ArrayItemSize != m_ItemSize); };
+	/* Constructor for output buffer */
+	Buffer(void* data_ptr, const nn_t* nn, const layer_t* layer);
+	py::array numpy();
+	~Buffer();
 
 private:
 	template<typename T> void copy2(void* to, py::buffer_info &binfo);
@@ -75,6 +82,7 @@ private:
 
 private:
 	void populate_inputs(py::dict& feed);
+	void populate_outputs(py::dict& outputs);
 
 public:
 	Model(int runtime, std::string symbol, std::string library, std::string binary);

@@ -33,8 +33,8 @@ int nn_blob_loader(void* provider, void* saver, size_t size)
 	return r;
 }
 /* ============================ [ FUNCTIONS ] ====================================================== */
-Buffer::Buffer(void* data_ptr, const layer_t* layer, py::array& array)
-		: m_Data(data_ptr), m_Layer(layer)
+Buffer::Buffer(void* data_ptr, const nn_t* nn, const layer_t* layer, py::array& array)
+		: m_Data(data_ptr), nn(nn), m_Layer(layer)
 {
 	py::buffer_info binfo = array.request();
 
@@ -46,7 +46,7 @@ Buffer::Buffer(void* data_ptr, const layer_t* layer, py::array& array)
 		case L_DT_FLOAT: m_ItemSize = 4; break;
 		default: throw std::runtime_error("invalid layer data type"); break;
 	}
-	m_LayerSize = NHWC_SIZE(layer->C->context->nhwc);
+	m_LayerSize = NHWC_SIZE(m_Layer->C->context->nhwc);
 	for(m_NDim=0; m_Layer->dims[m_NDim] != 0; m_NDim++);
 	validate(binfo);
 
@@ -58,8 +58,117 @@ Buffer::Buffer(void* data_ptr, const layer_t* layer, py::array& array)
 		m_DataMalloced = true;
 	}
 
+	if(m_ItemSize != m_ArrayItemSize) {
+		m_ArrayData = malloc(m_Size*m_ArrayItemSize);
+		if(nullptr == m_ArrayData) {
+			throw std::runtime_error("No memory for m_ArrayData");
+		}
+	}
+
 	load(array);
 };
+
+Buffer::Buffer(void* data_ptr, const nn_t* nn, const layer_t* layer)
+		: m_Data(data_ptr), nn(nn), m_Layer(layer)
+{
+	for(m_NDim=0; m_Layer->dims[m_NDim] != 0; m_NDim++);
+	if(nullptr == m_Data) {
+		m_DataMalloced = true;
+	}
+	switch(m_Layer->C->context->dtype) {
+		case L_DT_INT8: m_ItemSize = 1; break;
+		case L_DT_INT16: m_ItemSize = 2; break;
+		case L_DT_FLOAT: m_ItemSize = 4; break;
+		default: throw std::runtime_error("invalid layer data type"); break;
+	}
+}
+
+Buffer::~Buffer()
+{
+	if(m_DataMalloced && (nullptr != m_Data)){
+		free(m_Data);
+	}
+
+	if(nullptr != m_ArrayData) {
+		free(m_ArrayData);
+	}
+};
+
+py::array Buffer::numpy()
+{
+	py::array array;
+	m_LayerSize = NHWC_SIZE(m_Layer->C->context->nhwc);
+	if(m_DataMalloced) {
+		if(m_Size < m_LayerSize) {
+			if(nullptr != m_Data) free(m_Data);
+			m_Size = m_LayerSize;
+			m_Data = malloc(m_Size*m_ItemSize);
+			if(nullptr == m_Data) {
+				throw std::runtime_error("No memory for m_Data");
+			}
+		}
+		if(nn->runtime_type == RUNTIME_CPU) {
+			memcpy(m_Data, m_Layer->C->context->out[0], m_Size*m_ItemSize);
+		} else {
+			throw std::runtime_error("only support dynamic output for CPU runtime");
+		}
+	}
+
+	int N = m_Layer->C->context->nhwc.N;
+	int H = m_Layer->C->context->nhwc.H;
+	int W = m_Layer->C->context->nhwc.W;
+	int C = m_Layer->C->context->nhwc.C;
+
+	switch(m_NDim) {
+		case 1:
+			array = py::array_t<float>({(size_t)C});
+			break;
+		case 2:
+			array = py::array_t<float>({(size_t)N, (size_t)C});
+			break;
+		case 3:
+			array = py::array_t<float>({(size_t)N, (size_t)H, (size_t)C});
+			break;
+		case 4:
+			array = py::array_t<float>({(size_t)N, (size_t)H, (size_t)W, (size_t)C});
+			break;
+		default:
+			throw std::runtime_error("invalid dimension");
+			break;
+	}
+
+	py::buffer_info binfo = array.request();
+
+	if(binfo.itemsize == m_ItemSize) {
+		memcpy(binfo.ptr, m_Data, m_LayerSize*m_ItemSize);
+	} else {
+		switch(nn->network->type) {
+			#if !defined(DISABLE_RUNTIME_CPU_Q8)
+			case NETWORK_TYPE_Q8:
+				dequantize_q8((float*)binfo.ptr, (int8_t*)m_Data,
+						m_LayerSize, LAYER_Q(m_Layer));
+				break;
+			#endif
+			#if !defined(DISABLE_RUNTIME_CPU_S8)
+			case NETWORK_TYPE_S8:
+				dequantize_s8((float*)binfo.ptr, (int8_t*)m_Data,
+						m_LayerSize, LAYER_Q(m_Layer), LAYER_S(m_Layer), LAYER_Z(m_Layer));
+				break;
+			#endif
+			#if !defined(DISABLE_RUNTIME_CPU_Q16)
+			case NETWORK_TYPE_Q16:
+				dequantize_q16((float*)binfo.ptr, (int16_t*)m_Data,
+						m_LayerSize, LAYER_Q(m_Layer));
+				break;
+			#endif
+			default:
+				throw std::runtime_error("invalid network type");
+				break;
+		}
+	}
+
+	return array;
+}
 
 void Buffer::validate(py::buffer_info &binfo)
 {
@@ -212,6 +321,65 @@ void Buffer::load(py::array& array)
 			throw std::runtime_error("invalid array item size");
 			break;
 	}
+
+	if(need_quantize()) {
+		switch(nn->network->type) {
+			#if !defined(DISABLE_RUNTIME_CPU_Q8)
+			case NETWORK_TYPE_Q8:
+				quantize_q8((int8_t*)m_Data, (float*)m_ArrayData,
+						m_Size, LAYER_Q(m_Layer));
+				break;
+			#endif
+			#if !defined(DISABLE_RUNTIME_CPU_S8)
+			case NETWORK_TYPE_S8:
+				quantize_s8((int8_t*)m_Data, (float*)m_ArrayData,
+						m_Size, LAYER_Q(m_Layer), LAYER_S(m_Layer), LAYER_Z(m_Layer));
+				break;
+			#endif
+			#if !defined(DISABLE_RUNTIME_CPU_Q16)
+			case NETWORK_TYPE_Q16:
+				quantize_q16((int16_t*)m_Data, (float*)m_ArrayData,
+						m_Size, LAYER_Q(m_Layer));
+				break;
+			#endif
+			default:
+				throw std::runtime_error("invalid network type");
+				break;
+		}
+	}
+
+	if(m_LayerSize < 0) {
+		switch(m_NDim)
+		{
+			case 1:
+				m_Layer->C->context->nhwc.N = 1;
+				m_Layer->C->context->nhwc.H = 1;
+				m_Layer->C->context->nhwc.W = 1;
+				m_Layer->C->context->nhwc.C = binfo.shape[0];
+				break;
+			case 2:
+				m_Layer->C->context->nhwc.N = binfo.shape[0];
+				m_Layer->C->context->nhwc.H = 1;
+				m_Layer->C->context->nhwc.W = 1;
+				m_Layer->C->context->nhwc.C = binfo.shape[1];
+				break;
+			case 3:
+				m_Layer->C->context->nhwc.N = binfo.shape[0];
+				m_Layer->C->context->nhwc.H = binfo.shape[1];
+				m_Layer->C->context->nhwc.W = 1;
+				m_Layer->C->context->nhwc.C = binfo.shape[2];
+				break;
+			case 4:
+				m_Layer->C->context->nhwc.N = binfo.shape[0];
+				m_Layer->C->context->nhwc.H = binfo.shape[1];
+				m_Layer->C->context->nhwc.W = binfo.shape[2];
+				m_Layer->C->context->nhwc.C = binfo.shape[3];
+				break;
+			default:
+				throw std::runtime_error("invalid dimension");
+				break;
+		}
+	}
 }
 
 void Buffer::reload(py::array& array)
@@ -287,12 +455,12 @@ Model::Model(int runtime, std::string symbol, std::string library, std::string b
 
 Model::~Model()
 {
-	if(m_Dll) {
-		dlclose(m_Dll);
-	}
-
 	if(nn) {
 		nn_destory(nn);
+	}
+
+	if(m_Dll) {
+		dlclose(m_Dll);
 	}
 
 	for(std::pair<const layer_t*, Buffer*> item: m_Buffers) {
@@ -313,14 +481,40 @@ void Model::populate_inputs(py::dict& feed)
 		py::array array = feed[layer->name];
 		Buffer* buffer;
 		if(m_Buffers.find(layer) == m_Buffers.end()) {
-			buffer = new Buffer(data, layer, array);
+			buffer = new Buffer(data, nn, layer, array);
 			m_Buffers.insert(std::pair<const layer_t*, Buffer*>(layer, buffer));
 		} else {
 			buffer = m_Buffers[layer];
 			buffer->reload(array);
 		}
 
+		if(buffer->is_data_malloced()) {
+			nn_input_t* _inp = (nn_input_t*)*input;
+			_inp->data = buffer->get_data();
+		}
+
 		input++;
+	}
+}
+
+void Model::populate_outputs(py::dict& outputs)
+{
+	void* data = nullptr;
+	const nn_output_t* const* output = nn->network->outputs;
+
+	while((*output) != nullptr)
+	{
+		const layer_t* layer = (*output)->layer;
+		data = (*output)->data;
+		Buffer* buffer;
+		if(m_Buffers.find(layer) == m_Buffers.end()) {
+			buffer = new Buffer(data, nn, layer);
+			m_Buffers.insert(std::pair<const layer_t*, Buffer*>(layer, buffer));
+		} else {
+			buffer = m_Buffers[layer];
+		}
+		outputs[layer->name] = buffer->numpy();
+		output++;
 	}
 }
 
@@ -333,6 +527,11 @@ py::object Model::predict(py::dict feed)
 	if(r != 0) {
 		throw std::runtime_error(string_format("Failed to predict, error is %d", r));
 	}
-	return py::none();
+
+	py::dict outputs;
+
+	populate_outputs(outputs);
+
+	return outputs;
 }
 }
