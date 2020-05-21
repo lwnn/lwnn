@@ -35,7 +35,10 @@ __all__ = ['tf2lwnn', 'TfConverter']
 
 class TfConverter(LWNNUtil):
     def __init__(self, graph_def, name, **kwargs):
+        if('output_node' in kwargs):
+            LWNNOutputNodes.remove('Softmax')
         self.OPTIMIER = [
+            (self.opt_IsLayerOpInTranslator, self.opt_LayerOpInTranslator, None),
             (self.opt_IsLayerConvBeforeBiasAdd, self.opt_FuseConvBiasAdd, None),
             (self.opt_IsLayerLSTM, self.opt_LayerLSTM, None),
             (self.opt_IsLayerMfcc, self.opt_LayerMfcc, None),
@@ -43,7 +46,7 @@ class TfConverter(LWNNUtil):
             (self.opt_IsLayerClip, self.opt_LayerClip, None),
             (self.opt_IsLayerReshapeBeforeReshape, self.opt_RemoveLayer, None),
             (self.opt_IsLayerReshapeNotNecesary, self.opt_RemoveLayer, None),
-            (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
+            #(self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
             ]
         self.TRANSLATOR = {
             'Reshape': self.to_LayerReshape,
@@ -98,14 +101,32 @@ class TfConverter(LWNNUtil):
     def model(self):
         return self.lwnn_modelo
 
-    def eval(self, layer):
-        return self.sess.run(self.tensors[self.c_str(layer.name)])
+    def eval(self, layer, feed=None):
+        if(type(layer) == str):
+            lname = layer
+        else:
+            lname = layer.name
+        if(feed is not None):
+            rs = self.sess.run(self.tensors[self.c_str(lname)], feed)
+        else:
+            rs = self.sess.run(self.tensors[self.c_str(lname)])
+        return rs
 
     def get_tensor(self, name):
         return self.tensors[self.c_str(name)]
 
+    def get_layers_by_scope(self, scope):
+        L=[]
+        for l in self.lwnn_model:
+            if(l.name.startswith(scope)):
+                L.append(l)
+        return L
+
     def save(self, path):
-        pass
+        try:
+            lwnn2onnx(self.lwnn_model, '%s.tf.onnx'%(path))
+        except:
+            traceback.print_exc()
 
     def has_field(self, attr, field):
         try:
@@ -249,6 +270,8 @@ class TfConverter(LWNNUtil):
         _, weights = self.get_layers(layer.inputs)
         layer.weights = self.eval(weights)
         layer.inputs = layer.inputs[:1]
+        self.lwnn_model.remove(weights)
+        return True
 
     def to_LayerBlockLSTM(self, layer):
         inputs = self.get_layers(layer.inputs)
@@ -277,22 +300,23 @@ class TfConverter(LWNNUtil):
             if(c.op == 'Mul'):
                 mul = c
                 break
-            else:
-                self.lwnn_model.remove(c)
         for c in self.get_consumers(mul):
             if(c.op == 'Reshape'):
                 o = c
                 break
-            else:
-                self.lwnn_model.remove(c)
-        self.lwnn_model.remove(mul)
         o.inputs = [layer.name]
+        for l in inputs:
+            if((l != layer) and (l != x)):
+                self.lwnn_model.remove(l)
+        return True
 
     def to_LayerConv(self, layer):
         inputs = self.get_layers(layer.inputs)
         W = self.eval(inputs[1])
+        self.lwnn_model.remove(inputs[1])
         if(len(inputs) > 2):
             layer.bias = self.eval(inputs[2])
+            self.lwnn_model.remove(inputs[2])
         else:
             C = W.shape[-1]
             B = np.zeros((C), np.float32)
@@ -312,6 +336,7 @@ class TfConverter(LWNNUtil):
         layer.weights = W
         layer.bias = B
         layer.inputs = layer.inputs[:1]
+        return True
 
     def to_LayerPool(self, layer):
         layer.strides = layer.strides[1:3]
@@ -319,12 +344,40 @@ class TfConverter(LWNNUtil):
         self.infer_conv_or_pool_shape_and_padding(layer)
 
     def to_LayeBatchNormalization(self, layer):
-        _,scale,bias,mean,var = self.get_layers(layer.inputs)
-        layer.scale = self.eval(scale)
-        layer.bias = self.eval(bias)
-        layer.var = self.eval(var)
-        layer.mean = self.eval(mean)
-        layer.inputs = layer.inputs[:1]
+        x,scale,bias,mean,var = self.get_layers(layer.inputs)
+        if(x.op == 'Switch'):
+            layer.inputs = x.inputs[:1]
+            layer.scale = self.eval(scale.inputs[0])
+            layer.bias = self.eval(bias.inputs[0])
+            L1 = self.get_layers_by_scope(layer.name.split('cond')[0])
+            L = []
+            for l in L1:
+                valid = False
+                for k in ['/cond/', '/cond_1/', '/beta', '/gamma', '/moving_mean', '/moving_variance']:
+                    if(k in l.name):
+                        valid = True
+                if(valid):
+                    L.append(l)
+            merge = L[-1]
+            assert(merge.op == 'Merge')
+            layer.name = merge.name
+            layer.outputs = merge.outputs
+            for l in L:
+                if(l.name.endswith('moving_mean')):
+                    layer.mean = self.eval(l)
+                elif(l.name.endswith('moving_variance')):
+                    layer.var = self.eval(l)
+                if(l != layer):
+                    self.lwnn_model.remove(l)
+        else:
+            layer.scale = self.eval(scale)
+            layer.bias = self.eval(bias)
+            layer.var = self.eval(var)
+            layer.mean = self.eval(mean)
+            layer.inputs = layer.inputs[:1]
+            for l in [scale,bias,mean,var]:
+                self.lwnn_model.remove(l)
+        return True
 
     def to_LayeConcat(self, layer):
         N = layer.N
@@ -342,7 +395,9 @@ class TfConverter(LWNNUtil):
                 layer.bias = bias.value
             else:
                 layer.bias = self.eval(bias)
+            self.lwnn_model.remove(bias)
             layer.inputs = layer.inputs[:1]
+            return True
         except Exception as e:
             pass #print('WARNING: %s\n\tBias: %s\n\t%s: %s'%(layer, bias, type(e), e))
 
@@ -354,6 +409,18 @@ class TfConverter(LWNNUtil):
         _, perm = self.get_layers(layer.inputs)
         layer.perm = self.eval(perm)
         layer.inputs = layer.inputs[:1]
+        self.lwnn_model.remove(perm)
+        return True
+
+    def opt_IsLayerOpInTranslator(self, layer):
+        r = False
+        if((layer.op in self.TRANSLATOR) and ('translated' not in layer)):
+            r = True
+        return r
+
+    def opt_LayerOpInTranslator(self, layer):
+        layer['translated'] = True
+        return self.TRANSLATOR[layer.op](layer)
 
     def opt_IsLayerConvBeforeBiasAdd(self, layer):
         r = False
@@ -626,9 +693,6 @@ class TfConverter(LWNNUtil):
             except Exception as e:
                 raise Exception('failed to convert node %s: %s'%(node, e))
             self.lwnn_model.append(layer)
-        for layer in self.lwnn_model:
-            if(layer.op in self.TRANSLATOR):
-                self.TRANSLATOR[layer.op](layer)
         if(('use_tf2onnx' not in self.kwargs) or (self.kwargs['use_tf2onnx'] == False)):
             self.handle_input_output()
             self.optimize()

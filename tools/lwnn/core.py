@@ -8,7 +8,9 @@ from lwnn2onnx import *
 import pickle
 import traceback
 
-__all__ = ['LWNNUtil', 'LWNNLayer', 'LWNNModel', 'load_feeds', 'LWNNFeeder', 'cstr']
+__all__ = ['LWNNUtil', 'LWNNLayer', 'LWNNModel', 'load_feeds', 'LWNNFeeder', 'cstr', 'lwnn2onnx', 'traceback', 'LWNNOutputNodes']
+
+LWNNOutputNodes = ['Output', 'Softmax', 'DetectionOutput', 'YoloOutput']
 
 def cstr(name):
     for s in ['/',':', '-', '.']:
@@ -93,7 +95,7 @@ class LWNNUtil():
         r = False
         consumers = self.get_consumers(layer)
         if((len(consumers) == 0) and
-           ((layer['op'] not in ['Output', 'Softmax', 'DetectionOutput', 'YoloOutput']) 
+           ((layer['op'] not in LWNNOutputNodes)
             and ('Output' not in layer))):
             r = True
         return r
@@ -579,7 +581,7 @@ class LWNNModel(LWNNUtil):
             inputs = self.get_layers(layer['inputs'])
             if((layer['op'] == 'Output') and
                (len(inputs) == 1) and
-                (inputs[0]['op'] in ['Softmax', 'DetectionOutput'])):
+                (inputs[0]['op'] in LWNNOutputNodes[1:])):
                 r = True
         return r
 
