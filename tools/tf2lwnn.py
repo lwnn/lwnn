@@ -71,6 +71,7 @@ class TfConverter(LWNNUtil):
             'Minimum': 'Min',
             'FusedBatchNorm': 'BatchNormalization',
             'ConcatV2': 'Concat',
+            'ResizeBilinear': 'Resize',
             'AvgPool': 'AveragePool',
             }
         if(type(graph_def) == str):

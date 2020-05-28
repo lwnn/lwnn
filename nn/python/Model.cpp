@@ -83,6 +83,29 @@ Buffer::Buffer(void* data_ptr, const nn_t* nn, const layer_t* layer)
 	}
 }
 
+Buffer::Buffer(py::array& array)
+{
+	py::buffer_info binfo = array.request();
+
+	m_Size = binfo.size;
+	m_ItemSize = binfo.itemsize;
+	m_NDim = binfo.ndim;
+	m_Data = malloc(m_Size*m_ItemSize);
+	m_DataMalloced = true;
+	if(nullptr == m_Data) {
+		throw std::runtime_error("No memory for m_Data");
+	}
+	switch(m_ItemSize) {
+		case 4:
+			copy<float>(m_Data, binfo);
+			break;
+		default:
+			throw std::runtime_error("invalid item size");
+			break;
+	}
+
+}
+
 Buffer::~Buffer()
 {
 	if(m_DataMalloced && (nullptr != m_Data)){
@@ -430,7 +453,7 @@ Model::Model(int runtime, std::string symbol, std::string library, std::string b
 	}
 
 	m_Network = (const network_t*)dlsym(m_Dll, symbol.c_str());
-	if(nullptr == m_Dll) {
+	if(nullptr == m_Network) {
 		throw std::runtime_error("No symbol: " + symbol);
 	}
 
@@ -490,7 +513,7 @@ void Model::populate_inputs(py::dict& feed)
 
 		if(buffer->is_data_malloced()) {
 			nn_input_t* _inp = (nn_input_t*)*input;
-			_inp->data = buffer->get_data();
+			_inp->data = buffer->data();
 		}
 
 		input++;

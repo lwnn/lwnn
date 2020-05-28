@@ -38,6 +38,7 @@ class LWNNBaseC():
                 'Proposal': self.gen_LayerProposal,
                 'PyramidROIAlign': self.gen_LayerPyramidRoiAlign,
                 'Slice': self.gen_LayerSlice,
+                'Resize': self.gen_LayerResize,
                 'Output': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -528,6 +529,10 @@ class LWNNBaseC():
         M = np.asarray([layer.starts, layer.ends, layer.axes], np.int32)
         self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('L_SLICE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerResize(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_RESIZE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerTranspose(self, layer):
         perm = list(layer.perm)

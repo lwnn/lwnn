@@ -50,7 +50,7 @@ void set_log_level(int level)
 	nn_set_log_level(level);
 }
 
-py::object MaxPool2d(py::array_t<float> input, /* NCHW */
+py::object MaxPool2d(py::array_t<float, py::array::c_style | py::array::forcecast> input, /* NCHW */
 		py::array_t<int> kernel_size,
 		py::array_t<int> stride,
 		py::array_t<int> padding,
@@ -163,7 +163,7 @@ py::object MaxPool2d(py::array_t<float> input, /* NCHW */
 	return result_data;
 }
 
-py::object Upsample2d(py::array_t<float> input, /* NCHW */
+py::object Upsample2d(py::array_t<float, py::array::c_style | py::array::forcecast> input, /* NCHW */
 		py::array_t<int> output_shape, /* NCHW */
 		py::array_t<uint8_t> mask) {
 	py::buffer_info buf_in = input.request();
@@ -365,7 +365,7 @@ py::array_t<float> PriorBox(py::array_t<int> feature_shape, /* NCHW */
 	return result;
 }
 
-py::array_t<float> ROIAlign(py::array_t<float> X, /* NCHW */
+py::array_t<float> ROIAlign(py::array_t<float, py::array::c_style | py::array::forcecast> X, /* NCHW */
 		py::array_t<float> rois, /* (num_rois,4) */
 		py::array_t<int> batch_indices, /* (num_rois) */
 		int output_height, int output_width, int mode=0) {

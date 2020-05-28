@@ -172,7 +172,7 @@ class Lwnn2Onnx():
 
     def to_LayerConst(self, layer):
         name = layer['name']
-        value = onnx.numpy_helper.from_array(layer['const'])
+        value = onnx.numpy_helper.from_array(layer.const if 'const' in layer else layer.value)
         x = onnx.helper.make_node(
             'Constant',
             name=name,

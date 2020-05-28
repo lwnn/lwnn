@@ -7,6 +7,7 @@ from .qformat import *
 from lwnn2onnx import *
 import pickle
 import traceback
+from pprint import pprint
 
 __all__ = ['LWNNUtil', 'LWNNLayer', 'LWNNModel', 'load_feeds', 'LWNNFeeder', 'cstr', 'lwnn2onnx', 'traceback', 'LWNNOutputNodes']
 
@@ -126,6 +127,42 @@ class LWNNUtil():
 
     def get_matched_graph(self):
         return self._matched_graph
+
+    def graph_helper(self, L):
+        graph = {'Sequence':{}, 'Connection':{}}
+        L.reverse()
+        IdMap = {}
+        IL = []
+        for layer in L:
+            if('inputs' in layer):
+                for iname in layer.inputs:
+                    inp = self.get_layers(iname)
+                    if((inp != None) and (inp not in L) and (inp not in IL)):
+                        IL.append(inp)
+        L.extend(IL)
+        for id, layer in enumerate(L):
+            IdMap[layer.name] = id
+            graph['Sequence'][id] = layer.op+"\", # "+layer.name
+        ID = len(L)
+        for id, layer in enumerate(L):
+            cons = []
+            if('inputs' in layer):
+                for iname in layer.inputs:
+                    inp = self.get_layers(iname, L)
+                    if(inp != None):
+                        cons.append(IdMap[inp.name])
+                    else:
+                        inp = self.get_layers(iname)
+                        if(inp != None):
+                            graph['Sequence'][ID] = "?\", # "+ inp.name
+                        else:
+                            graph['Sequence'][ID] = "?\", # unknown"
+                        graph['Connection'][ID] = []
+                        cons.append(ID)
+                        ID += 1
+            graph['Connection'][id] = cons
+        pprint(graph)
+        exit()
 
     def graph_match(self, layer, graph):
         def match_inputs(input_ids, inputs):

@@ -54,13 +54,15 @@ public:
 	/* Constructor for input buffer */
 	Buffer(void* data_ptr, const nn_t* nn, const layer_t* layer, py::array& array);
 	void reload(py::array& array);
-	void* get_data() { return m_Data; }
-	size_t get_size() { return m_Size; }
-	void* get_array_data() { return m_ArrayData; }
+	void* data() { return m_Data; }
+	size_t size() { return m_Size; }
+	void* array_data() { return m_ArrayData; }
 	bool is_data_malloced() { return m_DataMalloced; };
 	bool need_quantize() { return (m_ArrayItemSize != m_ItemSize); };
 	/* Constructor for output buffer */
 	Buffer(void* data_ptr, const nn_t* nn, const layer_t* layer);
+	/* For numpy tensor */
+	Buffer(py::array& array);
 	py::array numpy();
 	~Buffer();
 
