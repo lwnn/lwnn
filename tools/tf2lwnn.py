@@ -2,6 +2,7 @@
 # Copyright (C) 2020  Parai Wang <parai@foxmail.com>
 
 from lwnn.core import *
+from lwnn.tfseqs import *
 import tensorflow as tf
 import numpy as np
 import os
@@ -150,10 +151,10 @@ class TfConverter(LWNNUtil):
             for inp in node.input:
                 try:
                     name,id= inp.split(':')
-                    inputs.append(name)
+                    inputs.append(name.replace('^', ''))
                     input_ref.append(eval(id))
                 except ValueError:
-                    inputs.append(inp)
+                    inputs.append(inp.replace('^', ''))
                     input_ref.append(0)
             if(len(inputs) > 0):
                 layer['inputs'] = inputs
@@ -347,29 +348,24 @@ class TfConverter(LWNNUtil):
     def to_LayeBatchNormalization(self, layer):
         x,scale,bias,mean,var = self.get_layers(layer.inputs)
         if(x.op == 'Switch'):
-            layer.inputs = x.inputs[:1]
-            layer.scale = self.eval(scale.inputs[0])
-            layer.bias = self.eval(bias.inputs[0])
-            L1 = self.get_layers_by_scope(layer.name.split('cond')[0])
-            L = []
-            for l in L1:
-                valid = False
-                for k in ['/cond/', '/cond_1/', '/beta', '/gamma', '/moving_mean', '/moving_variance']:
-                    if(k in l.name):
-                        valid = True
-                if(valid):
-                    L.append(l)
-            merge = L[-1]
-            assert(merge.op == 'Merge')
-            layer.name = merge.name
-            layer.outputs = merge.outputs
-            for l in L:
-                if(l.name.endswith('moving_mean')):
-                    layer.mean = self.eval(l)
-                elif(l.name.endswith('moving_variance')):
-                    layer.var = self.eval(l)
-                if(l != layer):
-                    self.lwnn_model.remove(l)
+            #L = self.get_layers_by_scope(layer.name.split('cond')[0])
+            #self.graph_helper(L)
+            for merge in self.lwnn_model:
+                if(merge.op == 'Merge'):
+                    if(self.graph_match(merge, TFSEQ_BATCHNORM_COND)):
+                        graph = self.get_matched_graph()
+                        layer.scale = self.eval(graph[44])
+                        layer.bias = self.eval(graph[46])
+                        layer.var = self.eval(graph[40])
+                        layer.mean = self.eval(graph[42])
+                        layer.inputs = [graph[48].name]
+                        layer.name = merge.name
+                        assert(graph[33] == layer)
+                        for k, l in graph.items():
+                            if(k not in [33, 47, 48]):
+                                self.lwnn_model.remove(l)
+                        return True
+            assert(0)
         else:
             layer.scale = self.eval(scale)
             layer.bias = self.eval(bias)

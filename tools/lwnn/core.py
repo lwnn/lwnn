@@ -142,24 +142,17 @@ class LWNNUtil():
         L.extend(IL)
         for id, layer in enumerate(L):
             IdMap[layer.name] = id
-            graph['Sequence'][id] = layer.op+"\", # "+layer.name
-        ID = len(L)
+            if(layer not in IL):
+                op = layer.op
+            else:
+                op = '?'
+            graph['Sequence'][id] = op+"\", # "+layer.name
         for id, layer in enumerate(L):
             cons = []
-            if('inputs' in layer):
+            if(('inputs' in layer) and (layer not in IL)):
                 for iname in layer.inputs:
                     inp = self.get_layers(iname, L)
-                    if(inp != None):
-                        cons.append(IdMap[inp.name])
-                    else:
-                        inp = self.get_layers(iname)
-                        if(inp != None):
-                            graph['Sequence'][ID] = "?\", # "+ inp.name
-                        else:
-                            graph['Sequence'][ID] = "?\", # unknown"
-                        graph['Connection'][ID] = []
-                        cons.append(ID)
-                        ID += 1
+                    cons.append(IdMap[inp.name])
             graph['Connection'][id] = cons
         pprint(graph)
         exit()
@@ -177,7 +170,26 @@ class LWNNUtil():
         seqs = {}
         if(layer.op == graph['Sequence'][0]):
             seqs = {0:layer}
+            missed_ids = []
             for id in range(len(graph['Sequence'].keys())):
+                if(id not in seqs):
+                    missed_ids.append(id)
+                    continue
+                ly = seqs[id]
+                input_ids = graph['Connection'][id]
+                if(len(input_ids) == 0): continue
+                if('inputs' not in ly): continue
+                inputs = self.get_layers(ly.inputs)
+                r = match_inputs(input_ids, inputs)
+                if(r):
+                    for i,l in zip(input_ids, inputs):
+                        if(i not in seqs):
+                            seqs[i] = l
+                        else:
+                            assert(seqs[i].name == l.name)
+                else:
+                    break
+            for id in missed_ids:
                 ly = seqs[id]
                 input_ids = graph['Connection'][id]
                 if(len(input_ids) == 0): continue
