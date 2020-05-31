@@ -246,6 +246,8 @@ class TfConverter(LWNNUtil):
                     shape[i] = -1 if self.dynamic_shape else 1
             shape[0] = 1 # 1 batch mode for lwnn
             layer['shape'] = shape
+        elif(('dtype' in layer) and (layer.dtype == 'bool')):
+            layer.shape = [1]
         return layer
 
     def to_LayerReshape(self, layer):
@@ -358,7 +360,7 @@ class TfConverter(LWNNUtil):
                         layer.bias = self.eval(graph[46])
                         layer.var = self.eval(graph[40])
                         layer.mean = self.eval(graph[42])
-                        layer.inputs = [graph[48].name]
+                        layer.inputs = [graph[48].name, graph[47].name]
                         layer.name = merge.name
                         assert(graph[33] == layer)
                         for k, l in graph.items():
@@ -622,7 +624,10 @@ class TfConverter(LWNNUtil):
 
     def convert2onnx(self):
         inputs = ['%s:0'%(layer.name) for layer in self.lwnn_model if layer.op == 'Input']
-        outputs = ['%s:0'%(layer.name) for layer in self.lwnn_model if len(self.get_consumers(layer)) == 0]
+        if('output_node' in self.kwargs):
+            outputs = ['%s:0'%(o) for o in self.kwargs['output_node']]
+        else:
+            outputs = ['%s:0'%(layer.name) for layer in self.lwnn_model if len(self.get_consumers(layer)) == 0]
         custom_ops = {}
         extra_opset = []
         graph_def = tf_optimize(inputs, outputs, self.graph_def, True)

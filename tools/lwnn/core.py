@@ -590,7 +590,8 @@ class LWNNModel(LWNNUtil):
         consumers = self.get_consumers(layer)
         if((layer['op'] == 'Conv') and 
                (len(consumers) == 1) and
-               (consumers[0]['op'] == 'BatchNormalization')):
+               (consumers[0]['op'] == 'BatchNormalization') and
+               (len(consumers[0].inputs) == 1)):
             r = True
         return r
 

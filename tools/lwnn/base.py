@@ -461,7 +461,12 @@ class LWNNBaseC():
                ('%s_mean'%(layer['name']),layer['mean']),
                ('%s_M'%(layer['name']),M)]
         self.gen_blobs(layer, blobs)
-        self.fpC.write('L_BATCHNORM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+        if(len(layer['inputs']) == 2):
+            self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+            self.fpC.write('L_BATCHNORM_COND ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+        else:
+            self.fpC.write('L_BATCHNORM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerNormalize(self, layer):
         if('epsilon' in layer):

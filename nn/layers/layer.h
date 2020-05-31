@@ -129,6 +129,11 @@ extern "C" {
 			inputs, NULL };								\
 	L_LAYER_MI(name, PYRAMID_ROI_ALIGN)
 
+#define L_BATCHNORM_COND(name, inputs)					\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, BATCHNORM)
+
 #define L_CONST(name)									\
 	static layer_context_container_t l_context_##name;	\
 	static LCONST int l_dims_##name[] = { name##_DIMS, 0 };	\

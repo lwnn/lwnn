@@ -36,17 +36,48 @@ int layer_cpu_float_BATCHNORM_execute(const nn_t* nn, const layer_t* layer)
 	int nC = context->nhwc.N*context->nhwc.H*context->nhwc.W;
 	int i,c;
 	float X;
+	int is_training = FALSE;
 
 	/* s * (x - mean) / np.sqrt(var + epsilon) + bias */
-	for(i=0; i<nC; i++)
-	{
-		for(c=0; c<context->nhwc.C; c++)
-		{
-			X = IN[i*context->nhwc.C+c];
-			O[i*context->nhwc.C+c] = scale[c]*(X-mean[c])/(sqrt(var[c]+epsilon)) + bias[c];
+	/* if is_training is True, mean/var is dynamic calculated
+	 * a = x.reshape(-1,32)
+	 * mean = np.sum(a, axis=0)/a.shape[0]
+	 * var = np.sum(np.power(a-mean, 2), axis=0)/a.shape[0] */
+	if(layer->inputs[1] != NULL) {
+		if((int)RTE_FETCH_FLOAT(layer->inputs[1]->C->context->out[0], 0) != 0) {
+			is_training = TRUE;
 		}
 	}
 
+	if(is_training) {
+		for(c=0; c<context->nhwc.C; c++) {
+			float mean_ = 0;
+			float var_ = 0;
+			for(i=0; i<nC; i++) {
+				X = IN[i*context->nhwc.C+c];
+				mean_ += X;
+			}
+			mean_ = mean_/nC;
+
+			for(i=0; i<nC; i++) {
+				X = IN[i*context->nhwc.C+c];
+				var_ += (X-mean_)*(X-mean_);
+			}
+			var_ = var_/nC;
+
+			for(i=0; i<nC; i++) {
+				X = IN[i*context->nhwc.C+c];
+				O[i*context->nhwc.C+c] = scale[c]*(X-mean_)/(sqrt(var_+epsilon)) + bias[c];
+			}
+		}
+	} else {
+		for(i=0; i<nC; i++) {
+			for(c=0; c<context->nhwc.C; c++) {
+				X = IN[i*context->nhwc.C+c];
+				O[i*context->nhwc.C+c] = scale[c]*(X-mean[c])/(sqrt(var[c]+epsilon)) + bias[c];
+			}
+		}
+	}
 	return r;
 }
 void layer_cpu_float_BATCHNORM_deinit(const nn_t* nn, const layer_t* layer)
