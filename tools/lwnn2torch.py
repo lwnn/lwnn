@@ -44,6 +44,7 @@ class Lwnn2Torch():
             'Const': self.run_LayerConst,
             'Gather': self.run_LayerGather,
             'PriorBox': self.run_LayerPriorBox,
+            'LSTM': self.run_LayerLSTM,
             'Output': self.run_LayerOutput }
         self.RUNQL = {
             'Input': self.run_QLayerInput,
@@ -345,6 +346,22 @@ class Lwnn2Torch():
         top = lwnn.PriorBox(feature_shape, image_shape, variance, max_sizes, min_sizes,
                             aspect_ratios, clip, flip, step, offset, output_shape)
         layer['top'] = [top]
+
+    def run_LayerLSTM(self, layer):
+        inp = self.get_layers(layer['inputs'])[0]
+        bottom = inp['top'][0]
+        W,R,B = layer.W,layer.R,layer.B
+        I,H,O = W.shape[-1], int(B.shape[-1]/8), R.shape[-1]
+        Wi,Wo,Wf,Wc = W.reshape(4,-1,I)
+        Ri,Ro,Rf,Rc = R.reshape(4,-1,H)
+        Wbi,Wbo,Wbf,Wbc,Rbi,Rbo,Rbf,Rbc = B.reshape(8, -1)
+        lstm = torch.nn.LSTM(I, H, batch_first=True)
+        lstm.weight_ih_l0 = torch.nn.Parameter(torch.from_numpy(np.concatenate([Wi, Wf, Wc, Wo], axis=0)))
+        lstm.weight_hh_l0 = torch.nn.Parameter(torch.from_numpy(np.concatenate([Ri, Rf, Rc, Ro], axis=0)))
+        lstm.bias_ih_l0 = torch.nn.Parameter(torch.from_numpy(np.concatenate([Wbi, Wbf, Wbc, Wbo], axis=0)))
+        lstm.bias_hh_l0 = torch.nn.Parameter(torch.from_numpy(np.concatenate([Rbi, Rbf, Rbc, Rbo], axis=0)))
+        top, (_, _) = lstm(torch.from_numpy(bottom))
+        layer['top'] = [top.detach().numpy()]
 
     def run_LayerUnknown(self, layer):
         layer['top'] = [None]
