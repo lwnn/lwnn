@@ -47,7 +47,7 @@ class TfConverter(LWNNUtil):
             (self.opt_IsLayerClip, self.opt_LayerClip, None),
             (self.opt_IsLayerReshapeBeforeReshape, self.opt_RemoveLayer, None),
             (self.opt_IsLayerReshapeNotNecesary, self.opt_RemoveLayer, None),
-            #(self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
+            (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
             ]
         self.TRANSLATOR = {
             'Reshape': self.to_LayerReshape,
@@ -309,10 +309,7 @@ class TfConverter(LWNNUtil):
                 o = c
                 break
         o.inputs = [layer.name]
-        for l in inputs:
-            if((l != layer) and (l != x)):
-                self.lwnn_model.remove(l)
-        return True
+        return False
 
     def to_LayerConv(self, layer):
         inputs = self.get_layers(layer.inputs)
@@ -476,7 +473,16 @@ class TfConverter(LWNNUtil):
                             raise Exception('The scope %s has too much %s op: %s'%(scope, l.op, l))
         return L, K
 
+    def handleTranslatorOnce(self, op):
+        L = []
+        for l in self.lwnn_model:
+            if(l.op == op):
+                L.append(l)
+        for l in L:
+            self.opt_LayerOpInTranslator(l)
+
     def opt_LayerLSTM(self, layer):
+        self.handleTranslatorOnce('Add') # depends on op Add translate firstly
         L, K = self.getLSTMLayers(layer)
         i,b,o=K['i'],K['b'],K['o']
         inp = self.get_layers(i.inputs)[2]
