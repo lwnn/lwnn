@@ -20,6 +20,7 @@ class Lwnn2Onnx():
             'Scale': self.to_LayerScale,
             'Normalize': self.to_LayerNormalize,
             'Constant': self.to_LayerConst,
+            'LSTM': self.to_LayerLSTM,
             'Output': self.to_LayerOutput
             }
 
@@ -187,31 +188,10 @@ class Lwnn2Onnx():
         self._value_info.append(vinfo)
 
     def to_LayerDense(self, layer):
-        name = layer['name']
-        wname = name + '_weights'
-        bname = name + '_bias'
-        W = layer['weights']
-        B = layer['bias']
-        W = onnx.numpy_helper.from_array(W, wname)
-        B = onnx.numpy_helper.from_array(B, bname)
-        self._initializer.extend([W,B])
-        x = onnx.helper.make_node(
-            'MatMul',
-            name = name+'_o',
-            inputs=layer['inputs']+[wname],
-            outputs=[name+'_o'])
-        self._nodes.append(x)
-        x = onnx.helper.make_node(
-            'Add',
-            name = name,
-            inputs=[name+'_o', bname],
-            outputs=[name])
-        self._nodes.append(x)
-        vinfo = onnx.helper.make_tensor_value_info(
-                name,
-                onnx.TensorProto.FLOAT, 
-                layer['shape'])
-        self._value_info.append(vinfo)
+        self.to_LayerCommon(layer, ['weights', 'bias'])
+
+    def to_LayerLSTM(self, layer):
+        self.to_LayerCommon(layer, ['W', 'R', 'B'])
 
     def to_LayerOutput(self, layer):
         x = onnx.helper.make_tensor_value_info(

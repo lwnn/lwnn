@@ -21,6 +21,7 @@ class OnnxConverter(LWNNUtil):
                 'Reshape': self.to_LayerReshape,
                 'Constant': self.to_LayerConstant,
                 'Gemm': self.to_LayerGemm,
+                'Dense': self.to_LayerGemm,
                 'LSTM': self.to_LayerLSTM,
                 'Clip': self.to_LayerClip,
                 'Add': self.to_LayerAdd }
@@ -143,6 +144,10 @@ class OnnxConverter(LWNNUtil):
         if('shapes' in self.kwargs):
             return self.kwargs['shapes']
         shapes = {}
+        if(('lwnn' in self.kwargs) and (self.kwargs['lwnn'] == True)):
+            for vinfo in self.onnx_model.graph.value_info:
+                shapes[vinfo.name] = [int(dim.dim_value) for dim in vinfo.type.tensor_type.shape.dim]
+            return shapes
         if(self.feeds is None):
             feed = None
         else:

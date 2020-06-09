@@ -7,78 +7,45 @@ import numpy as np
 import glob
 import liblwnn as lwnn
 from lwnn import *
+from onnx2lwnn import OnnxConverter
 # ref https://pytorch.org/docs/stable/_modules/torch/nn/quantized/functional.html
 import torch
 from verifyoutput import *
 
-__all__ = ['lwnn2torch']
+__all__ = ['lwnn2torch', 'Lwnn2Torch']
 
 def LI(a):
     return np.asarray(a, dtype=np.int32)
 
-class Lwnn2Torch():
-    def __init__(self, p, **kargs):
-        if('debug' in kargs):
-            self._debug = kargs['debug']
-        else:
-            if('YES' == os.getenv('LWNN_DEBUG')):
-                self._debug = True
-                lwnn.set_log_level(0)
-            else:
-                self._debug = False
-        self._debugQ = True if 'YES' == os.getenv('LWNN_DEBUGQ') else False
-        self.RUNL = {
-            'Input': self.run_LayerInput,
-            'Conv': self.run_LayerConv,
-            'Relu': self.run_LayerRelu,
-            'Reshape': self.run_LayerReshape,
-            'Concat': self.run_LayerConcat,
-            'Softmax': self.run_LayerSoftmax,
-            'MaxPool': self.run_LayerMaxPool,
-            'Upsample': self.run_LayerUpsample,
-            'DetectionOutput': self.run_LayerUnknown,
-            'Yolo': self.run_LayerUnknown,
-            'YoloOutput': self.run_LayerUnknown,
-            'BatchNormalization': self.run_LayerBatchNormalization,
-            'Transpose': self.run_LayerTranspose,
-            'Const': self.run_LayerConst,
-            'Gather': self.run_LayerGather,
-            'PriorBox': self.run_LayerPriorBox,
-            'LSTM': self.run_LayerLSTM,
-            'Output': self.run_LayerOutput }
-        self.RUNQL = {
-            'Input': self.run_QLayerInput,
-            'Conv': self.run_QLayerConv,
-            'Relu': self.run_LayerQUnknown,
-            'Reshape': self.run_LayerQUnknown,
-            'Concat': self.run_LayerQUnknown,
-            'Softmax': self.run_LayerQUnknown,
-            'MaxPool': self.run_LayerQUnknown,
-            'Upsample': self.run_LayerQUnknown,
-            'DetectionOutput': self.run_LayerQUnknown,
-            'Yolo': self.run_LayerQUnknown,
-            'YoloOutput': self.run_LayerQUnknown,
-            'BatchNormalization': self.run_LayerQUnknown,
-            'Output': self.run_QLayerOutput }
+class Lwnn2Torch(torch.nn.Module):
+    def __init__(self, p, **kwargs):
+        super(Lwnn2Torch, self).__init__()
+        self.kwargs = kwargs
         if(type(p) == str):
             self.lwnn_model = self.load(p)
         else:
             self.lwnn_model = p
+        self.convert()
 
     def load(self, p):
-        try:
-            model=pickle.load(open(p,'rb'))
-        except:
-            # load python2 generated pickle from python3
-            model=pickle.load(open(p,'rb'), fix_imports=True, encoding="latin1")
-        return model
+        converter = OnnxConverter(p, lwnn=True)
+        return converter.model
+
+    def convert(self):
+        for layer in self.lwnn_model:
+            cvtfunc = getattr(self, 'to_Layer%s'%(layer.op))
+            cvtfunc(layer)
 
     @property
     def inputs(self):
         inps = {}
+        shapes = self.kwargs['shapes'] if 'shapes' in self.kwargs else {}
         for ly in self.lwnn_model:
             if(ly['op'] == 'Input'):
-                inps[ly['name']] = ly['shape']
+                if(ly.name in shapes):
+                    inps[ly.name] = shapes[ly.name]
+                else:
+                    inps[ly.name] = ly.shape
         return inps
 
     def get_layers(self, names):
@@ -152,42 +119,31 @@ class Lwnn2Torch():
         else:
             raise Exception('attr %s not found for layer %s'%(attr_name, layer))
 
-    def run_LayerInput(self, layer):
-        name = layer['name']
-        if(self.feeds != None):
-            feed = self.feeds[name]
-        else:
-            feed = np.random.uniform(low=-1,high=1,size=layer['shape']).astype(np.float32)
-        layer['top'] = [feed]
+    def get_bottom(self, layer, index=0):
+        return self._outputs[layer.inputs[index]]
+    def set_top(self, layer, top, index=0):
+        self._outputs[layer.outputs[index]] = top
+    def get_top(self, layer, index=0):
+        return self._outputs[layer.outputs[index]]
 
-    def run_QLayerInput(self, layer):
-        bottom = layer['top'][0]
-        top = self.quantize_per_tensor(bottom)
-        layer['topq'] = [top]
+    def to_LayerInput(self, layer):
+        pass
+    def forward_LayerInput(self, layer):
+        pass
 
-    def activation(self, layer):
-        if('activation' in layer):
-            activation = layer['activation']
-            bottom = layer['top'][0]
-            if(activation == 'leaky'):
-                act = torch.nn.LeakyReLU(negative_slope=0.1)
-            elif(activation == 'Relu'):
-                act = torch.nn.ReLU()
-            elif(activation == 'linear'):
-                return
-            top = act(torch.from_numpy(bottom))
-            layer['top'] = [top.detach().numpy()]
+    def forward_LayerCommon(self, layer):
+        bottom = self.get_bottom(layer)
+        op = getattr(self, layer.name)
+        top = op(bottom)
+        self.set_top(layer, top)
 
-    def run_LayerConv(self, layer, Q=False):
+    def to_LayerConv(self, layer, Q=False):
         inp = self.get_layers(layer['inputs'])[0]
         W = layer['weights']
-        if(layer['group'] == 1):
-            W = W.transpose(0,3,1,2)
-        else:
-            W = W.transpose(3,0,1,2)
+        group = layer.group
         B = layer['bias']
-        _,Cin,_,_ = inp['shape']
-        _,Cout,_,_ = layer['shape']
+        Cin = int(W.shape[1]/group)
+        Cout = W.shape[0]
         strides = self.get_attr(layer, 'strides', [1, 1])
         dilation = self.get_attr(layer, 'dilations', [1, 1])
         if(Q==True):
@@ -210,7 +166,6 @@ class Lwnn2Torch():
                      dtype=torch.quint8)
             layer['topq'] = [top]
         else:
-            bottom = inp['top'][0]
             conv = torch.nn.Conv2d(in_channels=Cin,
                      out_channels=Cout,
                      kernel_size=list(W.shape)[2:],
@@ -221,26 +176,46 @@ class Lwnn2Torch():
                      bias=True)
             conv.weight = torch.nn.Parameter(torch.from_numpy(W))
             conv.bias = torch.nn.Parameter(torch.from_numpy(B))
-            top = conv(torch.from_numpy(bottom))
-            layer['top'] = [top.detach().numpy()]
+            setattr(self, layer.name, conv)
 
-    def run_QLayerConv(self, layer):
-        return self.run_LayerConv(layer, Q=True)
+    def to_QLayerConv(self, layer):
+        return self.to_LayerConv(layer, Q=True)
 
-    def run_LayerRelu(self, layer):
-        inp = self.get_layers(layer['inputs'])[0]
-        bottom = inp['top'][0]
-        relu = torch.nn.ReLU()
-        top = relu(torch.from_numpy(bottom))
-        layer['top'] = [top.detach().numpy()]
+    def to_LayerDense(self, layer):
+        W = layer['weights']
+        B = layer['bias']
+        in_features = W.shape[0]
+        out_features = W.shape[1]
+        dense = torch.nn.Linear(in_features, out_features)
+        dense.weight = torch.nn.Parameter(torch.from_numpy(W.transpose()))
+        dense.bias = torch.nn.Parameter(torch.from_numpy(B))
+        setattr(self, layer.name, dense)
 
-    def run_LayerReshape(self, layer):
-        inp = self.get_layers(layer['inputs'])[0]
-        bottom = inp['top'][0]
-        top = bottom.reshape([-1]+list(layer['shape'])[1:])
-        layer['top'] = [top]
+    def to_LayerRelu(self, layer):
+        setattr(self, layer.name, torch.nn.ReLU())
 
-    def run_LayerConcat(self, layer):
+    def to_LayerReshape(self, layer):
+        pass
+    def forward_LayerReshape(self, layer):
+        bottom = self.get_bottom(layer)
+        shapes = self.kwargs['shapes'] if 'shapes' in self.kwargs else {}
+        if(layer.name in shapes):
+            shape = shapes[layer.name]
+        else:
+            shape = layer.shape
+        shape = [-1]+list(shape)[1:]
+        top = torch.reshape(bottom, shape)
+        self.set_top(layer, top)
+
+    def to_LayerMin(self, layer):
+        pass
+    def forward_LayerMin(self, layer):
+        a = self.get_bottom(layer, 0)
+        b = self.get_bottom(layer, 1)
+        top = torch.min(a, b)
+        self.set_top(layer, top)
+
+    def to_LayerConcat(self, layer):
         inps = self.get_layers(layer['inputs'])
         inp = inps[0]
         top = np.copy(inp['top'][0])
@@ -249,23 +224,26 @@ class Lwnn2Torch():
             top = np.concatenate((top,bottom), axis=layer['axis'])
         layer['top'] = [top]
 
-    def run_LayerSoftmax(self, layer):
-        inp = self.get_layers(layer['inputs'])[0]
-        bottom = inp['top'][0]
+    def to_LayerSoftmax(self, layer):
         if('axis' in layer):
             axis = layer['axis'] # axis is not handled by lwnn
         else:
             axis = -1
+        softmax = torch.nn.Softmax(axis)
+        setattr(self, layer.name, softmax)
+    def forward_LayerSoftmax(self, layer):
+        inp = self.get_layers(layer.inputs)[0]
+        bottom = self.get_bottom(layer)
         if('permute' in layer):
-            if(len(bottom.shape) == 3):
-                bottom = bottom.reshape([bottom.shape[i] for i in [0,2,1]])
+            if(len(inp.shape) == 3):
+                bottom = torch.reshape(bottom, [inp.shape[i] for i in [0,2,1]])
             else:
                 raise NotImplementedError()
-        softmax = torch.nn.Softmax(axis)
-        top = softmax(torch.from_numpy(bottom))
-        layer['top'] = [top.detach().numpy()]
+        softmax = getattr(self, layer.name)
+        top = softmax(bottom)
+        self.set_top(layer, top)
 
-    def run_LayerMaxPool(self, layer):
+    def to_LayerMaxPool(self, layer):
         inp = self.get_layers(layer['inputs'])[0]
         with_mask = False
         if(len(layer['outputs']) == 2):
@@ -282,18 +260,15 @@ class Lwnn2Torch():
         else:
             layer['top'] = [top]
 
-    def run_LayerUpsample(self, layer):
+    def to_LayerUpsample(self, layer):
         inp = self.get_layers(layer['inputs'])[0]
-        bottom = inp['top'][0]
         _,_,Hin,Win = inp['shape']
         _,_,Hout,Wout = layer['shape']
         upsample = torch.nn.Upsample(scale_factor=(int(Hout/Hin), int(Wout/Win)))
-        top = upsample(torch.from_numpy(bottom))
-        layer['top'] = [top.detach().numpy()]
+        setattr(self, layer.name, upsample)
 
-    def run_LayerBatchNormalization(self, layer):
+    def to_LayerBatchNormalization(self, layer):
         inp = self.get_layers(layer['inputs'])[0]
-        bottom = inp['top'][0]
         num_features = inp['shape'][1]
         epsilon = self.get_attr(layer, 'epsilon', 1e-5)
         batchnorm = torch.nn.BatchNorm2d(num_features=num_features, eps=epsilon)
@@ -301,28 +276,32 @@ class Lwnn2Torch():
         batchnorm.bias = torch.nn.Parameter(torch.from_numpy(layer['bias']))
         batchnorm.running_mean = torch.from_numpy(layer['mean'])
         batchnorm.running_var = torch.from_numpy(layer['var'])
-        top = batchnorm(torch.from_numpy(bottom))
-        layer['top'] = [top.detach().numpy()]
+        setattr(self, layer.name, batchnorm)
 
-    def run_LayerTranspose(self, layer):
+    def to_LayerTranspose(self, layer):
         inp = self.get_layers(layer['inputs'])[0]
         bottom = inp['top'][0]
         perm = layer['perm']
         top = np.transpose(bottom, perm)
         layer['top'] = [top]
 
-    def run_LayerConst(self, layer):
-        layer['top'] = [layer['const']]
+    def to_LayerConstant(self, layer):
+        setattr(self, layer.name, torch.from_numpy(layer.const))
+    def forward_LayerConstant(self, layer):
+        self._outputs[layer.outputs[0]] = getattr(self, layer.name)
 
-    def run_LayerGather(self, layer):
-        inp = self.get_layers(layer['inputs'])[0]
-        bottom = inp['top'][0]
+    def to_LayerGather(self, layer):
         indices = layer['indices']
+        setattr(self, layer.name+'_indices', torch.from_numpy(indices.astype(np.int64)))
+    def forward_LayerGather(self, layer):
+        bottom = self.get_bottom(layer)
         dim = layer['axis']
-        top = torch.gather(torch.from_numpy(bottom), dim, torch.from_numpy(indices.astype(np.int64)))
-        layer['top'] = [top.detach().numpy()]
+        top = torch.gather(bottom, dim, getattr(self, layer.name+'_indices'))
+        self.set_top(layer, top)
 
-    def run_LayerPriorBox(self, layer):
+    def to_LayerPriorBox(self, layer):
+        pass
+    def forward_LayerPriorBox(self, layer):
         feature_shape = np.asarray(layer['feature_shape'], np.int32)
         image_shape = np.asarray(layer['image_shape'], np.int32)
         variance = np.asarray(layer['variance'], np.float32)
@@ -347,106 +326,80 @@ class Lwnn2Torch():
                             aspect_ratios, clip, flip, step, offset, output_shape)
         layer['top'] = [top]
 
-    def run_LayerLSTM(self, layer):
-        inp = self.get_layers(layer['inputs'])[0]
-        bottom = inp['top'][0]
+    def to_LayerLSTM(self, layer):
         W,R,B = layer.W,layer.R,layer.B
         I,H,O = W.shape[-1], int(B.shape[-1]/8), R.shape[-1]
         Wi,Wo,Wf,Wc = W.reshape(4,-1,I)
         Ri,Ro,Rf,Rc = R.reshape(4,-1,H)
         Wbi,Wbo,Wbf,Wbc,Rbi,Rbo,Rbf,Rbc = B.reshape(8, -1)
-        lstm = torch.nn.LSTM(I, H, batch_first=True)
+        lstm = torch.nn.LSTM(I, H, batch_first=False)
         lstm.weight_ih_l0 = torch.nn.Parameter(torch.from_numpy(np.concatenate([Wi, Wf, Wc, Wo], axis=0)))
         lstm.weight_hh_l0 = torch.nn.Parameter(torch.from_numpy(np.concatenate([Ri, Rf, Rc, Ro], axis=0)))
         lstm.bias_ih_l0 = torch.nn.Parameter(torch.from_numpy(np.concatenate([Wbi, Wbf, Wbc, Wbo], axis=0)))
         lstm.bias_hh_l0 = torch.nn.Parameter(torch.from_numpy(np.concatenate([Rbi, Rbf, Rbc, Rbo], axis=0)))
-        top, (_, _) = lstm(torch.from_numpy(bottom))
-        layer['top'] = [top.detach().numpy()]
+        setattr(self, layer.name, lstm)
+    def forward_LayerLSTM(self, layer):
+        bottom = self.get_bottom(layer)
+        lstm = getattr(self, layer.name)
+        # note: prev_c/prev_h shape MUST be (1, 1, H)
+        prev_c_n = '%s:prev_c'%(layer.name)
+        if(prev_c_n in self._outputs):
+            prev_c = self._outputs[prev_c_n]
+            prev_h = self._outputs['%s:prev_h'%(layer.name)]
+            top, (new_h, new_c) = lstm(bottom, (prev_h, prev_c))
+            self._outputs['%s:new_c'%(layer.name)] = new_c
+            self._outputs['%s:new_h'%(layer.name)] = new_h
+        else:
+            top, (_, _) = lstm(bottom)
+        self.set_top(layer, top)
 
-    def run_LayerUnknown(self, layer):
-        layer['top'] = [None]
 
-    def run_LayerQUnknown(self, layer):
-        layer['topq'] = [None]
+    def to_LayerOutput(self, layer):
+        pass
+    def forward_LayerOutput(self, layer):
+        pass
 
-    def run_LayerOutput(self, layer):
-        inp = self.get_layers(layer['inputs'])[0]
-        bottom = inp['top'][0]
-        layer['top'] = [bottom]
-
-    def run_QLayerOutput(self, layer):
-        inp = self.get_layers(layer['inputs'])[0]
-        bottom = inp['topq'][0]
-        layer['topq'] = [bottom]
-
-    def debug(self, layer):
-        try:
-            os.makedirs('./tmp/torch')
-        except:
-            pass
-        name = layer['name']
-        top = layer['top']
-        op = layer['op']
-        if((True == self._debugQ) and (op in self.RUNQL)):
-            self.RUNQL[op](layer)
-        for id, v in enumerate(top):
-            if(v is None):
-                continue
-            print('  saving %s[%s]: %s'%(name, id, v.shape))
-            for batch in range(v.shape[0]):
-                oname = './tmp/torch/torch-%s-O%s-B%s.raw'%(name, id, batch)
-                B = v[batch]
-#                 if(os.path.exists('./tmp/%s.raw'%(name)) and (id == 0) and (batch == 0)):
-#                     G = np.fromfile('./tmp/%s.raw'%(name), np.float32)
-#                     compare(G, B, name)
-                if(len(B.shape) == 3):
-                    B = B.transpose(1,2,0)
-                B.tofile(oname)
-            if((True == self._debugQ) and(op in self.RUNQL)):
-                vq = layer['topq'][id]
-                if(vq is not None):
-                    vfq = torch.nn.quantized.DeQuantize()(vq).detach().numpy()
-                    compare(v, vfq, name, tn='torch.q')
-
-    def sanity_check(self, layer):
-        top = layer['top'][0]
-        if(top is not None):
-            eshape = ['?'] + list(layer['shape'])[1:]
-            oshape = ['?'] + list(top.shape)[1:]
-            if(('permute' in layer) and (layer['op'] == 'Softmax')):
-                if(len(eshape) == 3):
-                    eshape = [eshape[s] for s in [0,2,1]]
-                else:
-                    raise NotImplementedError()
-            if(eshape != oshape):
-                raise Exception('layer %s:\n\texpected shape %s, not %s'%(layer, eshape, oshape))
+    def forward(self, feed):
+        self._outputs = {}
+        for k, v in feed.items():
+            if(type(v) == np.ndarray):
+                v = torch.from_numpy(v)
+            self._outputs[k] = v
+        for layer in self.lwnn_model:
+            fwdfunc = getattr(self, 'forward_Layer%s'%(layer.op), self.forward_LayerCommon)
+            #print('forward %s %s %s'%(layer.name, layer.op, fwdfunc.__name__))
+            fwdfunc(layer)
+            #print('  ->', self.get_top(layer).shape)
+        return self._outputs
 
     def run(self, feeds):
-        self.feeds = feeds
-        outputs = {}
-        for ly in self.lwnn_model:
-            if(self._debug):
-                print('execute %s %s: %s'%(ly['op'], ly['name'], tuple(ly['shape'])))
-            self.RUNL[ly['op']](ly)
-            self.activation(ly)
-            if(self._debug):
-                self.debug(ly)
-            self.sanity_check(ly)
-            outputs[ly['name']] = ly['top']
-        return outputs
+        for feed in feeds:
+            onefeed={}
+            for n, v in feed.items():
+                onefeed[n] = v
+            outputs = self(onefeed)
+            yield outputs
 
-def lwnn2torch(model, feeds, **kargs):
-    model = Lwnn2Torch(model, **kargs)
-
-    if(type(feeds) == str):
-        feeds = load_feeds(feeds, model.inputs)
+def lwnn2torch(model, feeds, **kwargs):
+    model = Lwnn2Torch(model, **kwargs)
+    print(model)
+    feeds = LWNNFeeder(feeds, model.inputs, format='NHWC')
     return model.run(feeds)
 
 if(__name__ == '__main__'):
     import argparse
     parser = argparse.ArgumentParser(description='convert lwnn to pytorch model')
-    parser.add_argument('-i', '--input', help='input lwnn model', type=str, required=True)
-    parser.add_argument('-r', '--raw', help='input raw directory', type=str, default=None, required=True)
-    parser.add_argument('-d', '--debug', help='debup outputs of each layer', action='store_true', default=False, required=False)
+    parser.add_argument('-i', '--input', help='input lwnn.onnx model', type=str, required=True)
+    parser.add_argument('-f', '--feeds', help='a json file describe the feeds in dict format, e.g: {"input":["/path/to/input1", "/path/to/input2"]}', type=str, default=None, required=True)
+    parser.add_argument('-s', '--shape', help='shapes of some layers', nargs='+', default=None, required=False)
     args = parser.parse_args()
-    lwnn2torch(args.input, args.raw, debug=args.debug)
+    kwargs = {}
+    if((args.shape is not None) and (len(args.shape)%2 == 0)):
+        n = int(len(args.shape)/2)
+        shapes = {}
+        for i in range(n):
+            k = args.shape[2*i]
+            shape = eval(args.shape[2*i+1])
+            shapes[k] = shape
+        kwargs['shapes'] = shapes
+    lwnn2torch(args.input, args.feeds, **kwargs)

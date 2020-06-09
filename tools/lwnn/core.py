@@ -5,7 +5,6 @@ from . import *
 from .float import *
 from .qformat import *
 from lwnn2onnx import *
-import pickle
 import traceback
 from pprint import pprint
 
@@ -377,10 +376,6 @@ class LWNNModel(LWNNUtil):
             lwnn2onnx(self.omodel, '%s.lwnn.onnx'%(self.path))
         except:
             traceback.print_exc()
-        try:
-            pickle.dump(self.lwnn_model, open('%s.pkl'%(self.path), 'wb'), True)
-        except Exception as e:
-            print(e)
 
     @property
     def input(self):
