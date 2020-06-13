@@ -283,7 +283,7 @@ int calc_roi_level(float y1, float x1, float y2, float x2, float image_area, int
     level = (x2-x1)*(y2-y1);
     level = sqrt(level) / (224.0 / sqrt(image_area));
     level = log(level) / log(2.0);
-    level = std::min((double)n_features-1, std::max(0.0, 2.0+std::round(level)));
+    level = std::min((double)n_features-1, std::max(0.0, 2.0+roundf(level)));
     roi_level = level;
   }
 

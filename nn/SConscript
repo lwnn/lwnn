@@ -37,9 +37,9 @@ for dir in Glob('runtime/*'):
 objs = asenv.Library('lwnn', objs)
 if(os.getenv('DISABLE_OPENCL') != 'True'):
     if(GetOption('android')):
-        # adb pull /vendor/lib64/[libOpenCL.so,libCB.so,libgsl.so]
-        # adb pull /system/lib64/[libcutils.so,libz.so]
-       objs+= Glob('*.so')
+        libocl = Package('https://github.com/krrishnarraj/libopencl-stub.git')
+        asenv.Append(CPPPATH=['%s/include'%(libocl)])
+        objs += Glob('%s/src/*.c'%(libocl))
     elif(IsPlatformWindows()):
         objs+=['%s/lib/x64/OpenCL.lib'%(cuda)]
     else:
