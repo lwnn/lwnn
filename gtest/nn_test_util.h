@@ -26,7 +26,11 @@
 #define DLLFIX ".dll"
 #define LIBFIX ""
 #else
+#ifdef __ANDROID__
+#define BUILD_DIR "build/android/"
+#else
 #define BUILD_DIR "build/posix/"
+#endif
 #define DLLFIX ".so"
 #define LIBFIX "lib"
 #endif
@@ -129,6 +133,12 @@ TEST(Runtime##runtime, Model##name##T)					\
 #define NNT_TEST_HALIDE(name)
 #endif
 
+#ifdef ENABLE_RUNTIME_ANY
+#define NNT_TEST_ANY(name)	NNT_TEST_DEF(ANY, name, Float)
+#else
+#define NNT_TEST_ANY(name)
+#endif
+
 
 #define NNT_TEST_ALL(name)				\
 	NNT_TEST_CPU_S8(name)				\
@@ -137,6 +147,7 @@ TEST(Runtime##runtime, Model##name##T)					\
 	NNT_TEST_CPU_FLOAT(name)			\
 	NNT_TEST_OPENCL(name)				\
 	NNT_TEST_HALIDE(name)				\
+	NNT_TEST_ANY(name)					\
 
 
 #ifndef DISABLE_RUNTIME_CPU_S8
@@ -175,6 +186,12 @@ TEST(Runtime##runtime, Model##name##T)					\
 #define NNT_MODEL_TEST_HALIDE(name)
 #endif
 
+#ifdef ENABLE_RUNTIME_ANY
+#define NNT_MODEL_TEST_ANY(name)	NNT_MODEL_TEST_DEF(ANY, name, Float)
+#else
+#define NNT_MODEL_TEST_ANY(name)
+#endif
+
 
 #define NNT_MODEL_TEST_ALL(name)			\
 	NNT_MODEL_TEST_CPU_S8(name)				\
@@ -183,6 +200,7 @@ TEST(Runtime##runtime, Model##name##T)					\
 	NNT_MODEL_TEST_CPU_FLOAT(name)			\
 	NNT_MODEL_TEST_OPENCL(name)				\
 	NNT_MODEL_TEST_HALIDE(name)				\
+	NNT_MODEL_TEST_ANY(name)				\
 
 
 /* ============================ [ TYPES     ] ====================================================== */

@@ -331,6 +331,8 @@ const network_t* nnt_load_network(const char* netpath, void** dll)
 			dname = dirname(symbol);
 			#ifdef _WIN32
 			snprintf(path, sizeof(path), "%s/%s/%s.bin", cwd, &dname[9], bname);
+			#elif defined(__ANDROID__)
+			snprintf(path, sizeof(path), "%s/%s/%s.bin", cwd, &dname[14], &bname[3]);
 			#else
 			snprintf(path, sizeof(path), "%s/%s/%s.bin", cwd, &dname[12], &bname[3]);
 			#endif

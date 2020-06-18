@@ -37,32 +37,29 @@ else:
             host = 'linux'
         for so in Glob('../build/android/gtest/models/*/*%s'%(dllfix)):
             src = str(so)
-            tgt = '/data/local/tmp/lwnn/build/gtest/%s'%(src.replace('.dll','.so'))
+            tgt = '/data/local/tmp/lwnn/build/android/gtest/%s'%(src.replace('.dll','.so'))
             b = os.path.basename(tgt)
             if(b[:3] != 'lib'):
                 tgt = tgt.replace(b, 'lib%s'%(b))
-            cmd = 'adb push %s %s'%(src, tgt)
-            cmd = cmd.replace(os.sep, '/')
-            RunCommand(cmd)
+            AdbPush(src, tgt)
         for raw in Glob('models/*/golden/*.raw'):
             src = str(raw)
             tgt = src.split('gtest')[1]
             tgt = '/data/local/tmp/lwnn/gtest/%s'%(tgt)
-            cmd = 'adb push %s %s'%(src, tgt)
-            cmd = cmd.replace(os.sep, '/')
-            RunCommand(cmd)
+            AdbPush(src, tgt)
+        for bin in Glob('models/*/*.bin'):
+            src = str(bin)
+            tgt = src.split('gtest')[1]
+            tgt = '/data/local/tmp/lwnn/gtest/%s'%(tgt)
+            AdbPush(src, tgt)
         for cl in Glob('../nn/runtime/opencl/kernels/*.cl'):
             src = str(cl)
             tgt = '/data/local/tmp/lwnn/nn/runtime/opencl/kernels/%s'%(os.path.basename(src))
-            cmd = 'adb push %s %s'%(src, tgt)
-            cmd = cmd.replace(os.sep, '/')
-            RunCommand(cmd)
+            AdbPush(src, tgt)
         for exe in Glob('../lwnn_gtest*'):
             src = str(exe)
             tgt = '/data/local/tmp/lwnn/%s'%(os.path.basename(src))
-            cmd = 'adb push %s %s'%(src, tgt)
-            cmd = cmd.replace(os.sep, '/')
-            RunCommand(cmd)
+            AdbPush(src, tgt)
         cmd = 'adb push %s/toolchains/llvm/prebuilt/%s-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so /data/local/tmp/lwnn'%(NDK, host)
         RunCommand(cmd)
         exit()

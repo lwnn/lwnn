@@ -45,9 +45,9 @@ class TfConverter(LWNNUtil):
             (self.opt_IsLayerMfcc, self.opt_LayerMfcc, None),
             (self.opt_IsLayerSoftmax, self.opt_LayerSoftmax, None),
             (self.opt_IsLayerClip, self.opt_LayerClip, None),
-            (self.opt_IsLayerReshapeBeforeReshape, self.opt_RemoveLayer, None),
+            (self.opt_IsLayerReshapeAfterReshape, self.opt_LayerReshapeAfterReshape, None),
             (self.opt_IsLayerReshapeNotNecesary, self.opt_RemoveLayer, None),
-            (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
+            #(self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
             ]
         self.TRANSLATOR = {
             'Reshape': self.to_LayerReshape,
@@ -90,6 +90,7 @@ class TfConverter(LWNNUtil):
             self.sess.run(tf.global_variables_initializer())
         self.tensors = {}
         for node in self.graph_def.node:
+            if(node.op in ['Assert']): continue
             x = self.sess.graph.get_tensor_by_name('%s/%s:0'%(self.name, node.name))
             self.tensors[self.c_str(node.name)] = x
         self.kwargs = kwargs
@@ -274,7 +275,8 @@ class TfConverter(LWNNUtil):
         _, weights = self.get_layers(layer.inputs)
         layer.weights = self.eval(weights)
         layer.inputs = layer.inputs[:1]
-        self.lwnn_model.remove(weights)
+        # for albert, weights are shared by differnet layers, so don't remove
+        # self.lwnn_model.remove(weights)
         return True
 
     def to_LayerBlockLSTM(self, layer):
@@ -400,6 +402,8 @@ class TfConverter(LWNNUtil):
     def to_LayerConst(self, layer):
         layer.const = layer.value
         layer.shape = layer.value.shape
+        if('inputs' in layer):
+            del layer['inputs']
 
     def to_LayerTranspose(self, layer):
         _, perm = self.get_layers(layer.inputs)
@@ -584,14 +588,19 @@ class TfConverter(LWNNUtil):
         layer.min = -np.inf
         layer.inputs = [inp.name]
 
-    def opt_IsLayerReshapeBeforeReshape(self, layer):
+    def opt_IsLayerReshapeAfterReshape(self, layer):
         r = False
-        consumers = self.get_consumers(layer)
-        if((layer['op'] == 'Reshape') and
-               (len(consumers) == 1) and
-               (consumers[0]['op'] == 'Reshape')):
-            r = True
+        if(layer.op == 'Reshape'):
+            inputs = self.get_layers(layer.inputs)
+            if( (len(inputs) == 1) and
+                (inputs[0].op == 'Reshape')):
+                r = True
         return r
+
+    def opt_LayerReshapeAfterReshape(self, layer):
+        inputs = self.get_layers(layer.inputs)
+        self.opt_RemoveLayer(inputs[0])
+        return True
 
     def opt_IsLayerReshapeNotNecesary(self, layer):
         r = False
@@ -696,6 +705,7 @@ class TfConverter(LWNNUtil):
     def convert(self):
         self.lwnn_model = []
         for node in self.graph_def.node:
+            if(node.op in ['Assert']): continue
             try:
                 layer = self.to_LayerCommon(node)
             except Exception as e:
@@ -704,6 +714,7 @@ class TfConverter(LWNNUtil):
         if(('use_tf2onnx' not in self.kwargs) or (self.kwargs['use_tf2onnx'] == False)):
             self.handle_input_output()
             self.optimize()
+            self.remove_unused()
             for l in self.lwnn_model:
                 if('shape' in l):
                     self.convert_layer_to_nchw(l)

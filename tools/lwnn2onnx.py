@@ -181,6 +181,7 @@ class Lwnn2Onnx():
             outputs=[name],
             value=value)
         self._nodes.append(x)
+        if('shape' not in layer): return
         vinfo = onnx.helper.make_tensor_value_info(
                 name,
                 value.data_type, 

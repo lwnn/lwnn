@@ -67,6 +67,17 @@ class LWNNUtil():
                     layers.append(layer)
         return layers
 
+    def get_layers_by_names(self, names, model=None):
+        layers = []
+        if(model == None):
+            model = self.lwnn_model
+        for layer in model:
+            if(layer.name in names):
+                layers.append(layer)
+                if(len(layers) == len(names)):
+                    break
+        return layers
+
     def get_consumers(self, layer, model=None):
         consumers = []
         if(model == None):
@@ -91,6 +102,13 @@ class LWNNUtil():
         self.lwnn_model.remove(layer)
         return True
 
+    def is_output_layer(self, layer):
+        r = False
+        if(((layer.op in LWNNOutputNodes)
+            or ('Output' in layer))):
+            r = True
+        return r
+
     def opt_IsLayerUnused(self, layer):
         r = False
         consumers = self.get_consumers(layer)
@@ -103,6 +121,31 @@ class LWNNUtil():
     def opt_LayerUnusedAction(self, layer):
         self.lwnn_model.remove(layer)
         return True
+
+    def loop_collect_inputs(self, layer, used_layers):
+        if('inputs' in layer):
+            for inp in self.get_layers_by_names(layer.inputs):
+                if(inp.name not in used_layers):
+                    used_layers.append(inp.name)
+                    self.loop_collect_inputs(inp, used_layers)
+
+    def remove_unused(self):
+        output_layers = []
+        for layer in self.lwnn_model:
+            if(self.is_output_layer(layer)):
+                output_layers.append(layer)
+        used_layers = []
+        for layer in output_layers:
+            self.loop_collect_inputs(layer, used_layers)
+        used_layers = used_layers + [layer.name for layer in output_layers]
+        flag = True
+        while(flag):
+            flag = False
+            for layer in self.lwnn_model:
+                if(layer.name not in used_layers):
+                    self.lwnn_model.remove(layer)
+                    flag = True
+                    break
 
     def convert_axis_to_nchw(self, layer):
         axis = layer['axis']
@@ -306,7 +349,7 @@ class LWNNModel(LWNNUtil):
             (self.nchw_IsLayerNHWC, self.nchw_ActionLayerNHWC, None),
             (self.nchw_IsInputAdjustLayer, self.nchw_ActionInputAdjustLayer, None),
             (self.nchw_IsOutputAdjustLayer, self.opt_RemoveLayer, None),
-            (self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
+            #(self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
             (self.opt_IsLayerFakeQuantize, self.opt_LayerFakeQuantize, None),
             (self.opt_IsLayerHasInitializer, self.opt_LayerHasInitializer, None),
             (self.opt_IsLayerDense, self.opt_LayerDense, None),
@@ -353,6 +396,7 @@ class LWNNModel(LWNNUtil):
         self.try_calculate_outputs()
         self.omodel = self.clone()
         self.optimize()
+        self.remove_unused()
         self.omodel = self.clone()
         self.save()
         self.optimize(['RemoveTranspose'])

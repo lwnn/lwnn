@@ -68,9 +68,9 @@ def IsPlatformWindows():
 def RunSysCmd(cmd):
     import subprocess
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
-    (output, err) = p.communicate()
+    (output, _) = p.communicate()
     p_status = p.wait()
-    return err, output.decode('utf-8')
+    return p_status, output.decode('utf-8')
 
 def RunCommand(cmd, e=True):
     if(GetOption('verbose')):
@@ -81,6 +81,20 @@ def RunCommand(cmd, e=True):
     if(0 != ret and e):
         raise Exception('FAIL of RunCommand "%s" = %s'%(cmd, ret))
     return ret
+
+def AdbPush(src, tgt):
+    tgt = tgt.replace(os.sep, '/')
+    _, md5src= RunSysCmd('md5sum %s'%(src))
+    md5src = md5src.split()[0]
+    err, md5tgt= RunSysCmd('adb shell md5sum %s'%(tgt))
+    if(0 == err):
+        md5tgt = md5src.split()[0]
+    if(md5tgt == md5src):
+        print('skip push %s'%(src))
+    else:
+        cmd = 'adb push %s %s'%(src, tgt)
+        cmd = cmd.replace(os.sep, '/')
+        RunCommand(cmd)
 
 def MKObject(src, tgt, cmd, rm=True, e=True):
     if(GetOption('clean') and rm):
@@ -165,7 +179,7 @@ def PrepareBuilding(env):
     if(IsPlatformWindows()):
         mpath = os.path.abspath(os.getenv('MSYS2').replace('"',''))
         err,txt = RunSysCmd('which gcc')
-        if(None != err):
+        if(0 != err):
             print('ERROR: not msys2 enviroment!')
             exit(-1)
         gcc = os.path.abspath(mpath+txt).strip()
