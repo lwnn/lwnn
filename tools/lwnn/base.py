@@ -39,6 +39,7 @@ class LWNNBaseC():
                 'PyramidROIAlign': self.gen_LayerPyramidRoiAlign,
                 'Slice': self.gen_LayerSlice,
                 'Resize': self.gen_LayerResize,
+                'Gather': self.gen_LayerGather,
                 'Output': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -538,6 +539,12 @@ class LWNNBaseC():
     def gen_LayerResize(self, layer):
         self.gen_no_blobs(layer)
         self.fpC.write('L_RESIZE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerGather(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
+            ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_GATHER ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
     def gen_LayerTranspose(self, layer):
         perm = list(layer.perm)

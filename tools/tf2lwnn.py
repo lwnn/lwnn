@@ -43,8 +43,11 @@ class TfConverter(LWNNUtil):
             (self.opt_IsLayerConvBeforeBiasAdd, self.opt_FuseConvBiasAdd, None),
             (self.opt_IsLayerLSTM, self.opt_LayerLSTM, None),
             (self.opt_IsLayerMfcc, self.opt_LayerMfcc, None),
-            (self.opt_IsLayerSoftmax, self.opt_LayerSoftmax, None),
-            (self.opt_IsLayerClip, self.opt_LayerClip, None),
+            (self.opt_IsLayerSoftmax, self.opt_LayerSoftmax, 'graph_match'),
+            (self.opt_IsLayerNorm, self.opt_LayerNorm, 'graph_match'),
+            (self.opt_IsLayerEinsum1, self.opt_LayerEinsum1, 'graph_match'),
+            (self.opt_IsLayerEinsum2, self.opt_LayerEinsum2, 'graph_match'),
+            (self.opt_IsLayerClip, self.opt_LayerClip, 'graph_match'),
             (self.opt_IsLayerReshapeAfterReshape, self.opt_LayerReshapeAfterReshape, None),
             (self.opt_IsLayerReshapeNotNecesary, self.opt_RemoveLayer, None),
             #(self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
@@ -74,6 +77,8 @@ class TfConverter(LWNNUtil):
             'ConcatV2': 'Concat',
             'ResizeBilinear': 'Resize',
             'AvgPool': 'AveragePool',
+            'AddV2': 'Add',
+            'GatherV2': 'Gather',
             }
         if(type(graph_def) == str):
             with tfFastGFile(graph_def, 'rb') as f:
@@ -275,9 +280,6 @@ class TfConverter(LWNNUtil):
         _, weights = self.get_layers(layer.inputs)
         layer.weights = self.eval(weights)
         layer.inputs = layer.inputs[:1]
-        # for albert, weights are shared by differnet layers, so don't remove
-        # self.lwnn_model.remove(weights)
-        return True
 
     def to_LayerBlockLSTM(self, layer):
         inputs = self.get_layers(layer.inputs)
@@ -316,10 +318,8 @@ class TfConverter(LWNNUtil):
     def to_LayerConv(self, layer):
         inputs = self.get_layers(layer.inputs)
         W = self.eval(inputs[1])
-        self.lwnn_model.remove(inputs[1])
         if(len(inputs) > 2):
             layer.bias = self.eval(inputs[2])
-            self.lwnn_model.remove(inputs[2])
         else:
             C = W.shape[-1]
             B = np.zeros((C), np.float32)
@@ -339,7 +339,6 @@ class TfConverter(LWNNUtil):
         layer.weights = W
         layer.bias = B
         layer.inputs = layer.inputs[:1]
-        return True
 
     def to_LayerPool(self, layer):
         layer.strides = layer.strides[1:3]
@@ -362,10 +361,6 @@ class TfConverter(LWNNUtil):
                         layer.inputs = [graph[48].name, graph[47].name]
                         layer.name = merge.name
                         assert(graph[33] == layer)
-                        for k, l in graph.items():
-                            if(k not in [33, 47, 48]):
-                                self.lwnn_model.remove(l)
-                        return True
             assert(0)
         else:
             layer.scale = self.eval(scale)
@@ -373,9 +368,6 @@ class TfConverter(LWNNUtil):
             layer.var = self.eval(var)
             layer.mean = self.eval(mean)
             layer.inputs = layer.inputs[:1]
-            for l in [scale,bias,mean,var]:
-                self.lwnn_model.remove(l)
-        return True
 
     def to_LayeConcat(self, layer):
         N = layer.N
@@ -393,7 +385,6 @@ class TfConverter(LWNNUtil):
                 layer.bias = bias.value
             else:
                 layer.bias = self.eval(bias)
-            self.lwnn_model.remove(bias)
             layer.inputs = layer.inputs[:1]
             return True
         except Exception as e:
@@ -409,8 +400,6 @@ class TfConverter(LWNNUtil):
         _, perm = self.get_layers(layer.inputs)
         layer.perm = self.eval(perm)
         layer.inputs = layer.inputs[:1]
-        self.lwnn_model.remove(perm)
-        return True
 
     def opt_IsLayerOpInTranslator(self, layer):
         r = False
@@ -529,13 +518,7 @@ class TfConverter(LWNNUtil):
         feeds = np.random.uniform(low=-1, high=1, size=itensor.shape)
         lstm_o = self.sess.run(otensor, {itensor:feeds})
         layer.shape = lstm_o.shape # shape to be used to decice output Y or Y_h
-        for l in L:
-            if(l.name != layer.name):
-                self.lwnn_model.remove(l)
-        if(inp.op == 'Transpose'):
-            self.lwnn_model.remove(inp)
         layer.name = o.name
-        return True
 
     def opt_IsLayerMfcc(self, layer):
         r = False
@@ -556,8 +539,6 @@ class TfConverter(LWNNUtil):
             layer.desired_samples = self.eval(decode)
             layer.desired_channels = 1
             layer.inputs = spectrogram.inputs
-        self.lwnn_model.remove(spectrogram)
-        self.lwnn_model.remove(decode)
 
     def opt_IsLayerSoftmax(self, layer):
         graph = { 'Sequence': {0:'RealDiv', 1:'Exp', 2:'Sum', 3:'?',
@@ -573,6 +554,73 @@ class TfConverter(LWNNUtil):
         layer.op = 'Softmax'
         layer.axis = axis
         layer.inputs = [inp.name]
+
+    def opt_IsLayerNorm(self, layer):
+#         if(('LayerNorm' in layer.name) and (layer.op == 'Add')):
+#             scope = layer.name.split('batchnorm')[0]
+#             L = self.get_layers_by_scope(scope)
+#             self.graph_helper(L)
+        return self.graph_match(layer, TFSEQ_LAYER_NORM)
+
+    def opt_LayerNorm(self, layer):
+        graph = self.get_matched_graph()
+        layer.op = 'LayerNorm'
+        x = graph[18]
+        layer.gamma = self.eval(graph[15])
+        layer.beta = self.eval(graph[17])
+        layer.inputs = [x.name]
+
+    def opt_IsLayerEinsum1(self, layer):
+#         scope = 'bert/encoder/embedding_hidden_mapping_in/einsum'
+#         if(layer.name == 'bert/encoder/embedding_hidden_mapping_in/add'):
+#             L = self.get_layers_by_scope(scope)
+#             L.append(layer)
+#             self.graph_helper(L)
+        return self.graph_match(layer, TFSEQ_EINSUM1)
+
+    def opt_LayerEinsum1(self, layer):
+        graph = self.get_matched_graph()
+        layer.op = 'Dense'
+        x = graph[22]
+        reshape1 = graph[5]
+        matmul = graph[4]
+        reshape2 = graph[1]
+        W = self.eval(graph[21])
+        B = self.eval(graph[20])
+        matmul.weights = W
+        matmul.bias = B
+        matmul.op = 'Dense'
+        reshape1.inputs = [x.name]
+        matmul.inputs = [reshape1.name]
+        layer.op = reshape2.op
+        layer.inputs = reshape2.inputs
+
+    def opt_IsLayerEinsum2(self, layer):
+#         scope = 'bert/encoder/transformer/group_0/layer_0/inner_group_0/attention_1/self/query/einsum'
+#         if(layer.name == 'bert/encoder/transformer/group_0/layer_0/inner_group_0/attention_1/self/query/add'):
+#             L = self.get_layers_by_scope(scope)
+#             L.append(layer)
+#             self.graph_helper(L)
+        return self.graph_match(layer, TFSEQ_EINSUM2)
+
+    def opt_LayerEinsum2(self, layer):
+        graph = self.get_matched_graph()
+        x = graph[28]
+        reshape1 = graph[10]
+        matmul = graph[7]
+        reshape2 = graph[3]
+        transpose = graph[1]
+        W = self.eval(graph[8])
+        B = self.eval(graph[27])
+        B = B.transpose().reshape(-1)
+        matmul.weights = W
+        matmul.bias = B
+        matmul.op = 'Dense'
+        reshape1.inputs = [x.name]
+        matmul.inputs = [reshape1.name]
+        reshape2.inputs = [matmul.name]
+        layer.op = transpose.op
+        layer.inputs = transpose.inputs
 
     def opt_IsLayerClip(self, layer):
         graph = { 'Sequence': {0:'Neg', 1:'Relu', 2:'Neg', 3:'?'},
@@ -610,6 +658,22 @@ class TfConverter(LWNNUtil):
                 r = True
         return r
 
+    def eval_shapes(self):
+        shapes = self.kwargs['shapes']
+        feed = {}
+        for k, shape in shapes.items():
+            layer = self.get_layers(k)
+            if('dtype' in layer):
+                feed[k] = np.zeros(shape, dtype=layer.dtype)
+            else:
+                feed[k] = np.zeros(shape)
+            layer.shape = shape
+        outputs = self.run([feed], model=self.lwnn_model)
+        for k, v in outputs.items():
+            if(v is not None):
+                layer = self.get_layers(k)
+                layer.shape = v.shape
+
     def run(self, feeds, **kwargs):
         outputs = {}
         otensors = []
@@ -624,7 +688,10 @@ class TfConverter(LWNNUtil):
             outs = self.sess.run(otensors, onefeed)
             for i, v in enumerate(outs):
                 n = model[i].name
-                if(len(v.shape) == 0):
+                if(type(v) == bytes):
+                    outputs[n] = None
+                    continue
+                elif(len(v.shape) == 0):
                     if(type(v) == np.ndarray): # bytes for wav input
                         print('warning: %s shape is empty'%(n))
                         outputs[n] = None
@@ -711,8 +778,11 @@ class TfConverter(LWNNUtil):
             except Exception as e:
                 raise Exception('failed to convert node %s: %s'%(node, e))
             self.lwnn_model.append(layer)
+        if(('eval_shapes' in self.kwargs) and (self.kwargs['eval_shapes'] == True)):
+            self.eval_shapes()
         if(('use_tf2onnx' not in self.kwargs) or (self.kwargs['use_tf2onnx'] == False)):
             self.handle_input_output()
+            self.optimize(['graph_match'])
             self.optimize()
             self.remove_unused()
             for l in self.lwnn_model:
@@ -760,6 +830,7 @@ if(__name__ == '__main__'):
     parser.add_argument('--output_node', help='force which to be output node', nargs='+', default=None, required=False)
     parser.add_argument('--tf2onnx', help='if want to use tf2onnx instead of tf2lwnn', default=False, action='store_true', required=False)
     parser.add_argument('--dynamic_shape', help='dynamic shape support', default=False, action='store_true', required=False)
+    parser.add_argument('--eval_shapes', help='eval shapes with zero inputs, used combined with --shape', default=False, action='store_true', required=False)
     parser.add_argument('--feeds', help='a json file describe the feeds in dict format, e.g: {"input":["/path/to/input1", "/path/to/input2"]}', type=str, default=None, required=False)
     args = parser.parse_args()
     if(args.output == None):
@@ -775,6 +846,7 @@ if(__name__ == '__main__'):
         kwargs['shapes'] = shapes
     kwargs['use_tf2onnx'] = args.tf2onnx
     kwargs['dynamic_shape'] = args.dynamic_shape
+    kwargs['eval_shapes'] = args.eval_shapes
     if(args.input_node != None):
         kwargs['input_node'] = args.input_node
     if(args.output_node != None):

@@ -171,6 +171,10 @@ class LWNNUtil():
         return self._matched_graph
 
     def graph_helper(self, L):
+        try:
+            lwnn2onnx(L, 'graph.helper.onnx', graph_helper=True)
+        except:
+            traceback.print_exc()
         graph = {'Sequence':{}, 'Connection':{}}
         L.reverse()
         IdMap = {}
@@ -232,6 +236,9 @@ class LWNNUtil():
                 else:
                     break
             for id in missed_ids:
+                if(id not in seqs):
+                    r = False
+                    break
                 ly = seqs[id]
                 input_ids = graph['Connection'][id]
                 if(len(input_ids) == 0): continue

@@ -189,7 +189,9 @@ class Lwnn2Onnx():
         self._value_info.append(vinfo)
 
     def to_LayerDense(self, layer):
+        layer.op = 'Gemm'
         self.to_LayerCommon(layer, ['weights', 'bias'])
+        layer.op = 'Dense'
 
     def to_LayerLSTM(self, layer):
         self.to_LayerCommon(layer, ['W', 'R', 'B'])
@@ -201,7 +203,7 @@ class Lwnn2Onnx():
             layer['shape'])
         self._outputs.append(x)
 
-    def convert(self):
+    def convert(self, **kwargs):
         self._initializer = []
         self._nodes = []
         self._inputs = []
@@ -217,6 +219,12 @@ class Lwnn2Onnx():
                 self.to_LayerCommon(ly, []) # fix issue that sometimes initializer != []
             else:
                 translator(ly)
+        if('graph_helper' in kwargs):
+            x = onnx.helper.make_tensor_value_info(
+                ly.name,
+                onnx.TensorProto.FLOAT,
+                ly.shape)
+            self._outputs.append(x)
         graph = onnx.helper.make_graph(
             nodes = self._nodes,
             name = 'lwnn',
@@ -232,7 +240,8 @@ class Lwnn2Onnx():
         with open(p,'wb') as f:
             f.write(onnx_model.SerializeToString())
 
-def lwnn2onnx(model, p):
+def lwnn2onnx(model, p, **kwargs):
+    print('export to onnx: %s'%(p))
     model = Lwnn2Onnx(model)
-    onnx_model = model.convert()
+    onnx_model = model.convert(**kwargs)
     model.save(onnx_model, p)
