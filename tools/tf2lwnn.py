@@ -48,6 +48,8 @@ class TfConverter(LWNNUtil):
             (self.opt_IsLayerEinsum1, self.opt_LayerEinsum1, 'graph_match'),
             (self.opt_IsLayerEinsum2, self.opt_LayerEinsum2, 'graph_match'),
             (self.opt_IsLayerClip, self.opt_LayerClip, 'graph_match'),
+            (self.opt_IsLayerConstSlice, self.opt_LayerConstSlice, 'graph_match'),
+            (self.opt_IsLayerConstFill, self.opt_LayerConstFill, 'graph_match'),
             (self.opt_IsLayerReshapeAfterReshape, self.opt_LayerReshapeAfterReshape, None),
             (self.opt_IsLayerReshapeNotNecesary, self.opt_RemoveLayer, None),
             #(self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
@@ -635,6 +637,40 @@ class TfConverter(LWNNUtil):
         layer.max = 0
         layer.min = -np.inf
         layer.inputs = [inp.name]
+
+    def opt_IsLayerConstSlice(self, layer):
+        graph = { 'Sequence': {0:'Slice', 1:'Constant', 2:'Constant',
+                               3:'Pack', 4:'StridedSlice', 5:'Constant',
+                               6:'Shape', 7:'Constant', 8:'Constant', 9:'Constant'},
+                  'Connection': {0:[1,2,3], 1:[], 2:[], 3:[4,5], 4:[6,7,8,9], 5:[], 6:[], 7:[], 8:[], 9:[]}
+                }
+        return self.graph_match(layer, graph)
+
+    def opt_LayerConstSlice(self, layer):
+        graph = self.get_matched_graph()
+        shape = graph[6]
+        x = self.get_tensor(shape.name)
+        layer.value = self.eval(layer, {x: np.zeros(shape.shape)})
+        layer.op = 'Constant'
+        del layer['inputs']
+
+    def opt_IsLayerConstFill(self, layer):
+        graph = { 'Sequence': {0:'Fill', 1:'Pack', 2:'Constant', 
+                               3:'StridedSlice', 4:'Constant', 5:'StridedSlice', 6:'Constant',
+                               7: 'Shape', 8:'Constant', 9:'Constant', 10:'Constant',
+                               11:'Constant', 12:'Constant', 13:'Constant'},
+                  'Connection': {0:[1,2], 1:[3,4,5,6], 2:[], 3:[7,8,9,10], 4:[], 5:[7,11,12,13], 6:[],
+                                 7:[], 8:[], 9:[], 10:[], 11:[], 12:[], 13:[]}
+                }
+        return self.graph_match(layer, graph)
+
+    def opt_LayerConstFill(self, layer):
+        graph = self.get_matched_graph()
+        shape = graph[7]
+        x = self.get_tensor(shape.name)
+        layer.value = self.eval(layer, {x: np.zeros(shape.shape)})
+        layer.op = 'Constant'
+        del layer['inputs']
 
     def opt_IsLayerReshapeAfterReshape(self, layer):
         r = False

@@ -375,6 +375,7 @@ class LWNNModel(LWNNUtil):
             (self.opt_IsLayerFlatten, self.opt_LayerFlatten2Reshape, None),
             (self.opt_IsLayerPad, self.opt_LayerPad, None),
             (self.opt_IsLayerMfcc, self.opt_LayerMfcc, None),
+            (self.opt_IsLayerCast, self.opt_RemoveLayer, None),
             (self.opt_IsLayerReshapeBeforeSoftmax, self.opt_PermuteReshapeSoftmax, 'PermuteReshapeSoftmax'),
             (self.opt_IsLayerTransposeCanBeRemoved, self.opt_RemoveLayer, 'RemoveTranspose'),
             (self.opt_IsLayerIdentity, self.opt_RemoveLayer, 'RemoveIdentity'),
@@ -844,6 +845,12 @@ class LWNNModel(LWNNUtil):
     def opt_LayerFlatten2Reshape(self, layer):
         layer['op'] = 'Reshape'
         return False
+
+    def opt_IsLayerCast(self, layer):
+        r = False
+        if(layer['op'] == 'Cast'):
+            r = True
+        return r
 
     def opt_IsLayerPad(self, layer):
         r = False
