@@ -50,6 +50,7 @@ class TfConverter(LWNNUtil):
             (self.opt_IsLayerClip, self.opt_LayerClip, 'graph_match'),
             (self.opt_IsLayerConstSlice, self.opt_LayerConstSlice, 'graph_match'),
             (self.opt_IsLayerConstFill, self.opt_LayerConstFill, 'graph_match'),
+            (self.opt_IsLayerConstMul, self.opt_LayerConstMul, 'graph_match'),
             (self.opt_IsLayerReshapeAfterReshape, self.opt_LayerReshapeAfterReshape, None),
             (self.opt_IsLayerReshapeNotNecesary, self.opt_RemoveLayer, None),
             #(self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
@@ -66,6 +67,7 @@ class TfConverter(LWNNUtil):
             'Concat': self.to_LayeConcat,
             'AveragePool': self.to_LayerPool,
             'MaxPool': self.to_LayerPool,
+            'Pow': self.to_LayerPow,
             'Transpose': self.to_LayerTranspose }
         self.opMap = {
             'Placeholder': 'Input',
@@ -81,6 +83,7 @@ class TfConverter(LWNNUtil):
             'AvgPool': 'AveragePool',
             'AddV2': 'Add',
             'GatherV2': 'Gather',
+            'BatchMatMulV2': 'BatchMatMul',
             }
         if(type(graph_def) == str):
             with tfFastGFile(graph_def, 'rb') as f:
@@ -120,6 +123,10 @@ class TfConverter(LWNNUtil):
             rs = self.sess.run(self.tensors[self.c_str(lname)], feed)
         else:
             rs = self.sess.run(self.tensors[self.c_str(lname)])
+        if(type(rs) == np.float32):
+            rs = float(rs)
+        elif(type(rs) == np.int32):
+            rs = int(rs)
         return rs
 
     def get_tensor(self, name):
@@ -347,6 +354,11 @@ class TfConverter(LWNNUtil):
         layer.kernel_shape = layer.ksize[1:3]
         self.infer_conv_or_pool_shape_and_padding(layer)
 
+    def to_LayerPow(self, layer):
+        _, y = self.get_layers(layer.inputs)
+        layer.power = self.eval(y)
+        layer.inputs = layer.inputs[:1]
+
     def to_LayeBatchNormalization(self, layer):
         x,scale,bias,mean,var = self.get_layers(layer.inputs)
         if(x.op == 'Switch'):
@@ -400,7 +412,7 @@ class TfConverter(LWNNUtil):
 
     def to_LayerTranspose(self, layer):
         _, perm = self.get_layers(layer.inputs)
-        layer.perm = self.eval(perm)
+        layer.perm = self.eval(perm).tolist()
         layer.inputs = layer.inputs[:1]
 
     def opt_IsLayerOpInTranslator(self, layer):
@@ -672,11 +684,29 @@ class TfConverter(LWNNUtil):
         layer.op = 'Constant'
         del layer['inputs']
 
+    def opt_IsLayerConstMul(self, layer):
+        graph = { 'Sequence': {0:'Mul', 1:'Range', 2:'StridedSlice', 
+                               3:'Constant', 4:'StridedSlice', 5:'Constant',
+                               6:'Shape', 7:'Constant', 8:'Constant', 9:'Constant',
+                               10:'Constant', 11:'Constant', 12:'Constant',
+                               },
+                  'Connection': {0:[1,2], 1:[3,4,5], 2:[6,7,8,9], 4:[6,10,11,12]}
+                }
+        return self.graph_match(layer, graph)
+
+    def opt_LayerConstMul(self, layer):
+        graph = self.get_matched_graph()
+        shape = graph[6]
+        x = self.get_tensor(shape.name)
+        layer.value = self.eval(layer, {x: np.zeros(shape.shape)})
+        layer.op = 'Constant'
+        del layer['inputs']
+
     def opt_IsLayerReshapeAfterReshape(self, layer):
         r = False
         if(layer.op == 'Reshape'):
             inputs = self.get_layers(layer.inputs)
-            if( (len(inputs) == 1) and
+            if( (len(self.get_consumers(inputs[0])) == 1) and
                 (inputs[0].op == 'Reshape')):
                 r = True
         return r

@@ -11,6 +11,7 @@ class LWNNBaseC():
                 'Conv': self.gen_LayerConv,
                 'ConvTranspose': self.gen_LayerConvTranspose,
                 'Relu': self.gen_LayerRelu,
+                'Tanh': self.gen_LayerTanh,
                 'Clip': self.gen_LayerClip,
                 'PRelu': self.gen_LayerPRelu,
                 'MaxPool': self.gen_LayerMaxPool,
@@ -20,13 +21,17 @@ class LWNNBaseC():
                 'Reshape': self.gen_LayerReshape,
                 'Squeeze': self.gen_LayerReshape,
                 'Dense': self.gen_LayerDense,
+                'BatchMatMul': self.gen_LayerBatchMatMul,
                 'Concat': self.gen_LayerConcat,
                 'Pad': self.gen_LayerPad,
                 'Softmax': self.gen_LayerSoftmax,
                 'Add': self.gen_LayerAdd,
+                'Sub': self.gen_LayerSub,
+                'Pow': self.gen_LayerPow,
                 'Upsample': self.gen_LayerUpsample,
                 'BatchNormalization': self.gen_LayerBatchNormalization,
                 'Normalize': self.gen_LayerNormalize,
+                'LayerNorm': self.gen_LayerNorm,
                 'Yolo': self.gen_LayerYolo,
                 'YoloOutput': self.gen_LayerYoloOutput,
                 'DetectionOutput': self.gen_LayerDetectionOutput,
@@ -38,6 +43,7 @@ class LWNNBaseC():
                 'Proposal': self.gen_LayerProposal,
                 'PyramidROIAlign': self.gen_LayerPyramidRoiAlign,
                 'Slice': self.gen_LayerSlice,
+                'StridedSlice': self.gen_LayerStridedSlice,
                 'Resize': self.gen_LayerResize,
                 'Gather': self.gen_LayerGather,
                 'Output': self.gen_LayerOutput }
@@ -328,6 +334,10 @@ class LWNNBaseC():
         self.gen_no_blobs(layer)
         self.fpC.write('L_RELU ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
+    def gen_LayerTanh(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_TANH ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
     def gen_LayerClip(self, layer):
         if('min' in layer):
             mi = layer['min']
@@ -413,6 +423,12 @@ class LWNNBaseC():
     def gen_LayerDense(self, layer):
         raise NotImplementedError()
 
+    def gen_LayerBatchMatMul(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_BATCHMATMUL ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
     def get_LayerPadBlobs(self, layer):
         if('value' in layer):
             value = layer['value']
@@ -436,6 +452,18 @@ class LWNNBaseC():
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_ADD ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
+    def gen_LayerSub(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_SUB ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
+    def gen_LayerPow(self, layer):
+        power = layer.power
+        M = np.asarray([power], np.float32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_POW ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerUpsample(self, layer):
         self.gen_no_blobs(layer)
@@ -478,6 +506,18 @@ class LWNNBaseC():
         blobs=[('%s_scale'%(layer['name']),layer['scale']), ('%s_M'%(layer['name']),M)]
         self.gen_blobs(layer, blobs)
         self.fpC.write('L_NORMALIZE ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerNorm(self, layer):
+        if('epsilon' in layer):
+            epsilon = layer['epsilon']
+        else:
+            epsilon = 1e-05
+        M = np.asarray([epsilon], dtype=np.float32)
+        blobs=[('%s_gamma'%(layer['name']),layer['gamma']),
+               ('%s_beta'%(layer['name']),layer['beta']),
+               ('%s_M'%(layer['name']),M)]
+        self.gen_blobs(layer, blobs)
+        self.fpC.write('L_LAYER_NORM ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerYolo(self, layer):
         mask = np.asarray(layer['mask'], np.int32)
@@ -546,6 +586,12 @@ class LWNNBaseC():
             ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_GATHER ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
+    def gen_LayerStridedSlice(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
+            ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_STRIDEDSLICE ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
     def gen_LayerTranspose(self, layer):
         perm = list(layer.perm)
         if(len(perm) == 3):
@@ -558,6 +604,12 @@ class LWNNBaseC():
                 ptype = 0
             elif(perm == [0,2,3,1]): # from NCHW to NHWC
                 ptype = 0x8000
+            elif(perm == [0,2,1,3]): # swap H,W
+                ptype = 0x1000
+            elif(perm == [0,1,3,2]): # swap W,C
+                ptype = 0x2000
+            elif(perm == [0,3,2,1]): # from NHWC to NCWH
+                ptype = 0x3000
             else:
                 raise
         else:

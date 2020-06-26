@@ -222,7 +222,7 @@ class LWNNUtil():
                     missed_ids.append(id)
                     continue
                 ly = seqs[id]
-                input_ids = graph['Connection'][id]
+                input_ids = graph['Connection'][id] if id in graph['Connection'] else []
                 if(len(input_ids) == 0): continue
                 if('inputs' not in ly): continue
                 inputs = self.get_layers(ly.inputs)
@@ -240,7 +240,7 @@ class LWNNUtil():
                     r = False
                     break
                 ly = seqs[id]
-                input_ids = graph['Connection'][id]
+                input_ids = graph['Connection'][id] if id in graph['Connection'] else []
                 if(len(input_ids) == 0): continue
                 if('inputs' not in ly): continue
                 inputs = self.get_layers(ly.inputs)
@@ -357,6 +357,7 @@ class LWNNModel(LWNNUtil):
             (self.nchw_IsInputAdjustLayer, self.nchw_ActionInputAdjustLayer, None),
             (self.nchw_IsOutputAdjustLayer, self.opt_RemoveLayer, None),
             #(self.opt_IsLayerUnused, self.opt_LayerUnusedAction, None),
+            (self.opt_IsLayerTransposeAfterTranspose, self.opt_LayerTransposeAfterTranspose, None),
             (self.opt_IsLayerFakeQuantize, self.opt_LayerFakeQuantize, None),
             (self.opt_IsLayerHasInitializer, self.opt_LayerHasInitializer, None),
             (self.opt_IsLayerDense, self.opt_LayerDense, None),
@@ -892,6 +893,24 @@ class LWNNModel(LWNNUtil):
             # LWNN is already NHWC
             r = True
         return r
+
+    def opt_IsLayerTransposeAfterTranspose(self, layer):
+        r = False
+        if(layer.op == 'Transpose'):
+            inputs = self.get_layers(layer.inputs)
+            if( (len(self.get_consumers(inputs[0])) == 1) and
+                (inputs[0].op == 'Transpose')):
+                r = True
+        return r
+
+    def opt_LayerTransposeAfterTranspose(self, layer):
+        inputs = self.get_layers(layer.inputs)
+        perm = [0,1,2,3]
+        perm = [perm[s] for s in inputs[0].perm]
+        perm = [perm[s] for s in layer.perm]
+        layer.perm = perm[:len(layer.shape)]
+        self.opt_RemoveLayer(inputs[0])
+        return True
 
     def opt_IsLayerConcatOnPriorBox(self, layer):
         r = False
