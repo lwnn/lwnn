@@ -113,7 +113,7 @@ int layer_cl_CONCAT_execute(const nn_t* nn, const layer_t* layer)
 	int offset = 0;
 	int in_stride;
 
-	NNLOG(NN_DEBUG, (" axis=%d\n", layer->name, axis));
+	NNLOG(NN_DEBUG, (" axis=%d\n", axis));
 
 	while((0==r) && ((*input) != NULL) && (NULL != context->kernel))
 	{

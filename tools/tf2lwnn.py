@@ -67,7 +67,6 @@ class TfConverter(LWNNUtil):
             'Concat': self.to_LayeConcat,
             'AveragePool': self.to_LayerPool,
             'MaxPool': self.to_LayerPool,
-            'Pow': self.to_LayerPow,
             'Transpose': self.to_LayerTranspose }
         self.opMap = {
             'Placeholder': 'Input',
@@ -353,11 +352,6 @@ class TfConverter(LWNNUtil):
         layer.strides = layer.strides[1:3]
         layer.kernel_shape = layer.ksize[1:3]
         self.infer_conv_or_pool_shape_and_padding(layer)
-
-    def to_LayerPow(self, layer):
-        _, y = self.get_layers(layer.inputs)
-        layer.power = self.eval(y)
-        layer.inputs = layer.inputs[:1]
 
     def to_LayeBatchNormalization(self, layer):
         x,scale,bias,mean,var = self.get_layers(layer.inputs)
@@ -661,8 +655,9 @@ class TfConverter(LWNNUtil):
     def opt_LayerConstSlice(self, layer):
         graph = self.get_matched_graph()
         shape = graph[6]
+        ix = self.get_layers(shape.inputs[0])
         x = self.get_tensor(shape.name)
-        layer.value = self.eval(layer, {x: np.zeros(shape.shape)})
+        layer.value = self.eval(layer, {x: np.asarray(ix.shape)})
         layer.op = 'Constant'
         del layer['inputs']
 
@@ -679,8 +674,9 @@ class TfConverter(LWNNUtil):
     def opt_LayerConstFill(self, layer):
         graph = self.get_matched_graph()
         shape = graph[7]
+        ix = self.get_layers(shape.inputs[0])
         x = self.get_tensor(shape.name)
-        layer.value = self.eval(layer, {x: np.zeros(shape.shape)})
+        layer.value = self.eval(layer, {x: np.asarray(ix.shape)})
         layer.op = 'Constant'
         del layer['inputs']
 
@@ -697,8 +693,9 @@ class TfConverter(LWNNUtil):
     def opt_LayerConstMul(self, layer):
         graph = self.get_matched_graph()
         shape = graph[6]
+        ix = self.get_layers(shape.inputs[0])
         x = self.get_tensor(shape.name)
-        layer.value = self.eval(layer, {x: np.zeros(shape.shape)})
+        layer.value = self.eval(layer, {x: np.asarray(ix.shape)})
         layer.op = 'Constant'
         del layer['inputs']
 

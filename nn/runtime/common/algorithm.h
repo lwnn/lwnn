@@ -18,6 +18,7 @@ extern "C" {
 #define ALG_ADD(o, a, b) (o) = (a) + (b);
 #define ALG_SUB(o, a, b) (o) = (a) - (b);
 #define ALG_MUL(o, a, b) (o) = (a) * (b);
+#define ALG_POW(o, a, b) (o) = pow(a, b);
 
 #define DEF_ALG_ELTWISE(DT, OP)										\
 	void alg_eltwise_##OP##_##DT(DT* A, DT* B, DT* O, size_t sz)	\

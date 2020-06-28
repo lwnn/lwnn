@@ -24,18 +24,21 @@ DEF_ALG_ELTWISE(float, MIN)
 DEF_ALG_ELTWISE(float, ADD)
 DEF_ALG_ELTWISE(float, SUB)
 DEF_ALG_ELTWISE(float, MUL)
+DEF_ALG_ELTWISE(float, POW)
 
 DEF_ALG_BROADCAST_ONE(float, MAX)
 DEF_ALG_BROADCAST_ONE(float, MIN)
 DEF_ALG_BROADCAST_ONE(float, ADD)
 DEF_ALG_BROADCAST_ONE(float, SUB)
 DEF_ALG_BROADCAST_ONE(float, MUL)
+DEF_ALG_BROADCAST_ONE(float, POW)
 
 DEF_ALG_BROADCAST_CHANNEL(float, MAX)
 DEF_ALG_BROADCAST_CHANNEL(float, MIN)
 DEF_ALG_BROADCAST_CHANNEL(float, ADD)
 DEF_ALG_BROADCAST_CHANNEL(float, SUB)
 DEF_ALG_BROADCAST_CHANNEL(float, MUL)
+DEF_ALG_BROADCAST_CHANNEL(float, POW)
 
 static int layer_cpu_float_eltwise_init(const nn_t* nn, const layer_t* layer)
 {
@@ -45,11 +48,17 @@ static int layer_cpu_float_eltwise_init(const nn_t* nn, const layer_t* layer)
 	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_eltwise_context_t), sizeof(float));
 
 	if(0 == r) {
-		layer_cpu_float_eltwise_context_t* context = (layer_cpu_float_eltwise_context_t*)layer->C->context;
+		context = (layer_cpu_float_eltwise_context_t*)layer->C->context;
 		context->broadcast = ALG_BROADCAST_NONE;
 		context->inputA_context = (layer_context_t*)layer->inputs[0]->C->context;
 		context->inputB_context = (layer_context_t*)layer->inputs[1]->C->context;
 		r = alg_broadcast_prepare(&(context->inputA_context), &(context->inputB_context), &(context->broadcast));
+	}
+
+	if((0 == r) && (L_OP_POW == layer->op)) {
+		if(context->inputA_context != (layer_context_t*)layer->inputs[0]->C->context) {
+			r = NN_E_INVALID_LAYER;
+		}
 	}
 
 	return r;
@@ -117,11 +126,39 @@ static int layer_cpu_float_eltwise_execute(const nn_t* nn, const layer_t* layer)
 		case L_OP_MUL+ALG_BROADCAST_CHANNEL:
 			alg_broadcast_channel_MUL_float(A, B, O, sz, context->nhwc.C);
 			break;
+		case L_OP_SUB:
+			alg_eltwise_SUB_float(A, B, O, sz);
+			break;
+		case L_OP_SUB+ALG_BROADCAST_ONE:
+			alg_broadcast_one_SUB_float(A, B[0], O, sz);
+			break;
+		case L_OP_SUB+ALG_BROADCAST_CHANNEL:
+			alg_broadcast_channel_SUB_float(A, B, O, sz, context->nhwc.C);
+			break;
+		case L_OP_POW:
+			alg_eltwise_POW_float(A, B, O, sz);
+			break;
+		case L_OP_POW+ALG_BROADCAST_ONE:
+			alg_broadcast_one_POW_float(A, B[0], O, sz);
+			break;
+		case L_OP_POW+ALG_BROADCAST_CHANNEL:
+			alg_broadcast_channel_POW_float(A, B, O, sz, context->nhwc.C);
+			break;
 		default:
 			r = NN_E_INVALID_LAYER;
 			break;
 	}
+	if((0 == r) && (L_OP_SUB == layer->op)) {
+		if(context->inputA_context != (layer_context_t*)layer->inputs[0]->C->context) {
+			size_t i;
+			for(i=0; i<sz; i++) {
+				O[i] = -O[i];
+			}
+		}
+	}
   }
+
+
 	return r;
 }
 
@@ -187,6 +224,36 @@ int layer_cpu_float_MUL_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cpu_float_MUL_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_float_eltwise_deinit(nn, layer);
+}
+
+int layer_cpu_float_SUB_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_eltwise_init(nn, layer);
+}
+
+int layer_cpu_float_SUB_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_eltwise_execute(nn, layer);
+}
+
+void layer_cpu_float_SUB_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_float_eltwise_deinit(nn, layer);
+}
+
+int layer_cpu_float_POW_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_eltwise_init(nn, layer);
+}
+
+int layer_cpu_float_POW_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_eltwise_execute(nn, layer);
+}
+
+void layer_cpu_float_POW_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_float_eltwise_deinit(nn, layer);
 }

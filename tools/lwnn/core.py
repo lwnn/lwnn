@@ -320,25 +320,24 @@ class LWNNLayer(dict):
         order = ['name', 'op', 'shape','inputs', 'outputs', 'weights','bias']
         def kv2s(k, v):
             cstr = ''
-            try:
+            if(k in ['top', 'topq', 'klweights']):
+                cstr += '%s=[ '%(k)
+                for top in v:
+                    try:
+                        cstr += '%s, '%(str(top.shape))
+                    except:
+                        cstr += '%s, '%(top)
+                cstr += '], '
+            elif(type(v) == np.ndarray):
                 if((len(v.shape)==1) and (v.shape[0] < 4)):
                     cstr += '%s=t%s, '%(k, v)
                 else:
                     cstr += '%s=t%s, '%(k, v.shape)
-            except:
-                if(k in ['top', 'topq', 'klweights']):
-                    cstr += '%s=[ '%(k)
-                    for top in v:
-                        try:
-                            cstr += '%s, '%(str(top.shape))
-                        except:
-                            cstr += '%s, '%(top)
-                    cstr += '], '
+            else:
+                if(k == 'name'):
+                    cstr += '%s, '%(v)
                 else:
-                    if(k == 'name'):
-                        cstr += '%s, '%(v)
-                    else:
-                        cstr += '%s=%s, '%(k,v)
+                    cstr += '%s=%s, '%(k,v)
             return cstr
         cstr = 'LWNNLayer('
         for k in order:

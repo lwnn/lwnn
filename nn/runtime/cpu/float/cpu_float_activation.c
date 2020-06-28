@@ -6,6 +6,7 @@
 #include "nn.h"
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 #include "../runtime_cpu.h"
+#include <math.h>
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
@@ -26,6 +27,16 @@ static void relu_ref(float * out, float * in, size_t size)
 		} else {
 			out[i] = in[i];
 		}
+	}
+}
+
+static void tanh_ref(float * out, float * in, size_t size)
+{
+	size_t  i;
+
+	for (i = 0; i < size; i++)
+	{
+		out[i] = tanh(in[i]);
 	}
 }
 
@@ -102,6 +113,11 @@ static int layer_cpu_float_activation_execute(const nn_t* nn, const layer_t* lay
 			clip_ref(OUT, IN, sz, min, max);
 			break;
 		}
+		case L_OP_TANH:
+		{
+			tanh_ref(OUT, IN, sz);
+			break;
+		}
 		default:
 			r = NN_E_INVALID_LAYER;
 			break;
@@ -157,6 +173,21 @@ int layer_cpu_float_CLIP_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cpu_float_CLIP_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_float_activation_deinit(nn, layer);
+}
+
+int layer_cpu_float_TANH_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_activation_init(nn, layer);
+}
+
+int layer_cpu_float_TANH_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_activation_execute(nn, layer);
+}
+
+void layer_cpu_float_TANH_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_float_activation_deinit(nn, layer);
 }

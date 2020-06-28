@@ -33,4 +33,23 @@ void layer_cpu_float_SLICE_deinit(const nn_t* nn, const layer_t* layer)
 	rte_cpu_destory_layer_context(nn, layer);
 }
 
+
+int layer_cpu_float_STRIDEDSLICE_init(const nn_t* nn, const layer_t* layer)
+{
+	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_float_slice_context_t), sizeof(float));
+}
+
+int layer_cpu_float_STRIDEDSLICE_execute(const nn_t* nn, const layer_t* layer)
+{
+	int r = 0;
+
+	r = NN_E_NOT_IMPLEMENTED;
+
+	return r;
+}
+void layer_cpu_float_STRIDEDSLICE_deinit(const nn_t* nn, const layer_t* layer)
+{
+	rte_cpu_destory_layer_context(nn, layer);
+}
+
 #endif /* DISABLE_RUNTIME_CPU_FLOAT */

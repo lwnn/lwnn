@@ -88,6 +88,8 @@ extern "C" {
 #define L_CLIP(name, input)			L_LAYER_SI(name, input, CLIP)
 #define L_NORMALIZE(name, input)	L_LAYER_SI(name, input, NORMALIZE)
 #define L_RESIZE(name, input)		L_LAYER_SI(name, input, RESIZE)
+#define L_LAYER_NORM(name, input)	L_LAYER_SI(name, input, LAYER_NORM)
+#define L_TANH(name, input)			L_LAYER_SI(name, input, TANH)
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\
@@ -99,15 +101,40 @@ extern "C" {
 			inputs, NULL };								\
 	L_LAYER_MI(name, MINIMUM)
 
+#define L_STRIDEDSLICE(name, inputs)					\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, STRIDEDSLICE)
+
 #define L_ADD(name, inputs)								\
 	static LCONST layer_t* l_inputs_##name[] = {		\
 			inputs, NULL };								\
 	L_LAYER_MI(name, ADD)
 
+#define L_SUB(name, inputs)								\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, SUB)
+
 #define L_MUL(name, inputs)								\
 	static LCONST layer_t* l_inputs_##name[] = {		\
 			inputs, NULL };								\
 	L_LAYER_MI(name, MUL)
+
+#define L_POW(name, inputs)								\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, POW)
+
+#define L_GATHER(name, inputs)							\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, GATHER)
+
+#define L_BATCHMATMUL(name, inputs)						\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, BATCHMATMUL)
 
 #define L_CONCAT(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\
