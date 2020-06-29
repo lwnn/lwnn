@@ -315,6 +315,9 @@ int alg_broadcast_prepare(layer_context_t** inputA_context, layer_context_t** in
 			*broadcast = ALG_BROADCAST_ONE;
 		} else if((*inputA_context)->nhwc.C == szB) {
 			*broadcast = ALG_BROADCAST_CHANNEL;
+		} else if(((*inputB_context)->nhwc.H == 1) ||
+				  ((*inputB_context)->nhwc.W == 1)){
+			*broadcast = ALG_BROADCAST_GENERAL;
 		} else {
 			r = NN_E_INVALID_DIMENSION;
 		}
@@ -323,6 +326,9 @@ int alg_broadcast_prepare(layer_context_t** inputA_context, layer_context_t** in
 			*broadcast = ALG_BROADCAST_ONE;
 		} else if((*inputB_context)->nhwc.C == szA) {
 			*broadcast = ALG_BROADCAST_CHANNEL;
+		} else if(((*inputA_context)->nhwc.H == 1) ||
+				  ((*inputA_context)->nhwc.W == 1)){
+			*broadcast = ALG_BROADCAST_GENERAL;
 		} else {
 			r = NN_E_INVALID_DIMENSION;
 		}

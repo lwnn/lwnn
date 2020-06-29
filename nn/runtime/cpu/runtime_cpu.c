@@ -611,7 +611,10 @@ void rte_cpu_dynamic_reshape(const layer_t* layer, layer_cpu_context_t* input_co
 		layer_set_dynamic_shape(layer, axis, NHWC_SIZE(input_context->nhwc));
 	}
 
-	layer->C->context->nhwc.N = input_context->nhwc.N;
+	if(NHWC_SIZE(input_context->nhwc) != NHWC_SIZE(layer->C->context->nhwc)) {
+		layer->C->context->nhwc.N = input_context->nhwc.N;
+	}
+
 	assert(NHWC_SIZE(input_context->nhwc) == NHWC_SIZE(layer->C->context->nhwc));
 }
 

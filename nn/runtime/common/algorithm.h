@@ -53,6 +53,29 @@ extern "C" {
 			}															\
 		}																\
 	}
+
+#define DEF_ALG_BROADCAST(DT, OP)												\
+	void alg_broadcast_##OP##_##DT(DT* A, DT* B, DT* O, NHWC_t* a_nhwc, NHWC_t* b_nhwc)	\
+	{																	\
+		size_t n,h,w,c;													\
+		size_t n_,h_,w_,c_;												\
+		size_t offset, offset_;											\
+		for(n=0; n<a_nhwc->N; n++) {									\
+			ALG_MIN(n_, n, b_nhwc->N-1);								\
+			for(h=0; h<a_nhwc->H; h++) {								\
+				ALG_MIN(h_, h, b_nhwc->H-1);							\
+				for(w=0; w<a_nhwc->W; w++) {							\
+					ALG_MIN(w_, w, b_nhwc->W-1);						\
+					for(c=0; c<a_nhwc->C; c++) {						\
+						ALG_MIN(c_, c, b_nhwc->C-1);					\
+						offset = ((n*a_nhwc->H+h)*a_nhwc->W+w)*a_nhwc->C+c;			\
+						offset_ = ((n_*b_nhwc->H+h_)*b_nhwc->W+w_)*b_nhwc->C+c_;	\
+						ALG_##OP(O[offset], A[offset], B[offset_])		\
+					}													\
+				}														\
+			}															\
+		}																\
+	}
 /* ============================ [ TYPES     ] ====================================================== */
 typedef enum
 {
@@ -67,6 +90,7 @@ typedef enum{
 	ALG_BROADCAST_NONE=0,
 	ALG_BROADCAST_ONE=0x1000,
 	ALG_BROADCAST_CHANNEL=0x2000,
+	ALG_BROADCAST_GENERAL=0x3000,
 } alg_broadcast_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */

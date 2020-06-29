@@ -7,6 +7,7 @@
 #ifndef DISABLE_RUNTIME_CPU_FLOAT
 #include "../runtime_cpu.h"
 #include "algorithm.h"
+#include <math.h>
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
@@ -39,6 +40,8 @@ DEF_ALG_BROADCAST_CHANNEL(float, ADD)
 DEF_ALG_BROADCAST_CHANNEL(float, SUB)
 DEF_ALG_BROADCAST_CHANNEL(float, MUL)
 DEF_ALG_BROADCAST_CHANNEL(float, POW)
+
+DEF_ALG_BROADCAST(float, ADD)
 
 static int layer_cpu_float_eltwise_init(const nn_t* nn, const layer_t* layer)
 {
@@ -107,6 +110,9 @@ static int layer_cpu_float_eltwise_execute(const nn_t* nn, const layer_t* layer)
 			break;
 		case L_OP_ADD+ALG_BROADCAST_CHANNEL:
 			alg_broadcast_channel_ADD_float(A, B, O, sz, context->nhwc.C);
+			break;
+		case L_OP_ADD+ALG_BROADCAST_GENERAL:
+			alg_broadcast_ADD_float(A, B, O, &context->inputA_context->nhwc, &context->inputB_context->nhwc);
 			break;
 		case L_OP_MINIMUM:
 			alg_eltwise_MIN_float(A, B, O, sz);
