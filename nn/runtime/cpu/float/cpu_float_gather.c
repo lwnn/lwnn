@@ -27,7 +27,7 @@ int layer_cpu_float_GATHER_execute(const nn_t* nn, const layer_t* layer)
 	layer_cpu_float_gather_context_t* context = (layer_cpu_float_gather_context_t*)layer->C->context;
 	layer_cpu_context_t* inputA_context = (layer_cpu_context_t*)layer->inputs[0]->C->context;
 	layer_cpu_context_t* inputB_context = (layer_cpu_context_t*)layer->inputs[1]->C->context;
-	layer_cpu_context_t* inputC_context = (layer_cpu_context_t*)layer->inputs[1]->C->context;
+	layer_cpu_context_t* inputC_context = (layer_cpu_context_t*)layer->inputs[2]->C->context;
 	float *data = (float*)inputA_context->out[0];
 	float *indices = (float*)inputB_context->out[0];
 	int axis = ((int32_t*)inputC_context->out[0])[0];

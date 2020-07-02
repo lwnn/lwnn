@@ -33,31 +33,30 @@ int layer_cpu_float_LAYER_NORM_execute(const nn_t* nn, const layer_t* layer)
 	float *O = (float*)context->out[0];
 	float epsilon = RTE_FETCH_FLOAT(layer->blobs[2]->blob, 0);;
 	int nC = context->nhwc.N*context->nhwc.H*context->nhwc.W;
+	int C = context->nhwc.C;
 	int i,c;
 	float X;
 	float mean;
 	float var;
 
 	for(i=0; i<nC; i++) {
-		for(c=0; c<context->nhwc.C; c++) {
-			mean = 0;
-			var = epsilon;
-			for(i=0; i<nC; i++) {
-				X = IN[i*context->nhwc.C+c];
-				mean += X;
-			}
-			mean = mean/nC;
+		mean = 0;
+		for(c=0; c<C; c++) {
+			X = IN[i*C+c];
+			mean += X;
+		}
+		mean = mean/C;
 
-			for(i=0; i<nC; i++) {
-				X = IN[i*context->nhwc.C+c];
-				var += (X-mean)*(X-mean);
-			}
-			var = var/nC;
+		var = 0;
+		for(c=0; c<C; c++) {
+			X = IN[i*C+c];
+			var += (X-mean)*(X-mean);
+		}
+		var = sqrt(var/C + epsilon);
 
-			for(i=0; i<nC; i++) {
-				X = IN[i*context->nhwc.C+c];
-				O[i*context->nhwc.C+c] = gamma[c]*(X-mean)/(sqrt(var)) + beta[c];
-			}
+		for(c=0; c<C; c++) {
+			X = IN[i*C+c];
+			O[i*C+c] = gamma[c]*(X-mean)/var + beta[c];
 		}
 	}
 
