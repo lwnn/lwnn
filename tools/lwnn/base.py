@@ -424,7 +424,8 @@ class LWNNBaseC():
         raise NotImplementedError()
 
     def gen_LayerBatchMatMul(self, layer):
-        self.gen_no_blobs(layer)
+        M = np.asarray([layer.adj_x, layer.adj_y], np.int32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'], 
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_BATCHMATMUL ({0}, {0}_INPUTS);\n\n'.format(layer['name']))

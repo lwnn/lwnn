@@ -407,7 +407,8 @@ class LWNNModel(LWNNUtil):
         self.remove_unused()
         self.omodel = self.clone()
         self.save()
-        self.optimize(['RemoveTranspose'])
+        if(converter.__class__.__name__ not in ['TfConverter']):
+            self.optimize(['RemoveTranspose'])
         self.check()
         print(self)
 

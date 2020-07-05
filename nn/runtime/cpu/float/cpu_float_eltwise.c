@@ -85,6 +85,8 @@ static int layer_cpu_float_eltwise_execute(const nn_t* nn, const layer_t* layer)
   if( 0 == r) {
 	r = rte_cpu_dynamic_memory(&context->out[0], sz, &context->allocated, sizeof(float));
   }
+#else
+  sz = NHWC_SIZE(context->nhwc);
 #endif
   if(0 == r) {
 	A = (float*)context->inputA_context->out[0];

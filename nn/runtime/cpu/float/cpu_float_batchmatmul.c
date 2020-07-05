@@ -76,6 +76,8 @@ int layer_cpu_float_BATCHMATMUL_execute(const nn_t* nn, const layer_t* layer)
 	float *A = (float*)inputA_context->out[0];
 	float *B = (float*)inputB_context->out[0];
 	float *O = (float*)context->out[0];
+	int32_t adj_x = RTE_FETCH_INT32(layer->blobs[0]->blob,0);
+	int32_t adj_y = RTE_FETCH_INT32(layer->blobs[0]->blob,1);
 	batchmatmul_ref_t batchmatmul_ref;
 
 	size_t batch;
@@ -88,14 +90,14 @@ int layer_cpu_float_BATCHMATMUL_execute(const nn_t* nn, const layer_t* layer)
 	int N = context->nhwc.C;
 	int H = context->nhwc.H;
 
+	assert(0 == adj_x);
 	assert(inputA_context->nhwc.N == inputB_context->nhwc.N);
 	assert(H == inputA_context->nhwc.H);
 	assert(H == inputB_context->nhwc.H);
 	assert(M == inputA_context->nhwc.W);
 	assert(K == inputA_context->nhwc.C);
 
-	/* TODO: the right way is to check the attribute of transposeA and transposeB */
-	if(K == inputB_context->nhwc.C) {
+	if(1 == adj_y) {
 		/* assert A in shape [B,H,M,K], B in shape [B,H,N,K], so O in shape [B,H,M,N] */
 		batchmatmul_ref = batchmatmul_ref1;
 		assert(N == inputB_context->nhwc.W);

@@ -51,13 +51,13 @@ static void alg_transpose_from_nchw_to_nhwc_##DTYPE(					\
 																		\
 	for(n=0; n<inhwc->N; n++)											\
 	{																	\
-		for(h=0; h<inhwc->H; h++)										\
+		for(w=0; w<inhwc->W; w++)										\
 		{																\
-			for(w=0; w<inhwc->W; w++)									\
+			for(c=0; c<inhwc->C; c++)									\
 			{															\
-				for(c=0; c<inhwc->C; c++)								\
+				for(h=0; h<inhwc->H; h++)								\
 				{														\
-					indexI = ((n*inhwc->C+c)*inhwc->H+h)*inhwc->W+w;	\
+					indexI = ((n*inhwc->H+h)*inhwc->W+w)*inhwc->C+c;	\
 					*pout = pin[indexI];								\
 					pout++;												\
 				}														\
