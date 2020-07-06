@@ -238,9 +238,13 @@ int layer_get_dynamic_axis(const layer_t* layer)
 		dim ++;
 	};
 
-	assert(dim >= 2);
-	if(axis > (dim-2)) {
-		axis = 3;
+	if(1 == dim) {
+		/* pass */
+	} else {
+		assert(dim >= 2);
+		if(axis > (dim-2)) {
+			axis = 3;
+		}
 	}
 
 	return axis;

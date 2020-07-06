@@ -17,7 +17,13 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_float_CONST_init(const nn_t* nn, const layer_t* layer)
 {
-	return rte_cpu_create_layer_context(nn, layer, sizeof(layer_cpu_float_const_context_t), 1);
+	int r = rte_cpu_create_layer_context(nn, layer, sizeof(layer_cpu_float_const_context_t), 1);
+
+	if(0 == r) {
+		layer->C->context->dtype = layer->blobs[0]->dtype;
+	}
+
+	return r;
 }
 
 int layer_cpu_float_CONST_execute(const nn_t* nn, const layer_t* layer)
