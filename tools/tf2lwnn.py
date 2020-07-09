@@ -287,6 +287,8 @@ class TfConverter(LWNNUtil):
     def to_LayerMatMul(self, layer):
         _, weights = self.get_layers(layer.inputs)
         layer.weights = self.eval(weights)
+        if(layer.transpose_b):
+            layer.weights = layer.weights.transpose()
         layer.inputs = layer.inputs[:1]
 
     def to_LayerBlockLSTM(self, layer):
