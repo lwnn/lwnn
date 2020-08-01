@@ -17,9 +17,11 @@ class LWNNBaseC():
                 'MaxPool': self.gen_LayerMaxPool,
                 'Min': self.gen_LayerMin,
                 'Mul': self.gen_LayerMul,
+                'Div': self.gen_LayerDiv,
                 'AveragePool': self.gen_LayerAveragePool,
                 'Reshape': self.gen_LayerReshape,
                 'Squeeze': self.gen_LayerReshape,
+                'Unsqueeze': self.gen_LayerReshape,
                 'Dense': self.gen_LayerDense,
                 'BatchMatMul': self.gen_LayerBatchMatMul,
                 'Concat': self.gen_LayerConcat,
@@ -46,6 +48,8 @@ class LWNNBaseC():
                 'StridedSlice': self.gen_LayerStridedSlice,
                 'Resize': self.gen_LayerResize,
                 'Gather': self.gen_LayerGather,
+                'ReduceMean' : self.gen_LayerReduceMean,
+                'Sqrt' : self.gen_LayerSqrt,
                 'Output': self.gen_LayerOutput }
         self.model = model
         self.T = T
@@ -196,11 +200,14 @@ class LWNNBaseC():
         blob.tofile(self.fpB)
         self.fpW.write('}\n')
         self.fpH.write('#ifndef l_blob_def_%s\n'%(name))
-        self.fpH.write('#define l_blob_def_%s (%s)\n'%(name, '*'.join(['%s'%(s) for s in blob.shape])))
+        shape = blob.shape
+        if(len(shape) == 0):
+            shape = [1]
+        self.fpH.write('#define l_blob_def_%s (%s)\n'%(name, '*'.join(['%s'%(s) for s in shape])))
         self.fpH.write('#endif\n')
         self.fpH.write('L_BLOB_DECLARE(%s, %s);\n'%(T, name))
         self.fpH.write('static const int l_dims_%s[]={ %s,0 };\n'%(
-            name, ','.join(['%s'%(s) for s in blob.shape])))
+            name, ','.join(['%s'%(s) for s in shape])))
         if(T.endswith('_t')):
             T=T[:-2]
         self.fpH.write('static const layer_blob_t l_blob_%s =\n{\n'%(name))
@@ -312,6 +319,8 @@ class LWNNBaseC():
 
     def gen_layer_common(self, layer):
         shape = self.get_shape(layer)
+        if(len(shape) == 0):
+            shape = [1]
         self.fpC.write('#define %s_DIMS %s\n'%(layer['name'], 
                             ','.join(['%s'%(s) for s in shape])))
 
@@ -381,6 +390,12 @@ class LWNNBaseC():
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
                         ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_MUL ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
+    def gen_LayerDiv(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
+                        ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
+        self.fpC.write('L_DIV ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
 
     def gen_LayerAveragePool(self, layer):
         if('pads' not in layer):
@@ -586,6 +601,15 @@ class LWNNBaseC():
         self.fpC.write('#define {0}_INPUTS {1}\n'.format(layer['name'],
             ','.join(['L_REF(%s)'%inp for inp in layer['inputs']])))
         self.fpC.write('L_GATHER ({0}, {0}_INPUTS);\n\n'.format(layer['name']))
+
+    def gen_LayerReduceMean(self, layer):
+        M = np.asarray([self.get_axis(layer)], np.int32)
+        self.gen_blobs(layer, [('%s_M'%(layer['name']),M)])
+        self.fpC.write('L_REDUCEMEAN ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
+
+    def gen_LayerSqrt(self, layer):
+        self.gen_no_blobs(layer)
+        self.fpC.write('L_SQRT ({0}, {1});\n\n'.format(layer['name'], layer['inputs'][0]))
 
     def gen_LayerStridedSlice(self, layer):
         self.gen_no_blobs(layer)

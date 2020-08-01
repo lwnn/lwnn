@@ -722,8 +722,14 @@ class LWNNModel(LWNNUtil):
         consumers = self.get_consumers(layer)
         add = consumers[0]
         add['op'] = 'Dense'
-        add['inputs'] = layer['inputs']
-        add['weights'] = layer['weights']
+        if(len(layer.inputs) == 2):
+            Wl = self.get_layers(layer.inputs[1])
+            add['inputs'] = layer['inputs'][:1]
+            add['weights'] = Wl.const
+            self.lwnn_model.remove(Wl)
+        else:
+            add['inputs'] = layer['inputs']
+            add['weights'] = layer['weights']
         self.lwnn_model.remove(layer)
         return True
 
@@ -734,8 +740,12 @@ class LWNNModel(LWNNUtil):
         return r
 
     def opt_LayerMatMul(self, layer):
-        layer['op'] = 'Dense'
-        layer.bias = np.zeros((layer.shape[-1]), np.float32)
+        if('weights' in layer):
+            layer['op'] = 'Dense'
+            layer.bias = np.zeros((layer.shape[-1]), np.float32)
+        else:
+            layer['op'] = 'BatchMatMul'
+            layer.adj_x = layer.adj_y = 0
         return False
 
     def opt_IsLayerConv1D(self, layer):

@@ -90,6 +90,9 @@ extern "C" {
 #define L_RESIZE(name, input)		L_LAYER_SI(name, input, RESIZE)
 #define L_LAYER_NORM(name, input)	L_LAYER_SI(name, input, LAYER_NORM)
 #define L_TANH(name, input)			L_LAYER_SI(name, input, TANH)
+#define L_REDUCEMEAN(name, input)	L_LAYER_SI(name, input, REDUCEMEAN)
+#define L_SQRT(name, input)			L_LAYER_SI(name, input, SQRT)
+
 
 #define L_MAXIMUM(name, inputs)							\
 	static LCONST layer_t* l_inputs_##name[] = {		\
@@ -120,6 +123,11 @@ extern "C" {
 	static LCONST layer_t* l_inputs_##name[] = {		\
 			inputs, NULL };								\
 	L_LAYER_MI(name, MUL)
+
+#define L_DIV(name, inputs)								\
+	static LCONST layer_t* l_inputs_##name[] = {		\
+			inputs, NULL };								\
+	L_LAYER_MI(name, DIV)
 
 #define L_POW(name, inputs)								\
 	static LCONST layer_t* l_inputs_##name[] = {		\

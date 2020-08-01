@@ -24,6 +24,8 @@ class OnnxConverter(LWNNUtil):
                 'Dense': self.to_LayerGemm,
                 'LSTM': self.to_LayerLSTM,
                 'Clip': self.to_LayerClip,
+                'Transpose': self.to_LayerTranspose,
+                'ReduceMean': self.to_LayerReduceMean,
                 'Add': self.to_LayerAdd }
         if(type(onnx_model) == str):
             onnx_model = onnx.load(onnx_model)
@@ -237,7 +239,8 @@ class OnnxConverter(LWNNUtil):
 
     def to_LayerMatMul(self, node):
         layer = self.to_LayerCommon(node)
-        layer['weights'] = self.get_initializer(node.input[1])
+        if(len(layer.inputs) == 1):
+            layer['weights'] = self.get_initializer(node.input[1])
         return layer
 
     def to_LayerUpsample(self, node):
@@ -293,6 +296,21 @@ class OnnxConverter(LWNNUtil):
         else:
             if(layer.min == 0.0):
                 layer.op = 'Relu'
+        return layer
+
+    def to_LayerTranspose(self, node):
+        layer = self.to_LayerCommon(node)
+        if(len(layer.inputs) == 0):
+            # okay transpose a const input
+            data = self.get_initializer(node.input[0])
+            layer.const = np.transpose(data, layer.perm)
+            layer.op = 'Constant'
+        return layer
+
+    def to_LayerReduceMean(self, node):
+        layer = self.to_LayerCommon(node)
+        layer.axis = layer.axes[0]
+        del layer['axes']
         return layer
 
     def convert(self):
