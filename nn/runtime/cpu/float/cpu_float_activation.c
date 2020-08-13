@@ -40,6 +40,16 @@ static void tanh_ref(float * out, float * in, size_t size)
 	}
 }
 
+static void sqrt_ref(float * out, float * in, size_t size)
+{
+	size_t  i;
+
+	for (i = 0; i < size; i++)
+	{
+		out[i] = sqrt(in[i]);
+	}
+}
+
 static void prelu_ref(float * out, float * in, size_t size, float* slope, int C)
 {
 	size_t  i;
@@ -118,6 +128,11 @@ static int layer_cpu_float_activation_execute(const nn_t* nn, const layer_t* lay
 			tanh_ref(OUT, IN, sz);
 			break;
 		}
+		case L_OP_SQRT:
+		{
+			sqrt_ref(OUT, IN, sz);
+			break;
+		}
 		default:
 			r = NN_E_INVALID_LAYER;
 			break;
@@ -188,6 +203,21 @@ int layer_cpu_float_TANH_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cpu_float_TANH_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_float_activation_deinit(nn, layer);
+}
+
+int layer_cpu_float_SQRT_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_activation_init(nn, layer);
+}
+
+int layer_cpu_float_SQRT_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_activation_execute(nn, layer);
+}
+
+void layer_cpu_float_SQRT_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_float_activation_deinit(nn, layer);
 }

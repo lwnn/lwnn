@@ -26,6 +26,7 @@ DEF_ALG_ELTWISE(float, ADD)
 DEF_ALG_ELTWISE(float, SUB)
 DEF_ALG_ELTWISE(float, MUL)
 DEF_ALG_ELTWISE(float, POW)
+DEF_ALG_ELTWISE(float, DIV)
 
 DEF_ALG_BROADCAST_ONE(float, MAX)
 DEF_ALG_BROADCAST_ONE(float, MIN)
@@ -33,6 +34,7 @@ DEF_ALG_BROADCAST_ONE(float, ADD)
 DEF_ALG_BROADCAST_ONE(float, SUB)
 DEF_ALG_BROADCAST_ONE(float, MUL)
 DEF_ALG_BROADCAST_ONE(float, POW)
+DEF_ALG_BROADCAST_ONE(float, DIV)
 
 DEF_ALG_BROADCAST_CHANNEL(float, MAX)
 DEF_ALG_BROADCAST_CHANNEL(float, MIN)
@@ -40,6 +42,7 @@ DEF_ALG_BROADCAST_CHANNEL(float, ADD)
 DEF_ALG_BROADCAST_CHANNEL(float, SUB)
 DEF_ALG_BROADCAST_CHANNEL(float, MUL)
 DEF_ALG_BROADCAST_CHANNEL(float, POW)
+DEF_ALG_BROADCAST_CHANNEL(float, DIV)
 
 DEF_ALG_BROADCAST(float, ADD)
 
@@ -58,7 +61,7 @@ static int layer_cpu_float_eltwise_init(const nn_t* nn, const layer_t* layer)
 		r = alg_broadcast_prepare(&(context->inputA_context), &(context->inputB_context), &(context->broadcast));
 	}
 
-	if((0 == r) && (L_OP_POW == layer->op)) {
+	if((0 == r) && ((L_OP_POW == layer->op) || (L_OP_DIV == layer->op))) {
 		if(context->inputA_context != (layer_context_t*)layer->inputs[0]->C->context) {
 			r = NN_E_INVALID_LAYER;
 		}
@@ -151,6 +154,15 @@ static int layer_cpu_float_eltwise_execute(const nn_t* nn, const layer_t* layer)
 			break;
 		case L_OP_POW+ALG_BROADCAST_CHANNEL:
 			alg_broadcast_channel_POW_float(A, B, O, sz, context->nhwc.C);
+			break;
+		case L_OP_DIV:
+			alg_eltwise_DIV_float(A, B, O, sz);
+			break;
+		case L_OP_DIV+ALG_BROADCAST_ONE:
+			alg_broadcast_one_DIV_float(A, B[0], O, sz);
+			break;
+		case L_OP_DIV+ALG_BROADCAST_CHANNEL:
+			alg_broadcast_channel_DIV_float(A, B, O, sz, context->nhwc.C);
 			break;
 		default:
 			r = NN_E_INVALID_LAYER;
@@ -262,6 +274,21 @@ int layer_cpu_float_POW_execute(const nn_t* nn, const layer_t* layer)
 }
 
 void layer_cpu_float_POW_deinit(const nn_t* nn, const layer_t* layer)
+{
+	layer_cpu_float_eltwise_deinit(nn, layer);
+}
+
+int layer_cpu_float_DIV_init(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_eltwise_init(nn, layer);
+}
+
+int layer_cpu_float_DIV_execute(const nn_t* nn, const layer_t* layer)
+{
+	return layer_cpu_float_eltwise_execute(nn, layer);
+}
+
+void layer_cpu_float_DIV_deinit(const nn_t* nn, const layer_t* layer)
 {
 	layer_cpu_float_eltwise_deinit(nn, layer);
 }
