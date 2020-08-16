@@ -59,51 +59,48 @@ int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 	int8_t *O = (int8_t*)context->out[0];
 	int8_t *weights = (int8_t*)layer->blobs[1]->blob;
 	int32_t *bias = (int32_t*)layer->blobs[2]->blob;
-	int32_t filter_offset;
-	int32_t out_mult;
 	int8_t wQ;
-	int omin;
+	cmsis_nn_context ctx;
+	cmsis_nn_fc_params fc_params;
+	cmsis_nn_per_tensor_quant_params quant_params;
+	cmsis_nn_dims filter_dims;
 
-	uint16_t col_dim = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 1);
-	uint16_t row_dim = (uint16_t)RTE_FETCH_INT32(layer->blobs[1]->dims, 0);
-
-	size_t batch;
-	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
-	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
-
+#if defined (ARM_MATH_DSP)
+	ctx.buf = context->bufferA->data;
+	ctx.size = context->bufferA->sz;
+#else
+	ctx.buf = NULL;
+#endif
 
 	wQ = RTE_FETCH_INT32(layer->blobs[3]->blob, 0);
-	filter_offset = RTE_FETCH_INT32(layer->blobs[3]->blob, 1);
-	out_mult = RTE_FETCH_INT32(layer->blobs[3]->blob, 2);
-	omin = RTE_FETCH_INT32(layer->blobs[3]->blob, 3);
+
+	fc_params.input_offset = -LAYER_Z(input);
+	fc_params.output_offset = LAYER_Z(layer);
+	fc_params.filter_offset = RTE_FETCH_INT32(layer->blobs[3]->blob, 1);
+	fc_params.activation.min = RTE_FETCH_INT32(layer->blobs[3]->blob, 3);
+	fc_params.activation.max = INT8_MAX;
+
+	quant_params.multiplier = RTE_FETCH_INT32(layer->blobs[3]->blob, 2);
+	quant_params.shift = -(wQ+LAYER_Q(input)-LAYER_Q(layer));
+
+	filter_dims.n = layer->blobs[1]->dims[1]; /* col_dim */
 
 	NNLOG(NN_DEBUG, (" *[%dx%d] %d -> %d\n",
-			col_dim, row_dim,
+			layer->blobs[1]->dims[1], layer->blobs[1]->dims[0],
 			LAYER_Q(input), LAYER_Q(layer)));
 
-	for(batch=0; (batch<input_context->nhwc.N) && (0 == r); batch++)
-	{
-		r = arm_fully_connected_s8(IN+batch_sizeIn*batch,
+	r = arm_fully_connected_s8(&ctx,
+				&fc_params,
+				&quant_params,
+				(cmsis_nn_dims*)&(input_context->nhwc),
+				IN,
+				(cmsis_nn_dims*)layer->blobs[1]->dims,
 				weights,
-				col_dim,
-				row_dim,
-				1,
-				LAYER_Z(input),
-				filter_offset,
-				out_mult,
-				-(wQ+LAYER_Q(input)-LAYER_Q(layer)),
-				-LAYER_Z(layer),
+				(cmsis_nn_dims*)&layer->blobs[2]->dims,
+				(cmsis_nn_dims*)&(context->nhwc),
 				bias,
-				O+batch_sizeO*batch,
-				INT8_MIN,
-				INT8_MAX,
-#if defined (ARM_MATH_DSP)
-				context->bufferA->data
-#else
-				NULL
-#endif
-				);
-	}
+				O);
+
 	return r;
 }
 

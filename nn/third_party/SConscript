@@ -15,7 +15,9 @@ if(GetOption('android')):
     #boost = Package('https://github.com/moritz-wundke/Boost-for-Android.git',cmd=cmd)
 objs = asenv.Library('cmsisnn', objs)
 
+objs = SConscript('tflite/SConscript') + objs
 objs += SConscript('image/SConscript')
+
 
 DISABLE_MKLDNN = True if os.getenv('DISABLE_MKLDNN') == 'True' else False
 if(not GetOption('android') and (not DISABLE_MKLDNN)):

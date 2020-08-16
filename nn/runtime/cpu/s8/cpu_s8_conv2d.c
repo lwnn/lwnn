@@ -64,58 +64,51 @@ int layer_cpu_s8_CONV2D_execute(const nn_t* nn, const layer_t* layer)
 	int8_t *O = (int8_t*)context->out[0];
 	int8_t *weights = (int8_t*)layer->blobs[1]->blob;
 	int32_t *bias = (int32_t*)layer->blobs[2]->blob;
-	int knlX, knlY, padX, padY, strideX, strideY;
 	int* ints;
-	int omin;
 
-	size_t batch;
-	size_t batch_sizeIn = NHWC_BATCH_SIZE(input_context->nhwc);
-	size_t batch_sizeO = NHWC_BATCH_SIZE(context->nhwc);
+	cmsis_nn_context ctx;
+	cmsis_nn_conv_params conv_params;
+	cmsis_nn_per_channel_quant_params quant_params;
 
-	ints = (int*)layer->blobs[1]->dims;
-	knlY = ints[1];
-	knlX = ints[2];
+#if defined (ARM_MATH_DSP)
+	ctx.buf = context->bufferA->data;
+	ctx.size = context->bufferA->sz;
+#else
+	ctx.buf = NULL;
+#endif
 
 	ints = (int*)layer->blobs[3]->blob;
-	padY = ints[0];
-	padX = ints[1];
-	strideY = ints[4];
-	strideX = ints[5];
+	conv_params.padding.h = ints[0];
+	conv_params.padding.w = ints[1];
+	conv_params.stride.h = ints[4];
+	conv_params.stride.w = ints[5];
 
-	omin = ints[6];
+	conv_params.activation.min = ints[6];
+	conv_params.activation.max = INT8_MAX;
+
+	conv_params.input_offset = -LAYER_Z(input);
+	conv_params.output_offset = LAYER_Z(layer);
+
+	quant_params.multiplier = (int32_t*)layer->blobs[4]->blob;
+	quant_params.shift = (int32_t*)layer->blobs[5]->blob;
 
 	NNLOG(NN_DEBUG, (" kernel=[%d %d], pads=[%d %d], strides=[%d %d], Z=%d, %d -> %d\n",
-			knlY, knlX, padY, padX, strideY, strideX,
+			layer->blobs[1]->dims[1], layer->blobs[1]->dims[2],
+			conv_params.padding.h, conv_params.padding.w,
+			conv_params.stride.h, conv_params.stride.w,
 			LAYER_Z(layer), LAYER_Q(input), LAYER_Q(layer)));
 
-	for(batch=0; (batch<input_context->nhwc.N) && (0 == r); batch++)
-	{
-		r = arm_convolve_s8(IN+batch_sizeIn*batch,
-					input_context->nhwc.W,
-					input_context->nhwc.H,
-					input_context->nhwc.C,
+	r = arm_convolve_s8(&ctx,
+					&conv_params,
+					&quant_params,
+					(cmsis_nn_dims*)&(input_context->nhwc),
+					IN,
+					(cmsis_nn_dims*)layer->blobs[1]->dims,
 					weights,
-					context->nhwc.C,
-					knlX, knlY,
-					padX, padY,
-					strideX, strideY,
+					(cmsis_nn_dims*)&layer->blobs[2]->dims,
 					bias,
-					O+batch_sizeO*batch,
-					(const int32_t*)layer->blobs[5]->blob,
-					(const int32_t*)layer->blobs[4]->blob,
-					-LAYER_Z(layer),
-					LAYER_Z(input),
-					omin,
-					INT8_MAX,
-					context->nhwc.W,
-					context->nhwc.H,
-#if defined (ARM_MATH_DSP)
-					context->bufferA->data
-#else
-					NULL
-#endif
-					);
-	}
+					(cmsis_nn_dims*)&(context->nhwc),
+					O);
 	return r;
 }
 #else

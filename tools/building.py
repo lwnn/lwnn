@@ -268,6 +268,24 @@ def MKFile(p,c='',m='w'):
     f.write(c)
     f.close()
 
+def MKSymlink(src,dst):
+    asrc = os.path.abspath(src)
+    adst = os.path.abspath(dst)
+
+    if(not os.path.exists(dst)):
+        if(IsPlatformWindows()):
+            RunSysCmd('del %s'%(adst))
+            if((sys.platform == 'msys') and
+               (os.getenv('MSYS') == 'winsymlinks:nativestrict')):
+                RunCommand('ln -fs %s %s'%(asrc,adst))
+            elif(os.path.isdir(asrc)):
+                RunCommand('mklink /D %s %s'%(adst,asrc))
+            else:
+                RunCommand('mklink %s %s'%(adst,asrc))
+        else:
+            RunSysCmd('rm -f %s'%(adst))
+            os.symlink(asrc,adst)
+
 def Download(url, tgt=None):
     # curl is better than wget on msys2
     if(tgt == None):

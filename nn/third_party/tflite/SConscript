@@ -1,0 +1,29 @@
+from building import *
+Import('asenv')
+
+objs = []
+
+TFDIR = os.getenv('TFDIR')
+
+if(TFDIR != None):
+    cwd = GetCurrentDir()
+    cmsis = Package('https://github.com/lwnn/CMSIS_5.git')
+    FB = Package('https://github.com/google/flatbuffers.git', version='v1.12.0')
+    GM = Package('https://github.com/google/gemmlowp.git')
+    RUY = Package('https://github.com/google/ruy.git')
+    robjs = Glob('%s/tensorflow/lite/c/*.c'%(TFDIR))
+    robjs += Glob('%s/tensorflow/lite/c/*.cc'%(TFDIR))
+    robjs += Glob('%s/tensorflow/lite/micro/*.cc'%(TFDIR))
+    robjs += Glob('%s/tensorflow/lite/micro/kernels/*.cc'%(TFDIR))
+    robjs += Glob('%s/tensorflow/lite/micro/kernels/cmsis-nn/*.cc'%(TFDIR))
+    for obj in robjs:
+        if('test' not in obj.rstr()):
+            objs.append(obj)
+    MKSymlink(cmsis, '%s/cmsis'%(cwd))
+    asenv.Append(CPPPATH=[TFDIR, '%s/include'%(FB), GM, RUY, cwd])
+    if(GetOption('android')):
+        asenv.Append(CPPDEFINES=['GEMMLOWP_NEON'])
+    else:
+        asenv.Append(CPPDEFINES=['GEMMLOWP_AVX2'])
+
+Return('objs')
