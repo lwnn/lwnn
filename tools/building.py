@@ -318,7 +318,10 @@ def Package(url, ** parameters):
     if(type(url) == dict):
         parameters = url
         url = url['url']
-    download = '%s/nn/third_party'%(Env['LWNN_ROOT'])
+    if('todir' in parameters):
+        download = parameters['todir']
+    else:
+        download = '%s/nn/third_party'%(Env['LWNN_ROOT'])
     pkgBaseName = os.path.basename(url)
     if(pkgBaseName.endswith('.zip')):
         tgt = '%s/%s'%(download, pkgBaseName)

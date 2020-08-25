@@ -25,8 +25,10 @@ int layer_cpu_s8_DWCONV2D_init(const nn_t* nn, const layer_t* layer)
 {
 	int r = 0;
 #if defined (ARM_MATH_DSP)
-	int* ints;
+	size_t sz;
 	layer_cpu_s8_dwconv2d_context_t* context;
+	const layer_t* input = layer->inputs[0];
+	layer_cpu_s8_context_t* input_context = (layer_cpu_s8_context_t*)input->C->context;
 #endif
 
 	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_s8_dwconv2d_context_t), sizeof(int8_t));
@@ -36,6 +38,11 @@ int layer_cpu_s8_DWCONV2D_init(const nn_t* nn, const layer_t* layer)
 	{
 		context = (layer_cpu_s8_dwconv2d_context_t*)layer->C->context;
 
+		sz = arm_depthwise_conv_s8_opt_get_buffer_size(
+				(cmsis_nn_dims*)&(input_context->nhwc),
+				(cmsis_nn_dims*)layer->blobs[1]->dims);
+
+		context->bufferA = rte_cpu_create_buffer(nn, layer, sz);
 		ints = (int*)layer->blobs[1]->dims;	/* W in format FHWC */
 
 		context->bufferA = rte_cpu_create_buffer(nn, layer, 2*ints[1]*ints[2]*ints[3]*sizeof(q15_t));
@@ -81,12 +88,13 @@ int layer_cpu_s8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 	conv_params.padding.w = ints[1];
 	conv_params.stride.h = ints[4];
 	conv_params.stride.w = ints[5];
+	conv_params.ch_mult = layer->blobs[1]->dims[0];
 
 	conv_params.activation.min = ints[6];
 	conv_params.activation.max = INT8_MAX;
 
-	conv_params.input_offset = -LAYER_Z(input);
-	conv_params.output_offset = LAYER_Z(layer);
+	conv_params.input_offset = LAYER_Z(input);
+	conv_params.output_offset = -LAYER_Z(layer);
 
 	quant_params.multiplier = (int32_t*)layer->blobs[4]->blob;
 	quant_params.shift = (int32_t*)layer->blobs[5]->blob;
@@ -104,7 +112,7 @@ int layer_cpu_s8_DWCONV2D_execute(const nn_t* nn, const layer_t* layer)
 					IN,
 					(cmsis_nn_dims*)layer->blobs[1]->dims,
 					weights,
-					(cmsis_nn_dims*)&layer->blobs[2]->dims,
+					(cmsis_nn_dims*)layer->blobs[2]->dims,
 					bias,
 					(cmsis_nn_dims*)&(context->nhwc),
 					O);

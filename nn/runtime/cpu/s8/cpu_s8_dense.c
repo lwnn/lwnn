@@ -13,9 +13,6 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_S8_CONTEXT_MEMBER;
-#if defined (ARM_MATH_DSP)
-	rte_cpu_buffer_t* bufferA;
-#endif
 } layer_cpu_s8_dense_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -23,30 +20,7 @@ typedef struct {
 /* ============================ [ FUNCTIONS ] ====================================================== */
 int layer_cpu_s8_DENSE_init(const nn_t* nn, const layer_t* layer)
 {
-	int r = 0;
-#if defined (ARM_MATH_DSP)
-	layer_cpu_s8_dense_context_t* context;
-#endif
-	r = rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_s8_dense_context_t), sizeof(int8_t));
-
-#if defined (ARM_MATH_DSP)
-	if(0 == r)
-	{
-		context = (layer_cpu_s8_dense_context_t*)layer->C->context;
-		context->bufferA = rte_cpu_create_buffer(nn, layer, RTE_FETCH_INT32(layer->blobs[0]->dims, 0)*sizeof(q15_t));
-
-		if(NULL == context->bufferA)
-		{
-			r = NN_E_NO_MEMORY;
-		}
-		else
-		{
-			rte_cpu_release_buffer(context->bufferA);
-		}
-	}
-#endif
-
-	return r;
+	return rte_cpu_create_layer_common(nn, layer, sizeof(layer_cpu_s8_dense_context_t), sizeof(int8_t));
 }
 
 int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
@@ -60,22 +34,14 @@ int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 	int8_t *weights = (int8_t*)layer->blobs[1]->blob;
 	int32_t *bias = (int32_t*)layer->blobs[2]->blob;
 	int8_t wQ;
-	cmsis_nn_context ctx;
 	cmsis_nn_fc_params fc_params;
 	cmsis_nn_per_tensor_quant_params quant_params;
 	cmsis_nn_dims filter_dims;
 
-#if defined (ARM_MATH_DSP)
-	ctx.buf = context->bufferA->data;
-	ctx.size = context->bufferA->sz;
-#else
-	ctx.buf = NULL;
-#endif
-
 	wQ = RTE_FETCH_INT32(layer->blobs[3]->blob, 0);
 
-	fc_params.input_offset = -LAYER_Z(input);
-	fc_params.output_offset = LAYER_Z(layer);
+	fc_params.input_offset = LAYER_Z(input);
+	fc_params.output_offset = -LAYER_Z(layer);
 	fc_params.filter_offset = RTE_FETCH_INT32(layer->blobs[3]->blob, 1);
 	fc_params.activation.min = RTE_FETCH_INT32(layer->blobs[3]->blob, 3);
 	fc_params.activation.max = INT8_MAX;
@@ -89,16 +55,16 @@ int layer_cpu_s8_DENSE_execute(const nn_t* nn, const layer_t* layer)
 			layer->blobs[1]->dims[1], layer->blobs[1]->dims[0],
 			LAYER_Q(input), LAYER_Q(layer)));
 
-	r = arm_fully_connected_s8(&ctx,
+	r = arm_fully_connected_s8(NULL,
 				&fc_params,
 				&quant_params,
 				(cmsis_nn_dims*)&(input_context->nhwc),
 				IN,
-				(cmsis_nn_dims*)layer->blobs[1]->dims,
+				(cmsis_nn_dims*)&filter_dims,
 				weights,
-				(cmsis_nn_dims*)&layer->blobs[2]->dims,
-				(cmsis_nn_dims*)&(context->nhwc),
+				(cmsis_nn_dims*)layer->blobs[2]->dims,
 				bias,
+				(cmsis_nn_dims*)&(context->nhwc),
 				O);
 
 	return r;

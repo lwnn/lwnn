@@ -7,15 +7,20 @@ TFDIR = os.getenv('TFDIR')
 
 if(TFDIR != None):
     cwd = GetCurrentDir()
+    MKSymlink('%s/tensorflow/lite'%(TFDIR), '%s/tflite'%(cwd))
     cmsis = Package('https://github.com/lwnn/CMSIS_5.git')
-    FB = Package('https://github.com/google/flatbuffers.git', version='v1.12.0')
-    GM = Package('https://github.com/google/gemmlowp.git')
-    RUY = Package('https://github.com/google/ruy.git')
-    robjs = Glob('%s/tensorflow/lite/c/*.c'%(TFDIR))
-    robjs += Glob('%s/tensorflow/lite/c/*.cc'%(TFDIR))
-    robjs += Glob('%s/tensorflow/lite/micro/*.cc'%(TFDIR))
-    robjs += Glob('%s/tensorflow/lite/micro/kernels/*.cc'%(TFDIR))
-    robjs += Glob('%s/tensorflow/lite/micro/kernels/cmsis-nn/*.cc'%(TFDIR))
+    FB = Package('https://github.com/google/flatbuffers.git', version='v1.12.0', todir=cwd)
+    GM = Package('https://github.com/google/gemmlowp.git', todir=cwd)
+    RUY = Package('https://github.com/google/ruy.git', todir=cwd)
+    robjs = Glob('tflite/c/*.c')
+    robjs += Glob('tflite/c/*.cc')
+    robjs += Glob('tflite/core/api/*.cc')
+    robjs += Glob('tflite/micro/memory_planner/*.cc')
+    robjs += Glob('tflite/kernels/internal/quantization_util.cc')
+    robjs += Glob('tflite/kernels/kernel_util.cc')
+    robjs += Glob('tflite/micro/*.cc')
+    robjs += Glob('tflite/micro/kernels/*.cc')
+    robjs += Glob('tflite/micro/kernels/cmsis-nn/*.cc')
     for obj in robjs:
         if('test' not in obj.rstr()):
             objs.append(obj)
@@ -25,5 +30,6 @@ if(TFDIR != None):
         asenv.Append(CPPDEFINES=['GEMMLOWP_NEON'])
     else:
         asenv.Append(CPPDEFINES=['GEMMLOWP_AVX2'])
+    objs = asenv.Library('tflite', objs)
 
 Return('objs')
