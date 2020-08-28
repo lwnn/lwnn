@@ -100,8 +100,13 @@ class LWNNBaseC():
         os.makedirs(p, exist_ok=True)
         if(self.feeds != None):
             feeds = {}
-            for k,v in self.feeds.items():
-                feeds[k] = v[0].reshape([1]+list(v[0].shape))
+            try:
+                for k,v in self.feeds.items():
+                    feeds[k] = v[0].reshape([1]+list(v[0].shape))
+            except:
+                for feed in self.feeds:
+                    break
+                feeds = feed
         else:
             feeds = None
         outputs = self.model.run(feeds)

@@ -11,6 +11,9 @@
 #include <cmath>
 #include <vector>
 #include "Model.hpp"
+#ifdef ENABLE_TFLITE
+#include "TfLite.hpp"
+#endif
 /* https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html */
 /* ============================ [ MACROS    ] ====================================================== */
 /* ============================ [ TYPES     ] ====================================================== */
@@ -450,6 +453,11 @@ PYBIND11_MODULE(liblwnn, m)
 			#endif
 			.def(py::init<int, std::string, std::string, std::string>())
 			.def("predict", &lwnn::Model::predict, py::arg("feed"));
+#ifdef ENABLE_TFLITE
+	py::class_<lwnn::TfLite>(m, "TfLite")
+			.def(py::init<std::string>())
+			.def("predict", &lwnn::TfLite::predict, py::arg("feed"));
+#endif
 }
 
 

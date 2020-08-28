@@ -4,10 +4,10 @@ import onnx
 import onnx.helper
 import onnx.numpy_helper
 import numpy as np
-import keras
-from keras.models import Model
-from keras.models import load_model
-from keras.layers import *
+import tensorflow.keras as keras
+from tensorflow.keras.models import Model
+from tensorflow.keras.models import load_model
+from tensorflow.keras.layers import *
 import numpy as np
 import os
 

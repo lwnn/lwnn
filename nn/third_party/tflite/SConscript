@@ -30,6 +30,7 @@ if(TFDIR != None):
         asenv.Append(CPPDEFINES=['GEMMLOWP_NEON'])
     else:
         asenv.Append(CPPDEFINES=['GEMMLOWP_AVX2'])
+    asenv.Append(CPPDEFINES=['ENABLE_TFLITE'])
     objs = asenv.Library('tflite', objs)
 
 Return('objs')

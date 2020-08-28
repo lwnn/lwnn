@@ -4,12 +4,13 @@ from lwnn.core import *
 from onnx2lwnn import *
 import os
 import json
-import importlib.util
+import traceback
 
 __all__ = ['keras2lwnn']
 
 class KerasConverter(LWNNUtil):
     def __init__(self, keras_model, **kwargs):
+        self.name = 'keras'
         self.OPTIMIER = [
             (self.opt_IsLayerSliceBeforeROIAfterDetection, self.opt_LayerSliceBeforeROIAfterDetection, None),
             ]
@@ -21,6 +22,7 @@ class KerasConverter(LWNNUtil):
             'BatchNorm': 'BatchNormalization',
             'Concatenate': 'Concat',
             'MaxPooling2D': 'MaxPool',
+            'MaxPooling1D': 'MaxPool',
             'UpSampling2D': 'Upsample',
             'ProposalLayer': 'Proposal',
             'DetectionLayer': 'Detection',
@@ -79,7 +81,9 @@ class KerasConverter(LWNNUtil):
                 else:
                     outputs.append(out)
             except ValueError:
-                pass
+                break
+            except RuntimeError:
+                break
         return outputs
 
     def get_layer_inputs(self, layer):
@@ -315,6 +319,10 @@ class KerasConverter(LWNNUtil):
         for out in self.get_outputs(self.keras_model):
             layer = LWNNLayer(name=out.name, op='Output', inputs=[out.name], outputs=[out.name+'_O'])
             self.lwnn_model.append(layer)
+        if(layer.op != 'Output'):
+            out = self.keras_model.output
+            layer = LWNNLayer(name=out.name, op='Output', inputs=[out.name], outputs=[out.name+'_O'])
+            self.lwnn_model.append(layer)
         for layer in self.lwnn_model:
             inputs = self.get_layer_inputs(layer)
             layer.inputs = [l.name for l in inputs]
@@ -338,6 +346,59 @@ class KerasConverter(LWNNUtil):
             self.convert_layer_to_nchw(layer)
         self.optimize()
 
+    def run(self, feeds, **kwargs):
+        O = {}
+        outputs = []
+        for klayer in self.keras_model.layers:
+            op = klayer.__class__.__name__
+            if(op in ['Model', 'InputLayer']):
+                continue
+            outputs.extend(self.get_outputs(klayer))
+        model = Model(inputs=self.keras_model.input, outputs=outputs)
+        feed = []
+        try:
+            for i, inp in enumerate(self.keras_model.input):
+                feed.append(feeds[inp])
+        except TypeError:
+            feed.append(feeds[self.keras_model.input])
+        outs = model.predict(feed)
+        try:
+            for i, inp in enumerate(self.keras_model.input):
+                O[inp.name] = feeds[inp.name]
+        except TypeError:
+            O[self.keras_model.input.name] = feeds[self.keras_model.input]
+        for i, out in enumerate(outputs):
+            O[out.name] = outs[i]
+            O[out.name+'_O'] = outs[i]
+        return O
+
+    @property
+    def input(self):
+        try:
+            return [x for x in self.keras_model.input]
+        except TypeError:
+            return [self.keras_model.input]
+    @property
+    def output(self):
+        try:
+            return [x for x in self.keras_model.output]
+        except TypeError:
+            return [self.keras_model.output]
+
+    @property
+    def inputs(self):
+        L = {}
+        for layer in self.lwnn_model:
+            print(layer)
+            if(layer.op == "Input"):
+                L[layer.name] = layer
+        return L
+
+def tolwnn(model, name, feeds, **kwargs):
+    converter = KerasConverter(model, **kwargs)
+    model = LWNNModel(converter, name, feeds = feeds, notPermuteReshapeSoftmax=True)
+    model.generate()
+
 def keras2lwnn(model, name, feeds=None, **kwargs):
     if(type(model) == str):
         model = load_model(model)
@@ -355,21 +416,31 @@ def keras2lwnn(model, name, feeds=None, **kwargs):
         with tf.gfile.FastGFile('models/%s/%s.pb'%(name,name), mode='wb') as f:
             f.write(graph_def.SerializeToString())
     except Exception as e:
-        print(e)
+        print('Keras2TfPB Error:', e)
+        print(traceback.format_exc())
+    try:
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        tflite_model = converter.convert()
+        with open('models/%s/%s.tflite'%(name,name), 'wb') as f:
+            f.write(tflite_model)
+    except Exception as e:
+        print('Keras2TFLite Error:', e)
+        print(traceback.format_exc())
     if(('use_keras2lwnn' in kwargs) and (kwargs['use_keras2lwnn'] == True)):
-        converter = KerasConverter(model, **kwargs)
+        return tolwnn(model, name, feeds, **kwargs)
+
+    try:
+        onnx_model = keras2onnx.convert_keras(model, model.name,
+                            channel_first_inputs=[model.input])
+        onnx_feeds = {}
         if(feeds != None):
-            feeds = LWNNFeeder(feeds, converter.inputs, format='NHWC')
-        model = LWNNModel(converter, name, feeds = feeds, notPermuteReshapeSoftmax=True)
-        model.generate()
-        return
-    onnx_model = keras2onnx.convert_keras(model, model.name,
-                        channel_first_inputs=[model.input])
-    onnx_feeds = {}
-    if(feeds != None):
-        for inp, v in feeds.items():
-            onnx_feeds[inp.name] = v
-    onnx2lwnn(onnx_model, name, onnx_feeds)
+            for inp, v in feeds.items():
+                onnx_feeds[inp.name] = v
+        onnx2lwnn(onnx_model, name, onnx_feeds)
+    except Exception as e:
+        print('Keras->ONNX->LWNN Error:', e)
+        print(traceback.format_exc())
+        return tolwnn(model, name, feeds, **kwargs)
     if('1' == os.getenv('LWNN_GTEST')):
         model.save('models/%s/%s.h5'%(name,name))
 

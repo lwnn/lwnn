@@ -29,12 +29,27 @@ class LWNNUtil():
 
     def infer_conv_or_pool_shape_and_padding(self, layer):
         inputs = self.get_layers(layer.inputs)
-        kernel_shape = layer.kernel_shape
+        kernel_shape = list(layer.kernel_shape)
+        strides = list(layer.strides)
         if('dilations' in layer):
             dilations = list(layer.dilations)
         else:
             dilations = [1,1]
-        _,hi,wi,_ = inputs[0].shape[-4:]
+        shape = inputs[0].shape[-4:]
+        if(len(shape) == 4):
+            _,hi,wi,_ = layer.shape
+        elif(len(shape) == 3):
+            _,hi,_ = shape
+            wi = 1
+            if(len(dilations) == 1):
+                dilations.append(1)
+            kernel_shape.append(1)
+            strides.append(1)
+            layer.dilations = dilations
+            layer.kernel_shape = kernel_shape
+            layer.strides = strides
+        else:
+            raise
         if(None in layer.shape):
             if(layer.padding == 'VALID'):
                 ho = int((hi-kernel_shape[0])/layer.strides[0])+1
@@ -42,8 +57,16 @@ class LWNNUtil():
             else:
                 ho = int(round(hi/layer.strides[0]))
                 wo = int(round(wi/layer.strides[1]))
-            layer.shape = [layer.shape[0], ho, wo, layer.shape[3]]
-        _,ho,wo,_ = layer.shape[-4:]
+            if(len(shape) == 4):
+                layer.shape = [layer.shape[0], ho, wo, layer.shape[3]]
+            elif(len(shape) == 3):
+                layer.shape = [layer.shape[0], ho, layer.shape[2]]
+        shape = layer.shape[-4:]
+        if(len(shape) == 4):
+            _,ho,wo,_ = layer.shape[-4:]
+        elif(len(shape) == 3):
+            _,ho,_ = shape
+            wo = 1
         if(dilations == [1,1]):
             pad_h = int(((ho-1)*layer.strides[0] + kernel_shape[0] -hi) /2)
             pad_w = int(((wo-1)*layer.strides[1] + kernel_shape[1] -wi) /2)

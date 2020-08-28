@@ -53,7 +53,6 @@ class LWNNQFormatC(LWNNBaseC):
 
     def fix_linked_to_the_same_Q(self):
         for layer in self.model.lwnn_model:
-            Q = self.output_encodings[layer['outputs'][0]]
             linked = []
             consumers = self.model.get_consumers(layer)
             for c in consumers:
