@@ -10,6 +10,7 @@
 /* ============================ [ TYPES     ] ====================================================== */
 typedef struct {
 	LAYER_CPU_CONTEXT_MEMBER;
+	LAYER_CPU_DYNMIC_SHAPE_COMMON_MEMBER;
 } layer_cpu_float_reshape_context_t;
 /* ============================ [ DECLARES  ] ====================================================== */
 /* ============================ [ DATAS     ] ====================================================== */
@@ -30,10 +31,11 @@ int layer_cpu_float_RESHAPE_execute(const nn_t* nn, const layer_t* layer)
 	float* IN = (float*)input_context->out[0];
 
 	rte_cpu_dynamic_reshape(layer, input_context);
-
-	sz = NHWC_SIZE(context->nhwc);
-
-	memcpy(context->out[0], IN, sz*sizeof(float));
+	r = rte_cpu_dynamic_memory(&context->out[0], NHWC_SIZE(context->nhwc), &context->allocated, sizeof(float));
+	if( 0 == r) {
+		sz = NHWC_SIZE(context->nhwc);
+		memcpy(context->out[0], IN, sz*sizeof(float));
+	}
 
 	return r;
 }

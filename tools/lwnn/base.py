@@ -4,6 +4,14 @@
 import os
 import numpy as np
 
+def cstr(name):
+    for s in ['/',':', '-', '.']:
+        name = name.replace(s, '_')
+    fc = name[0]
+    if(fc.isdigit()):
+        name = '_' + name
+    return name
+
 class LWNNBaseC():
     def __init__(self, model, T):
         self.GENL = {
@@ -110,15 +118,15 @@ class LWNNBaseC():
         else:
             feeds = None
         outputs = self.model.run(feeds)
-        goldens = [n.name for n in self.model.input] + \
-                [n.name for n in self.model.output]
+        goldens = [cstr(n.name) for n in self.model.input] + \
+                [cstr(n.name) for n in self.model.output]
         for n, v in outputs.items():
             if(self.model.is_model_channel_first()):
                 if(len(v.shape) == 4):
                     v = v.transpose(0, 2, 3, 1)
                 elif(len(v.shape) == 3):
                     v = v.transpose(0, 2, 1)
-            if(n in goldens):
+            if(cstr(n) in goldens):
                 # all gtest must be single input and single output
                 if('input' in n):
                     n = 'input'

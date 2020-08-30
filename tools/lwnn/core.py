@@ -12,14 +12,6 @@ __all__ = ['LWNNUtil', 'LWNNLayer', 'LWNNModel', 'load_feeds', 'LWNNFeeder', 'cs
 
 LWNNOutputNodes = ['Output', 'Softmax', 'DetectionOutput', 'YoloOutput']
 
-def cstr(name):
-    for s in ['/',':', '-', '.']:
-        name = name.replace(s, '_')
-    fc = name[0]
-    if(fc.isdigit()):
-        name = '_' + name
-    return name
-
 class LWNNUtil():
     def LN(self, name):
         '''return lwnn type layer name'''
@@ -73,6 +65,8 @@ class LWNNUtil():
         else:
             pad_h = int(((ho -1)*layer.strides[0] - hi + (1 + (kernel_shape[0] - 1) * (dilations[0] + 1))) / 2) 
             pad_w = int(((ho -1)*layer.strides[1] - wi + (1 + (kernel_shape[1] - 1) * (dilations[1] + 1))) / 2)
+        if(pad_h < 0): pad_h = 0
+        if(pad_w < 0): pad_w = 0
         layer.pads = [pad_h, pad_w, pad_h, pad_w]
 
     def get_layers(self, names, model=None):
@@ -153,6 +147,10 @@ class LWNNUtil():
                     self.loop_collect_inputs(inp, used_layers)
 
     def remove_unused(self):
+        for layer in self.lwnn_model:
+            if(layer.op == 'Output'):
+                inp = self.get_layers(layer.inputs[0])
+                layer.shape = inp.shape
         output_layers = []
         for layer in self.lwnn_model:
             if(self.is_output_layer(layer)):
@@ -1065,6 +1063,9 @@ class LWNNModel(LWNNUtil):
                 inputs = self.get_layers(eLI,self.lwnn_model[:id])
                 if(len(eLI) != len(inputs)):
                     raise Exception('layer %s inputs is not before me:\n%s'%(layer['name'], self))
+            if(layer.op in ['LSTM']):
+                print('Found op %s, default think it was in NHWC format:\n  %s'%(layer.op, layer))
+                self.is_model_channel_first_cached = False
 
     def prepare(self):
         # everthing is fine, fix name
@@ -1073,4 +1074,7 @@ class LWNNModel(LWNNUtil):
             if('inputs' in layer):
                 layer['inputs'] = [self.c_str(inp) for inp in layer['inputs']]
             layer['outputs'] = [self.c_str(out) for out in layer['outputs']]
-        self.is_model_channel_first()
+        if(self.converter.__class__.__name__ in ['TfConverter', 'KerasConverter']):
+            self.is_model_channel_first_cached = False
+        else:
+            self.is_model_channel_first()

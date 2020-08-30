@@ -2,6 +2,7 @@
  * LWNN - Lightweight Neural Network
  * Copyright (C) 2020 Parai Wang <parai@foxmail.com>
  */
+#ifdef ENABLE_TFLITE
 /* ============================ [ INCLUDES  ] ====================================================== */
 #include "TfLite.hpp"
 /* ============================ [ MACROS    ] ====================================================== */
@@ -46,3 +47,4 @@ py::object TfLite::predict(py::dict feed)
 	return outputs;
 }
 }
+#endif

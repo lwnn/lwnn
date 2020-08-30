@@ -160,8 +160,13 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 	for(d=0; d<num_directions; d++) {
 		c = context->c + d*hidden_size;
 		h = context->h + d*output_size;
-		x = (float*)input_context->out[0];
-		y = (float*)context->out[0];
+		if((d&0x01) == 0) { /* forward */
+			x = (float*)input_context->out[0];
+			y = (float*)context->out[0];
+		} else { /* backward */
+			x = ((float*)input_context->out[0]) + (batch_size-1)*input_size;
+			y = ((float*)context->out[0]) + (batch_size-1)*num_directions*output_size;
+		}
 		y += d*output_size;
 
 		Wi = (const float*) layer->blobs[0]->blob;
@@ -219,9 +224,17 @@ int layer_cpu_float_LSTM_execute(const nn_t* nn, const layer_t* layer)
 			}
 			memcpy(y, h, output_size*sizeof(float));
 			if(context->nhwc.H == batch_size) {
-				y = y + num_directions*output_size;
+				if((d&0x01) == 0) { /* forward */
+					y = y + num_directions*output_size;
+				} else { /* backward */
+					y = y - num_directions*output_size;
+				}
 			}
-			x += input_size;
+			if((d&0x01) == 0) { /* forward */
+				x += input_size;
+			} else { /* backward */
+				x -= input_size;
+			}
 		}
 	}
 

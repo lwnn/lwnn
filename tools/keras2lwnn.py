@@ -23,6 +23,8 @@ class KerasConverter(LWNNUtil):
             'Concatenate': 'Concat',
             'MaxPooling2D': 'MaxPool',
             'MaxPooling1D': 'MaxPool',
+            'AveragePooling2D': 'AveragePool',
+            'AveragePooling1D': 'AveragePool',
             'UpSampling2D': 'Upsample',
             'ProposalLayer': 'Proposal',
             'DetectionLayer': 'Detection',
@@ -39,6 +41,7 @@ class KerasConverter(LWNNUtil):
             'Dense': self.to_LayerDense,
             'Concat': self.to_LayerConcat,
             'MaxPool': self.to_LayerMaxPool,
+            'AveragePool': self.to_LayerAveragePool,
             'Proposal': self.to_LayerProposal,
             'Detection': self.to_LayerDetection,
             'PyramidROIAlign': self.to_LayerPyramidROIAlign,
@@ -175,6 +178,13 @@ class KerasConverter(LWNNUtil):
             layer.shape[layer.axis] = dims
 
     def to_LayerMaxPool(self, layer):
+        klconfig = layer.klconfig
+        layer.kernel_shape = klconfig['pool_size']
+        layer.padding = klconfig['padding'].upper()
+        layer.strides = klconfig['strides']
+        self.infer_conv_or_pool_shape_and_padding(layer)
+
+    def to_LayerAveragePool(self, layer):
         klconfig = layer.klconfig
         layer.kernel_shape = klconfig['pool_size']
         layer.padding = klconfig['padding'].upper()
@@ -423,6 +433,18 @@ def keras2lwnn(model, name, feeds=None, **kwargs):
         tflite_model = converter.convert()
         with open('models/%s/%s.tflite'%(name,name), 'wb') as f:
             f.write(tflite_model)
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        def representative_dataset_gen():
+            for _ in range(1):
+                yield [v for _,v in feeds.items()]
+        converter.representative_dataset = representative_dataset_gen
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        converter.inference_input_type = tf.int8  # or tf.uint8
+        converter.inference_output_type = tf.int8  # or tf.uint8
+        tflite_quant_model = converter.convert()
+        with open('models/%s/%s_quantized.tflite'%(name,name), 'wb') as f:
+            f.write(tflite_quant_model)
     except Exception as e:
         print('Keras2TFLite Error:', e)
         print(traceback.format_exc())
