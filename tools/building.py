@@ -446,6 +446,8 @@ def AddPythonDev(env):
             env.Append(CPPPATH=['%s/local/include/%s'%(pyp,pylib[:9])])
         else:
             env.Append(LIBPATH=['%s/lib'%(pyp)])
+        pybind11 = '%s/lib/%s/site-packages/pybind11/include'%(pyp, pylib[:9])
+        env.Append(CPPPATH=[pybind11])
         istr = 'export'
     #print('%s PYTHONHOME=%s if see error " Py_Initialize: unable to load the file system codec"'%(istr, pyp))
     env.Append(LIBS=[pylib, 'stdc++', 'dl', 'm'])

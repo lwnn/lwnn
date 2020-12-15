@@ -549,7 +549,7 @@ class LWNNModel(LWNNUtil):
     def nchw_IsPreviousHasOutputAdjustLayer(self, layer):
         r = False
         layer = self.get_layers([layer['name']], self.omodel)[0]
-        if(layer['op'] != 'Input'):
+        if('inputs' in layer):
             inputs = self.get_layers(layer['inputs'], self.omodel)
             for inp in inputs:
                 if(self.nchw_IsOutputAdjustLayer(inp)):

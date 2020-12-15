@@ -32,6 +32,7 @@ class OnnxConverter(LWNNUtil):
         self.onnx_model = onnx_model
         self.feeds = feeds
         self.kwargs = kwargs
+        self._outputs = {}
         self.shapes = self.eval_shapes()
         self.convert()
 
@@ -52,24 +53,24 @@ class OnnxConverter(LWNNUtil):
 
     def get_inputs(self, node):
         inputs = []
+        indexs = []
         # order is important for some layers such as Concat
         for iname in node.input:
-            try:
-                _ = self.get_initializer(iname)
-                continue
-            except:
-                pass
+            if(iname in self.initializers):
+                inputs.append(iname)
+                indexs.append(0)
             for inp in self.onnx_model.graph.input:
                 if(inp.name == iname):
                     inputs.append(inp.name)
             for node2 in self.onnx_model.graph.node:
-                for out in node2.output:
+                for index,out in enumerate(node2.output):
                     if(out == iname):
+                        indexs.append(index)
                         if(node2.op_type == 'Identity'):
                             inputs.append(node2.input[0]+'_identity')
                         else:
                             inputs.append(node2.name if len(node2.name) > 0 else node2.output[0])
-        return inputs
+        return inputs, indexs
 
     def run(self, feed=None, **kwargs):
         model2 = infer_shapes(self.onnx_model)
@@ -88,7 +89,16 @@ class OnnxConverter(LWNNUtil):
                 if(output in output_types):
                     oT = output_types[output]
                 else:
-                    oT = onnx.TensorProto.FLOAT
+                    _opts = list(newoutputs)
+                    for oT in [onnx.TensorProto.INT32, onnx.TensorProto.INT64, onnx.TensorProto.FLOAT, onnx.TensorProto.DOUBLE]:
+                        vinfo = onnx.helper.make_tensor_value_info(output, oT, None)
+                        self.onnx_model.graph.output.extend(_opts+[vinfo])
+                        try:
+                            sess = onnxruntime.InferenceSession(self.onnx_model.SerializeToString())
+                            del self.onnx_model.graph.output[:]
+                            break
+                        except:
+                            del self.onnx_model.graph.output[:]
                 newoutputs.append(onnx.helper.make_tensor_value_info(output, oT, None))
         self.onnx_model.graph.output.extend(newoutputs)
         sess = onnxruntime.InferenceSession(self.onnx_model.SerializeToString())
@@ -159,6 +169,7 @@ class OnnxConverter(LWNNUtil):
         outputs = self.run(feed)
         for name, r in outputs.items():
             shapes[name] = r.shape
+        self._outputs = outputs
         return shapes
 
     def get_shape(self, node):
@@ -190,14 +201,17 @@ class OnnxConverter(LWNNUtil):
         return np.copy(array)
 
     def get_initializer(self, name):
+        inits = []
         for init in self.onnx_model.graph.initializer:
             if(name == init.name):
-                return self.tensor2numpy(init)
+                inits.append(self.tensor2numpy(init))
+        if(len(inits) > 0):
+            return inits[-1]
         raise Exception('ERROR: weights %s is not found'%(name))
 
-    def get_weights(self, layer, node, wl):
+    def get_weights(self, layer, wl, offset=1):
         for id,name in enumerate(wl):
-            layer[name] = self.get_initializer(node.input[id+1])
+            layer[name] = self.initializers[layer.inputs[id+offset]]
 
     def to_LayerCommon(self, node):
         if(node.op_type == 'Identity'):
@@ -206,7 +220,8 @@ class OnnxConverter(LWNNUtil):
             name = node.name
         if(len(name) == 0):
             name = node.output[0]
-        layer = LWNNLayer(name=name, op=node.op_type, inputs=self.get_inputs(node), outputs=node.output)
+        inputs,indexs=self.get_inputs(node)
+        layer = LWNNLayer(name=name, op=node.op_type, inputs=inputs, input_indexs=indexs, outputs=node.output)
         layer['shape'] = self.get_shape(node)
         for attr in node.attribute:
             v = onnx.helper.get_attribute_value(attr)
@@ -219,14 +234,14 @@ class OnnxConverter(LWNNUtil):
         layer = self.to_LayerCommon(node)
         if('pads' not in layer):
             layer['pads'] = [0,0,0,0]
-        W = self.get_initializer(node.input[1])
+        W = self.initializers[node.input[1]]
         layer['weights'] = W
         if(len(node.input) > 2):
-            layer['bias'] = self.get_initializer(node.input[2])
+            layer['bias'] = self.initializers[node.input[2]]
         else:
             nF = W.shape[0]
             layer['bias'] = np.zeros((nF), np.float32)
-        layer['filters'] = int(W.shape[0])
+        layer.inputs = layer.inputs[:1]
         return layer
 
     def to_LayerConvTranspose(self, node):
@@ -234,19 +249,19 @@ class OnnxConverter(LWNNUtil):
 
     def to_LayerBatchNormalization(self, node):
         layer = self.to_LayerCommon(node)
-        self.get_weights(layer, node, ['scale', 'bias', 'mean', 'var'])
+        self.get_weights(layer, ['scale', 'bias', 'mean', 'var'])
+        layer.inputs = layer.inputs[:1]
         return layer
 
     def to_LayerMatMul(self, node):
         layer = self.to_LayerCommon(node)
-        if(len(layer.inputs) == 1):
-            layer['weights'] = self.get_initializer(node.input[1])
+        if(layer.inputs[1] in self.initializers):
+            layer.weights = self.initializers[layer.inputs[1]]
         return layer
 
     def to_LayerUpsample(self, node):
         layer = self.to_LayerCommon(node)
-        if(layer.op == 'Upsample'):
-            layer.inputs = layer.inputs[:1]
+        layer.inputs = layer.inputs[:1]
         layer['op'] = 'Upsample'
         return layer
 
@@ -254,6 +269,7 @@ class OnnxConverter(LWNNUtil):
         layer = self.to_LayerCommon(node)
         layer['const'] = layer['value']
         del layer['value']
+        del layer['inptuts']
         return layer
 
     def to_LayerReshape(self, node):
@@ -263,48 +279,51 @@ class OnnxConverter(LWNNUtil):
 
     def to_LayerAdd(self, node):
         layer = self.to_LayerCommon(node)
-        try:
-            layer['bias'] = self.get_initializer(node.input[1])
-        except:
-            pass
+        if(layer.inputs[1] in self.initializers):
+            layer['bias'] = self.initializers[layer.inputs[1]]
+            layer.inputs = layer.inputs[:1]
         return layer
 
     def to_LayerGemm(self, node):
         layer = self.to_LayerCommon(node)
-        layer['weights'] = self.get_initializer(node.input[1])
-        layer['bias'] = self.get_initializer(node.input[2])
+        layer['weights'] = self.initializers[layer.inputs[1]]
+        layer['bias'] = self.initializers[layer.inputs[2]]
+        layer.inputs = layer.inputs[:1]
         layer['op'] = 'Dense'
         return layer
 
     def to_LayerLSTM(self, node):
         layer = self.to_LayerCommon(node)
-        layer['W'] = self.get_initializer(node.input[1])
-        layer['R'] = self.get_initializer(node.input[2])
-        if(len(node.input) > 3):
-            layer['B'] = self.get_initializer(node.input[3])
+        layer['W'] = self.initializers[layer.inputs[1]]
+        layer['R'] = self.initializers[layer.inputs[2]]
+        if(len(layer.inputs) > 3):
+            layer['B'] = self.initializers[layer.inputs[3]]
         if(len(layer.shape) == 4):
             layer.shape = [layer.shape[s] for s in [0,2,1,3]]
         self.convert_layer_to_nchw(layer)
         self.convert_layer_to_nchw(self.get_layers(layer.inputs[0]))
+        layer.inputs = layer.inputs[:1]
         return layer
 
     def to_LayerClip(self, node):
         layer = self.to_LayerCommon(node)
-        layer.min = self.get_initializer(node.input[1])
-        if(len(node.input) > 2):
-            layer.max = self.get_initializer(node.input[2])
+        layer.min = self.initializers[layer.inputs[1]]
+        if(len(layer.inputs) > 2):
+            layer.max = self.initializers[layer.inputs[2]]
         else:
             if(layer.min == 0.0):
                 layer.op = 'Relu'
+        layer.inputs = layer.inputs[:1]
         return layer
 
     def to_LayerTranspose(self, node):
         layer = self.to_LayerCommon(node)
-        if(len(layer.inputs) == 0):
+        if(layer.inputs[0] in self.initializers):
             # okay transpose a const input
-            data = self.get_initializer(node.input[0])
+            data = self.initializers[layer.inputs[0]]
             layer.const = np.transpose(data, layer.perm)
             layer.op = 'Constant'
+            del layer['inputs']
         return layer
 
     def to_LayerReduceMean(self, node):
@@ -326,6 +345,17 @@ class OnnxConverter(LWNNUtil):
                      outputs=[inp.name],
                      shape=shape)
             self.lwnn_model.append(layer)
+        self.initializers = {}
+        for init in self.onnx_model.graph.initializer:
+            if(init.name not in self.initializers):
+                v = self.get_initializer(init.name)
+                self.initializers[init.name] = v
+                layer = LWNNLayer(name=init.name, 
+                     op='Constant',
+                     const = v,
+                     outputs=[init.name],
+                     shape=v.shape)
+                self.lwnn_model.append(layer)
         for node in self.onnx_model.graph.node:
             if(node.op_type in self.TRANSLATOR):
                 translator = self.TRANSLATOR[node.op_type]
@@ -348,6 +378,18 @@ class OnnxConverter(LWNNUtil):
                      outputs=[out.name],
                      shape=inp['shape'])
             self.lwnn_model.append(layer)
+        for layer in self.lwnn_model:
+            if('inpust' in layer):
+                L = self.get_layers(layer.inputs)
+                if(all(l.op == 'Constant' for l in L)):
+                    if(len(layer.outputs) == 1):
+                        if(layer.outputs[0] in self._outputs):
+                            v = self._outputs[layer.outputs[0]]
+                        else:
+                            continue
+                        layer.const = v
+                        layer.op = 'Constant'
+                        del layer['inputs']
 
 def onnx2lwnn(model, name, feeds=None):
     '''
